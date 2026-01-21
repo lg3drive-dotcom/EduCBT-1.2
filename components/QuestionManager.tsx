@@ -5,18 +5,6 @@ import { SUBJECT_LIST, COGNITIVE_LEVELS } from '../constants.ts';
 import { generateBatchAIQuestions, generateAIImage } from '../services/geminiService.ts';
 import { generateQuestionBankPDF } from '../services/pdfService.ts';
 
-// Global window declaration for aistudio
-// @google/genai guidelines: Assume window.aistudio.hasSelectedApiKey() and window.aistudio.openSelectKey() are pre-configured.
-declare global {
-  interface AIStudio {
-    hasSelectedApiKey(): Promise<boolean>;
-    openSelectKey(): Promise<void>;
-  }
-  interface Window {
-    aistudio: AIStudio;
-  }
-}
-
 interface QuestionManagerProps {
   questions: Question[];
   onAdd: (q: any) => void;
@@ -50,67 +38,132 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   const aiFileInputRef = useRef<HTMLInputElement>(null);
   const optionFileInputRef = useRef<HTMLInputElement>(null);
 
+  // Cek ketersediaan API Key saat tab AI dibuka
   useEffect(() => {
-    const checkKey = async () => {
-      if (window.aistudio) {
-        const hasKey = await window.aistudio.hasSelectedApiKey();
-        setHasApiKey(hasKey);
-      }
-    };
-    checkKey();
+    if (activeTab === 'ai') {
+      const checkKey = async () => {
+        // @ts-ignore: Assume aistudio is globally available per guidelines
+        if (window.aistudio) {
+          // @ts-ignore
+          const hasKey = await window.aistudio.hasSelectedApiKey();
+          setHasApiKey(hasKey);
+        } else if (process.env.API_KEY) {
+          setHasApiKey(true);
+        } else {
+          // Jika tidak ada bridge dan tidak ada env key, set false agar user bisa dikasih tau
+          setHasApiKey(false);
+        }
+      };
+      checkKey();
+    }
   }, [activeTab]);
 
   const handleOpenKeySelector = async () => {
+    // @ts-ignore: Assume aistudio is globally available per guidelines
     if (window.aistudio) {
+      // @ts-ignore
       await window.aistudio.openSelectKey();
       setHasApiKey(true);
     } else {
-      alert("Fitur pemilihan API Key tidak tersedia.");
+      // Jika di browser standar, informasikan bahwa key harus ada di environment
+      alert("Pastikan API_KEY telah diatur di environment variabel aplikasi Anda.");
     }
   };
 
-  const handleBatchAI = async () => {
-    if (!aiMaterial && !aiFile) return alert("Masukkan acuan materi atau upload dokumen (PDF/DOCX/TXT).");
-    
-    // Pastikan kunci dipilih
+  const ensureKeySelected = async () => {
+    // @ts-ignore: Assume aistudio is globally available per guidelines
     if (window.aistudio) {
+      // @ts-ignore
       const isSelected = await window.aistudio.hasSelectedApiKey();
       if (!isSelected) {
+        // @ts-ignore
         await window.aistudio.openSelectKey();
-        // Lanjutkan setelah trigger
+        return true; // Asumsikan sukses setelah trigger dialog sesuai instruksi
       }
     }
+    return true;
+  };
 
+  const handleBatchAI = async () => {
+    if (!aiMaterial && !aiFile) return alert("Masukkan acuan materi atau upload dokumen.");
+    
+    await ensureKeySelected();
     setIsAiLoading(true);
+    
     try {
       const newQuestions = await generateBatchAIQuestions(
-        aiSubject, aiMaterial, aiCount, aiType, aiLevel, aiFile ? { data: aiFile.data, mimeType: aiFile.type } : undefined, aiCustomPrompt
+        aiSubject, aiMaterial, aiCount, aiType, aiLevel, 
+        aiFile ? { data: aiFile.data, mimeType: aiFile.type } : undefined, 
+        aiCustomPrompt
       );
+      
       if (newQuestions && newQuestions.length > 0) {
         const subjectQuestions = questions.filter(q => q.subject === aiSubject && !q.isDeleted);
         let currentMax = subjectQuestions.length > 0 ? Math.max(...subjectQuestions.map(q => q.order || 0)) : 0;
+        
         newQuestions.forEach((q, idx) => {
-          onAdd({ ...q, id: Math.random().toString(36).substr(2, 9) + Date.now(), order: currentMax + idx + 1 });
+          onAdd({ 
+            ...q, 
+            id: Math.random().toString(36).substr(2, 9) + Date.now(), 
+            order: currentMax + idx + 1 
+          });
         });
+        
         setActiveTab('active');
         setSubjectFilter(aiSubject);
         setAiFile(null);
         setAiMaterial('');
-        setAiCustomPrompt('');
         alert(`Berhasil membuat ${newQuestions.length} soal baru.`);
       }
     } catch (err: any) {
       console.error(err);
-      const errMsg = err.message || "";
-      if (errMsg.includes("API Key") || errMsg.includes("Requested entity was not found") || errMsg.includes("must be set")) {
+      const msg = err.message || "";
+      if (msg.includes("API Key") || msg.includes("not found") || msg.includes("must be set")) {
         setHasApiKey(false);
         await handleOpenKeySelector();
       } else {
-        alert(`Terjadi kesalahan: ${errMsg}`);
+        alert(`Gagal: ${msg}`);
       }
     } finally {
       setIsAiLoading(false);
     }
+  };
+
+  const handleGenerateMainImage = async () => {
+    if (!formData.text) return alert("Tuliskan pertanyaan dahulu.");
+    await ensureKeySelected();
+    setIsImageGenerating(true);
+    try {
+      const img = await generateAIImage(formData.text);
+      if (img) setFormData({ ...formData, questionImage: img });
+    } catch (err: any) {
+      if (err.message?.includes("API Key")) {
+        setHasApiKey(false);
+        await handleOpenKeySelector();
+      }
+    }
+    setIsImageGenerating(false);
+  };
+
+  const handleGenerateOptionImage = async (idx: number) => {
+    const optText = formData.options[idx];
+    if (!optText) return alert("Tulis teks opsi dahulu.");
+    await ensureKeySelected();
+    setGeneratingOptionIdx(idx);
+    try {
+      const img = await generateAIImage(`${formData.text} - ${optText}`);
+      if (img) {
+        const nextImgs = [...formData.optionImages];
+        nextImgs[idx] = img;
+        setFormData({ ...formData, optionImages: nextImgs });
+      }
+    } catch (err: any) {
+      if (err.message?.includes("API Key")) {
+        setHasApiKey(false);
+        await handleOpenKeySelector();
+      }
+    }
+    setGeneratingOptionIdx(null);
   };
 
   const [formData, setFormData] = useState<{
@@ -138,16 +191,6 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     order: 1
   });
 
-  useEffect(() => {
-    if (!editingId && showForm) {
-      const subjectQuestions = questions.filter(q => q.subject === formData.subject && !q.isDeleted);
-      const nextOrder = subjectQuestions.length > 0 
-        ? Math.max(...subjectQuestions.map(q => q.order || 0)) + 1 
-        : 1;
-      setFormData(prev => ({ ...prev, order: nextOrder }));
-    }
-  }, [formData.subject, editingId, showForm, questions]);
-
   const handleAiFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -157,41 +200,6 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
       setAiFile({ data: base64, name: file.name, type: file.type || 'application/pdf' });
     };
     reader.readAsDataURL(file);
-  };
-
-  const handleGenerateMainImage = async () => {
-    if (!formData.text) return alert("Tuliskan pertanyaan terlebih dahulu.");
-    setIsImageGenerating(true);
-    try {
-      const img = await generateAIImage(formData.text);
-      if (img) setFormData({ ...formData, questionImage: img });
-    } catch (err: any) {
-      if (err.message?.includes("API Key") || err.message?.includes("must be set")) {
-        setHasApiKey(false);
-        await handleOpenKeySelector();
-      }
-    }
-    setIsImageGenerating(false);
-  };
-
-  const handleGenerateOptionImage = async (idx: number) => {
-    const optText = formData.options[idx];
-    if (!optText) return alert("Tuliskan teks opsi terlebih dahulu.");
-    setGeneratingOptionIdx(idx);
-    try {
-      const img = await generateAIImage(`${formData.text} - ${optText}`);
-      if (img) {
-        const nextImgs = [...formData.optionImages];
-        nextImgs[idx] = img;
-        setFormData({ ...formData, optionImages: nextImgs });
-      }
-    } catch (err: any) {
-      if (err.message?.includes("API Key") || err.message?.includes("must be set")) {
-        setHasApiKey(false);
-        await handleOpenKeySelector();
-      }
-    }
-    setGeneratingOptionIdx(null);
   };
 
   const handleUploadImage = (e: React.ChangeEvent<HTMLInputElement>, index?: number) => {
@@ -255,11 +263,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
       const nextOptions = prev.options.filter((_, i) => i !== idx);
       const nextImages = prev.optionImages.filter((_, i) => i !== idx);
       let nextCorrect = prev.correctAnswer;
-      
       if (prev.type === QuestionType.SINGLE && prev.correctAnswer === idx) nextCorrect = 0;
-      else if (prev.type === QuestionType.MULTIPLE) nextCorrect = (prev.correctAnswer || []).filter((i:any) => i !== idx).map((i:any) => i > idx ? i - 1 : i);
-      else if (prev.type === QuestionType.COMPLEX_CATEGORY) nextCorrect = (prev.correctAnswer || []).filter((_:any, i:number) => i !== idx);
-
       return { ...prev, options: nextOptions, optionImages: nextImages, correctAnswer: nextCorrect };
     });
   };
@@ -270,7 +274,6 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
       if (newType === QuestionType.MULTIPLE) nextCorrect = [];
       else if (newType === QuestionType.COMPLEX_CATEGORY) nextCorrect = prev.options.map(() => false);
       else if (newType === QuestionType.SHORT_ANSWER) nextCorrect = '';
-
       return { ...prev, type: newType, correctAnswer: nextCorrect };
     });
   };
@@ -308,8 +311,8 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
           <div className="p-6 space-y-4">
             {processedQuestions.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-32 text-slate-400 space-y-2">
-                <svg xmlns="http://www.get-it.com/2000/svg" className="h-12 w-12 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-                <div className="font-medium">Data soal tidak ditemukan.</div>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                <div className="font-medium text-sm">Data tidak ditemukan.</div>
               </div>
             ) : (
               processedQuestions.map((q, idx) => {
@@ -373,35 +376,34 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                   </div>
                   <div className="flex-1 text-center md:text-left">
-                    <p className="text-sm font-black text-amber-800">API Key Belum Aktif</p>
-                    <p className="text-xs text-amber-600 font-medium">Gunakan akun Google Cloud dengan billing aktif (Paid) untuk fitur AI ini.</p>
+                    <p className="text-sm font-black text-amber-800">Konfigurasi API Key</p>
+                    <p className="text-xs text-amber-600 font-medium italic">Gemini 3 Pro membutuhkan akun Google Cloud dengan billing aktif atau kunci dari bridge AI Studio.</p>
                   </div>
-                  <button onClick={handleOpenKeySelector} className="bg-amber-600 text-white px-6 py-2.5 rounded-xl text-xs font-black shadow-lg shadow-amber-200 transition-all hover:bg-amber-700">KONFIGURASI KEY</button>
+                  <button onClick={handleOpenKeySelector} className="bg-amber-600 text-white px-6 py-2.5 rounded-xl text-xs font-black shadow-lg shadow-amber-200 transition-all hover:bg-amber-700">PILIH KUNCI</button>
                 </div>
               )}
 
               <div className="text-center space-y-2 mb-4">
-                <h2 className="text-2xl font-black text-slate-800">AI Soal Generator</h2>
-                <p className="text-slate-400 text-sm">Gunakan AI untuk merancang butir soal dari dokumen atau materi teks.</p>
+                <h2 className="text-2xl font-black text-slate-800">AI Soal Generator (Pro)</h2>
+                <p className="text-slate-400 text-sm">Gunakan kecerdasan buatan Gemini 3 Pro untuk merancang butir soal analisis.</p>
               </div>
+
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Upload Dokumen Sumber</label>
                 <div onClick={() => aiFileInputRef.current?.click()} className={`w-full p-8 border-4 border-dashed rounded-[2.5rem] cursor-pointer transition-all flex flex-col items-center justify-center gap-3 ${aiFile ? 'border-purple-500 bg-purple-50' : 'border-slate-200 hover:border-purple-300 hover:bg-slate-50'}`}>
                    <div className={`w-16 h-16 rounded-full flex items-center justify-center shadow-lg transition-all ${aiFile ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
                    </div>
-                   <p className="font-bold text-slate-700">{aiFile ? aiFile.name : 'Klik untuk upload (PDF/DOCX/TXT)'}</p>
+                   <p className="font-bold text-slate-700 text-sm">{aiFile ? aiFile.name : 'Klik untuk upload (PDF/DOCX/TXT)'}</p>
                    <input type="file" ref={aiFileInputRef} onChange={handleAiFileUpload} className="hidden" accept=".pdf,.docx,.txt" />
                 </div>
               </div>
+
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Materi Dasar (Teks)</label>
-                <textarea value={aiMaterial} onChange={e => setAiMaterial(e.target.value)} className="w-full p-5 border border-slate-200 rounded-[2rem] h-24 outline-none focus:ring-4 focus:ring-purple-500/10 bg-white font-medium text-sm" placeholder="Tulis ringkasan materi..." />
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Ringkasan Materi (Teks)</label>
+                <textarea value={aiMaterial} onChange={e => setAiMaterial(e.target.value)} className="w-full p-5 border border-slate-200 rounded-[2rem] h-24 outline-none focus:ring-4 focus:ring-purple-500/10 bg-white font-medium text-sm" placeholder="Tulis ringkasan materi atau topik bahasan..." />
               </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-purple-600 uppercase tracking-widest ml-1">Instruksi Khusus (Prompt Khusus)</label>
-                <textarea value={aiCustomPrompt} onChange={e => setAiCustomPrompt(e.target.value)} className="w-full p-5 border border-purple-100 rounded-[2rem] h-24 outline-none focus:ring-4 focus:ring-purple-500/10 bg-purple-50/30 font-medium italic text-sm" placeholder="Contoh: 'Buat soal HOTS level sulit', 'Fokus pada bab 3 tentang ekosistem'..." />
-              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mapel</label>
@@ -420,12 +422,13 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                   <input type="number" min="1" max="20" value={aiCount} onChange={e => setAiCount(parseInt(e.target.value) || 1)} className="w-full p-3 border border-slate-200 rounded-xl font-bold bg-white text-center text-xs outline-none" />
                 </div>
               </div>
+
               <button onClick={handleBatchAI} disabled={isAiLoading} className="w-full bg-purple-600 text-white font-black py-5 rounded-[1.5rem] shadow-xl shadow-purple-200 hover:bg-purple-700 transition-all active:scale-[0.98]">
-                {isAiLoading ? "MEMPROSES..." : "GENERATE SOAL AI"}
+                {isAiLoading ? "MEMPROSES DENGAN GEMINI PRO..." : "GENERATE SOAL AI"}
               </button>
               
               <div className="text-center">
-                <button onClick={handleOpenKeySelector} className="text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest">Ganti / Atur API Key</button>
+                <button onClick={handleOpenKeySelector} className="text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest">Update API Key Selection</button>
               </div>
            </div>
         )}
@@ -443,7 +446,6 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
              </div>
              
              <div className="space-y-8">
-               {/* Baris Pertama: Meta Data */}
                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="flex flex-col gap-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">No. Urut</label>
@@ -455,103 +457,51 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                   </div>
                   <div className="flex flex-col gap-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tipe</label>
-                    <select value={formData.type} onChange={e => handleTypeChange(e.target.value as QuestionType)} className="p-3 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-xl font-bold outline-none text-sm">
-                      {Object.values(QuestionType).map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
+                    <select value={formData.type} onChange={e => handleTypeChange(e.target.value as QuestionType)} className="p-3 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-xl font-bold outline-none text-sm">{Object.values(QuestionType).map(t => <option key={t} value={t}>{t}</option>)}</select>
                   </div>
                   <div className="flex flex-col gap-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kognitif</label>
-                    <select value={formData.level} onChange={e => setFormData({...formData, level: e.target.value as CognitiveLevel})} className="p-3 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-xl font-bold outline-none text-sm">
-                      {COGNITIVE_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
-                    </select>
+                    <select value={formData.level} onChange={e => setFormData({...formData, level: e.target.value as CognitiveLevel})} className="p-3 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-xl font-bold outline-none text-sm">{COGNITIVE_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}</select>
                   </div>
                </div>
 
-               {/* Bagian Pertanyaan & Media Soal */}
                <div className="space-y-4">
                   <div className="flex flex-col gap-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Teks Pertanyaan</label>
                     <textarea value={formData.text} onChange={e => setFormData({...formData, text: e.target.value})} className="w-full p-5 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-2xl h-24 outline-none font-medium" placeholder="Tulis butir soal..." />
                   </div>
-                  
                   <div className="flex flex-wrap items-center gap-4 p-4 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
                     <div className="flex-1">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Media Soal (Opsional)</p>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Media Soal</p>
                       <div className="flex gap-2">
-                        <button onClick={() => fileInputRef.current?.click()} className="bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-xl text-[10px] font-black hover:bg-slate-50 flex items-center gap-2">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg> UPLOAD GAMBAR
-                        </button>
-                        <button onClick={handleGenerateMainImage} disabled={isImageGenerating} className="bg-purple-600 text-white px-4 py-2 rounded-xl text-[10px] font-black hover:bg-purple-700 flex items-center gap-2 shadow-sm transition-all">
-                          {isImageGenerating ? 'GENERATING...' : 'GENERATE AI'}
-                        </button>
-                        {formData.questionImage && <button onClick={() => setFormData({...formData, questionImage: undefined})} className="text-red-500 text-[10px] font-black">Hapus</button>}
+                        <button onClick={() => fileInputRef.current?.click()} className="bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-xl text-[10px] font-black hover:bg-slate-50 flex items-center gap-2">UPLOAD</button>
+                        <button onClick={handleGenerateMainImage} disabled={isImageGenerating} className="bg-purple-600 text-white px-4 py-2 rounded-xl text-[10px] font-black hover:bg-purple-700">AI PRO IMAGE</button>
                       </div>
                       <input type="file" ref={fileInputRef} onChange={(e) => handleUploadImage(e)} className="hidden" accept="image/*" />
                     </div>
-                    {formData.questionImage && <img src={formData.questionImage} className="w-24 h-24 object-cover rounded-xl border border-slate-200 shadow-sm" alt="Preview" />}
+                    {formData.questionImage && <img src={formData.questionImage} className="w-24 h-24 object-cover rounded-xl border" alt="Preview" />}
                   </div>
                </div>
 
-               {/* Bagian Opsi Jawaban (SINGLE & MULTIPLE & COMPLEX) */}
                {(formData.type === QuestionType.SINGLE || formData.type === QuestionType.MULTIPLE || formData.type === QuestionType.COMPLEX_CATEGORY) && (
                  <div className="space-y-4">
                     <div className="flex justify-between items-center">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Opsi Jawaban & Media</label>
-                      <button onClick={handleAddOption} className="text-[10px] font-black text-blue-600 hover:underline">+ Tambah Opsi</button>
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Opsi Jawaban</label>
+                      <button onClick={handleAddOption} className="text-[10px] font-black text-blue-600 hover:underline">+ Opsi</button>
                     </div>
-                    
                     <div className="space-y-3">
                       {formData.options.map((opt, idx) => (
-                        <div key={idx} className="flex gap-4 items-start bg-white p-4 border border-slate-200 rounded-2xl group transition-all hover:shadow-md">
-                           {/* Indikator Jawaban Benar */}
+                        <div key={idx} className="flex gap-4 items-start bg-white p-4 border border-slate-200 rounded-2xl group">
                            <div className="pt-2">
-                             {formData.type === QuestionType.SINGLE && (
-                               <input type="radio" name="correctSingle" checked={formData.correctAnswer === idx} onChange={() => setFormData({...formData, correctAnswer: idx})} className="w-5 h-5 accent-blue-600 cursor-pointer" />
-                             )}
-                             {formData.type === QuestionType.MULTIPLE && (
-                               <input type="checkbox" checked={(formData.correctAnswer || []).includes(idx)} onChange={(e) => {
-                                 const prev = formData.correctAnswer || [];
-                                 const next = e.target.checked ? [...prev, idx] : prev.filter((i:any) => i !== idx);
-                                 setFormData({...formData, correctAnswer: next});
-                               }} className="w-5 h-5 accent-blue-600 cursor-pointer" />
-                             )}
-                             {formData.type === QuestionType.COMPLEX_CATEGORY && (
-                               <button onClick={() => {
-                                 const next = [...(formData.correctAnswer || [])];
-                                 next[idx] = !next[idx];
-                                 setFormData({...formData, correctAnswer: next});
-                               }} className={`w-14 py-1 text-[8px] font-black rounded-lg transition-all ${formData.correctAnswer?.[idx] ? 'bg-green-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
-                                 {formData.correctAnswer?.[idx] ? 'SESUAI' : 'TIDAK'}
-                               </button>
-                             )}
+                             {formData.type === QuestionType.SINGLE && <input type="radio" name="correctSingle" checked={formData.correctAnswer === idx} onChange={() => setFormData({...formData, correctAnswer: idx})} />}
+                             {formData.type === QuestionType.MULTIPLE && <input type="checkbox" checked={(formData.correctAnswer || []).includes(idx)} onChange={(e) => { const prev = formData.correctAnswer || []; const next = e.target.checked ? [...prev, idx] : prev.filter((i:any) => i !== idx); setFormData({...formData, correctAnswer: next}); }} />}
                            </div>
-                           
-                           {/* Teks Opsi */}
                            <div className="flex-1 space-y-2">
-                              <div className="flex gap-2 items-center">
-                                <span className="text-[10px] font-black text-slate-400 w-4">{String.fromCharCode(65 + idx)}</span>
-                                <input type="text" value={opt} onChange={(e) => {
-                                  const next = [...formData.options];
-                                  next[idx] = e.target.value;
-                                  setFormData({...formData, options: next});
-                                }} className="flex-1 bg-transparent border-b border-slate-200 outline-none focus:border-blue-500 py-1 text-sm font-medium" placeholder={`Teks Opsi ${idx+1}...`} />
-                                <button onClick={() => handleRemoveOption(idx)} className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-all">×</button>
-                              </div>
-                              
-                              {/* Media Opsi */}
-                              <div className="flex items-center gap-3">
-                                 <button onClick={() => { setGeneratingOptionIdx(idx); optionFileInputRef.current?.click(); }} className="text-[9px] font-bold text-slate-400 hover:text-blue-500 flex items-center gap-1">
-                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg> UPLOAD
-                                 </button>
-                                 <button onClick={() => handleGenerateOptionImage(idx)} disabled={generatingOptionIdx === idx} className="text-[9px] font-bold text-slate-400 hover:text-purple-500 flex items-center gap-1">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M13 10V3L4 14h7v7l9-11h-7z" /></svg> {generatingOptionIdx === idx ? '...' : 'AI'}
-                                 </button>
-                                 {formData.optionImages[idx] && (
-                                   <div className="relative group/img">
-                                     <img src={formData.optionImages[idx]} className="w-10 h-10 object-cover rounded-lg border shadow-sm" alt="Preview" />
-                                     <button onClick={() => { const next = [...formData.optionImages]; next[idx] = undefined; setFormData({...formData, optionImages: next}); }} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[8px] opacity-0 group-hover/img:opacity-100">×</button>
-                                   </div>
-                                 )}
+                              <input type="text" value={opt} onChange={(e) => { const next = [...formData.options]; next[idx] = e.target.value; setFormData({...formData, options: next}); }} className="w-full bg-transparent border-b border-slate-200 outline-none focus:border-blue-500 py-1 text-sm" placeholder={`Teks Opsi ${idx+1}...`} />
+                              <div className="flex gap-2">
+                                 <button onClick={() => { setGeneratingOptionIdx(idx); optionFileInputRef.current?.click(); }} className="text-[9px] font-bold text-slate-400">UPLOAD</button>
+                                 <button onClick={() => handleGenerateOptionImage(idx)} className="text-[9px] font-bold text-slate-400">AI</button>
+                                 <button onClick={() => handleRemoveOption(idx)} className="text-[9px] font-bold text-red-400">HAPUS</button>
                               </div>
                            </div>
                         </div>
@@ -561,28 +511,9 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                  </div>
                )}
 
-               {/* Bagian Jawaban Singkat */}
-               {formData.type === QuestionType.SHORT_ANSWER && (
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kunci Jawaban Singkat</label>
-                    <input type="text" value={formData.correctAnswer || ''} onChange={e => setFormData({...formData, correctAnswer: e.target.value})} className="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-2xl font-bold outline-none" placeholder="Jawaban tepat..." />
-                  </div>
-               )}
-
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-6 border-t border-slate-100">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Materi / Indikator (Untuk Kisi-kisi)</label>
-                    <textarea value={formData.material} onChange={e => setFormData({...formData, material: e.target.value})} className="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-2xl h-20 outline-none text-sm" placeholder="Contoh: Menghitung volume kubus..." />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Pembahasan & Penjelasan</label>
-                    <textarea value={formData.explanation} onChange={e => setFormData({...formData, explanation: e.target.value})} className="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-2xl h-20 outline-none text-sm italic" placeholder="Jelaskan mengapa jawaban tersebut benar..." />
-                  </div>
-               </div>
-
-               <div className="flex gap-4 py-6 border-t border-slate-100 bg-white sticky bottom-0">
-                 <button onClick={closeForm} className="flex-1 py-4 text-slate-400 font-black text-xs uppercase tracking-widest hover:text-slate-600">BATAL</button>
-                 <button onClick={() => { if (editingId) onUpdate({...formData, id: editingId, isDeleted: false, createdAt: Date.now()}); else onAdd({...formData, id: Math.random().toString(), isDeleted: false, createdAt: Date.now(), order: formData.order }); closeForm(); }} className="flex-[2] py-4 bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all uppercase tracking-widest text-xs">SIMPAN SOAL</button>
+               <div className="flex gap-4 py-6 border-t bg-white sticky bottom-0">
+                 <button onClick={closeForm} className="flex-1 py-4 text-slate-400 font-black text-xs uppercase">BATAL</button>
+                 <button onClick={() => { if (editingId) onUpdate({...formData, id: editingId, isDeleted: false, createdAt: Date.now()}); else onAdd({...formData, id: Math.random().toString(), isDeleted: false, createdAt: Date.now(), order: formData.order }); closeForm(); }} className="flex-[2] py-4 bg-blue-600 text-white font-black rounded-2xl">SIMPAN SOAL</button>
                </div>
              </div>
           </div>

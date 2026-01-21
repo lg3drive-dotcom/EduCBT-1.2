@@ -3,18 +3,19 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { Subject, QuestionType, CognitiveLevel } from "../types.ts";
 
 /**
- * Menghasilkan gambar ilustrasi soal menggunakan Gemini Image
+ * Menghasilkan gambar ilustrasi soal menggunakan Gemini 3 Pro Image
  */
 export const generateAIImage = async (prompt: string): Promise<string | null> => {
   try {
+    // Inisialisasi baru setiap kali untuk menangani pembaruan kunci di browser
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
+      model: 'gemini-3-pro-image-preview',
       contents: {
         parts: [{ text: `Ilustrasi pendidikan sekolah untuk soal: "${prompt}". Gaya desain vektor flat modern, warna cerah, bersih, tanpa teks atau angka di dalam gambar.` }],
       },
       config: { 
-        imageConfig: { aspectRatio: "1:1" } 
+        imageConfig: { aspectRatio: "1:1", imageSize: "1K" } 
       }
     });
 
@@ -24,12 +25,13 @@ export const generateAIImage = async (prompt: string): Promise<string | null> =>
     return null;
   } catch (error: any) {
     console.error("AI Image Generation Error:", error);
+    // Jika error karena kunci tidak ditemukan, biarkan pemanggil menangani alur pemilihan kunci
     throw error;
   }
 };
 
 /**
- * Menghasilkan kumpulan soal secara otomatis berdasarkan materi atau file
+ * Menghasilkan kumpulan soal secara otomatis menggunakan Gemini 3 Pro
  */
 export const generateBatchAIQuestions = async (
   subject: Subject, 
@@ -40,6 +42,7 @@ export const generateBatchAIQuestions = async (
   fileData?: { data: string, mimeType: string },
   customPrompt?: string
 ) => {
+  // Inisialisasi baru untuk memastikan menggunakan kunci terbaru dari environment/bridge
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
   
   const levelInstruction = specificLevel !== 'RANDOM' 
@@ -53,25 +56,22 @@ export const generateBatchAIQuestions = async (
       : fileData.data;
   }
 
-  const promptText = `Anda adalah ahli kurikulum pendidikan Indonesia. 
-             Tugas: Buatkan ${count} butir soal untuk mata pelajaran "${subject}".
+  const promptText = `Anda adalah pakar pembuat soal ujian nasional Indonesia.
+             Buatkan ${count} butir soal untuk mata pelajaran "${subject}".
              
              KONTEKS MATERI:
-             ${material ? `- Ringkasan Materi: "${material}"` : '- Gunakan dokumen yang dilampirkan sebagai sumber materi utama.'}
-             
-             ${customPrompt ? `INSTRUKSI TAMBAHAN (PENTING): "${customPrompt}"` : ''}
+             ${material ? `- Ringkasan Materi: "${material}"` : '- Gunakan lampiran file sebagai sumber utama.'}
+             ${customPrompt ? `INSTRUKSI TAMBAHAN: "${customPrompt}"` : ''}
 
-             KRITERIA SOAL:
-             - Tipe Soal: ${specificType !== 'RANDOM' ? specificType : 'Variasikan antara Pilihan Ganda, Jamak, Kompleks, dan Isian.'}
-             - Level Kognitif: ${levelInstruction}
+             KRITERIA:
+             - Tipe: ${specificType !== 'RANDOM' ? specificType : 'Variasikan Tipe Soal'}
+             - Level: ${levelInstruction}
              
-             ATURAN JAWABAN (correctAnswer):
-             - Jika "Pilihan Ganda": harus angka index (0-3).
-             - Jika "Pilihan Jamak": harus array index [0, 2].
-             - Jika "Pilihan Ganda Kompleks": harus array boolean [true, false, true, true].
-             - Jika "Isian Singkat": harus string teks.
-
-             Hasilkan respon dalam format JSON ARRAY.`;
+             FORMAT JAWABAN (correctAnswer):
+             - Pilihan Ganda: angka (0-3).
+             - Pilihan Jamak: array index [0, 2].
+             - Kompleks: array boolean [true, false].
+             - Isian: string.`;
 
   const parts: any[] = [{ text: promptText }];
 
@@ -86,10 +86,12 @@ export const generateBatchAIQuestions = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3-pro-preview",
       contents: { parts },
       config: {
         responseMimeType: "application/json",
+        // Menggunakan thinking budget untuk kualitas logika soal yang lebih baik (HOTS)
+        thinkingConfig: { thinkingBudget: 2000 },
         responseSchema: {
           type: Type.ARRAY,
           items: {
@@ -110,7 +112,7 @@ export const generateBatchAIQuestions = async (
     });
 
     const responseText = response.text;
-    if (!responseText) throw new Error("AI tidak memberikan respon teks.");
+    if (!responseText) throw new Error("AI response empty");
 
     const raw = JSON.parse(responseText);
     
@@ -119,14 +121,13 @@ export const generateBatchAIQuestions = async (
       try {
         if (q.type === QuestionType.SINGLE) {
           standardizedAnswer = parseInt(String(q.correctAnswer), 10);
-          if (isNaN(standardizedAnswer)) standardizedAnswer = 0;
         } else if (q.type === QuestionType.MULTIPLE || q.type === QuestionType.COMPLEX_CATEGORY) {
           if (typeof q.correctAnswer === 'string') {
             standardizedAnswer = JSON.parse(q.correctAnswer.replace(/'/g, '"'));
           }
         }
       } catch (e) {
-        console.warn("Gagal menstandarisasi jawaban:", q.correctAnswer);
+        console.warn("Parsing answer error, keeping raw");
       }
 
       return { 
@@ -138,7 +139,7 @@ export const generateBatchAIQuestions = async (
       };
     });
   } catch (e: any) {
-    console.error("Gemini API Error:", e);
+    console.error("Gemini Generation Error:", e);
     throw e;
   }
 };
