@@ -5,6 +5,19 @@ import { SUBJECT_LIST, COGNITIVE_LEVELS } from '../constants.ts';
 import { generateBatchAIQuestions, generateAIImage } from '../services/geminiService.ts';
 import { generateQuestionBankPDF } from '../services/pdfService.ts';
 
+// interface AIStudio for type matching as requested by compiler error
+interface AIStudio {
+  hasSelectedApiKey(): Promise<boolean>;
+  openSelectKey(): Promise<void>;
+}
+
+// Global window declaration for aistudio with correct modifiers (readonly) and type name (AIStudio)
+declare global {
+  interface Window {
+    readonly aistudio: AIStudio;
+  }
+}
+
 interface QuestionManagerProps {
   questions: Question[];
   onAdd: (q: any) => void;
@@ -24,6 +37,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   const [isImageGenerating, setIsImageGenerating] = useState(false);
   const [generatingOptionIdx, setGeneratingOptionIdx] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [hasApiKey, setHasApiKey] = useState(true);
   
   const [aiMaterial, setAiMaterial] = useState('');
   const [aiCustomPrompt, setAiCustomPrompt] = useState('');
@@ -36,6 +50,25 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const aiFileInputRef = useRef<HTMLInputElement>(null);
   const optionFileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const checkKey = async () => {
+      if (window.aistudio) {
+        const hasKey = await window.aistudio.hasSelectedApiKey();
+        setHasApiKey(hasKey);
+      }
+    };
+    checkKey();
+  }, [activeTab]);
+
+  const handleOpenKeySelector = async () => {
+    if (window.aistudio) {
+      await window.aistudio.openSelectKey();
+      setHasApiKey(true);
+    } else {
+      alert("Fitur pemilihan API Key tidak tersedia di lingkungan ini.");
+    }
+  };
 
   const [formData, setFormData] = useState<{
     text: string;
@@ -96,7 +129,12 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
       }
     } catch (err: any) {
       console.error(err);
-      alert(`Gagal menghubungi AI: ${err.message || "Terjadi kesalahan koneksi atau kuota API habis."}`);
+      if (err.message === "API_KEY_MISSING" || err.message === "API_KEY_INVALID") {
+        alert("API Key belum dikonfigurasi atau tidak valid. Silakan klik tombol 'Konfigurasi API Key' terlebih dahulu.");
+        setHasApiKey(false);
+      } else {
+        alert(`Gagal menghubungi AI: ${err.message || "Terjadi kesalahan koneksi atau kuota API habis."}`);
+      }
     } finally {
       setIsAiLoading(false);
     }
@@ -116,8 +154,15 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   const handleGenerateMainImage = async () => {
     if (!formData.text) return alert("Tuliskan pertanyaan terlebih dahulu.");
     setIsImageGenerating(true);
-    const img = await generateAIImage(formData.text);
-    if (img) setFormData({ ...formData, questionImage: img });
+    try {
+      const img = await generateAIImage(formData.text);
+      if (img) setFormData({ ...formData, questionImage: img });
+    } catch (err: any) {
+      if (err.message === "API_KEY_MISSING" || err.message === "API_KEY_INVALID") {
+        alert("Konfigurasi API Key diperlukan untuk fitur ini.");
+        setHasApiKey(false);
+      }
+    }
     setIsImageGenerating(false);
   };
 
@@ -125,11 +170,17 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     const optText = formData.options[idx];
     if (!optText) return alert("Tuliskan teks opsi terlebih dahulu.");
     setGeneratingOptionIdx(idx);
-    const img = await generateAIImage(`${formData.text} - ${optText}`);
-    if (img) {
-      const nextImgs = [...formData.optionImages];
-      nextImgs[idx] = img;
-      setFormData({ ...formData, optionImages: nextImgs });
+    try {
+      const img = await generateAIImage(`${formData.text} - ${optText}`);
+      if (img) {
+        const nextImgs = [...formData.optionImages];
+        nextImgs[idx] = img;
+        setFormData({ ...formData, optionImages: nextImgs });
+      }
+    } catch (err: any) {
+      if (err.message === "API_KEY_MISSING" || err.message === "API_KEY_INVALID") {
+        setHasApiKey(false);
+      }
     }
     setGeneratingOptionIdx(null);
   };
@@ -307,6 +358,19 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
         )}
         {activeTab === 'ai' && (
            <div className="max-w-3xl mx-auto py-12 px-6 space-y-8">
+              {!hasApiKey && (
+                <div className="bg-amber-50 border border-amber-200 p-6 rounded-3xl flex flex-col md:flex-row items-center gap-4 animate-pulse">
+                  <div className="bg-amber-100 p-3 rounded-full text-amber-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                  </div>
+                  <div className="flex-1 text-center md:text-left">
+                    <p className="text-sm font-black text-amber-800">API Key Belum Diset</p>
+                    <p className="text-xs text-amber-600 font-medium">Anda perlu mengonfigurasi API Key berbayar untuk menggunakan fitur AI ini.</p>
+                  </div>
+                  <button onClick={handleOpenKeySelector} className="bg-amber-600 text-white px-6 py-2.5 rounded-xl text-xs font-black shadow-lg shadow-amber-200 transition-all hover:bg-amber-700">KONFIGURASI KEY</button>
+                </div>
+              )}
+
               <div className="text-center space-y-2 mb-4">
                 <h2 className="text-2xl font-black text-slate-800">AI Soal Generator</h2>
                 <p className="text-slate-400 text-sm">Gunakan AI untuk merancang butir soal dari dokumen atau materi teks.</p>
@@ -350,6 +414,10 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
               <button onClick={handleBatchAI} disabled={isAiLoading} className="w-full bg-purple-600 text-white font-black py-5 rounded-[1.5rem] shadow-xl shadow-purple-200 hover:bg-purple-700 transition-all active:scale-[0.98]">
                 {isAiLoading ? "MEMPROSES..." : "GENERATE SOAL AI"}
               </button>
+              
+              <div className="text-center">
+                <button onClick={handleOpenKeySelector} className="text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest">Atur Ulang API Key</button>
+              </div>
            </div>
         )}
       </div>
