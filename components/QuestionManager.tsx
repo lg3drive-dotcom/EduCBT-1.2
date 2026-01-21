@@ -1,9 +1,9 @@
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
-import { Question, Subject, QuestionType, CognitiveLevel } from '../types';
-import { SUBJECT_LIST, COGNITIVE_LEVELS } from '../constants';
-import { generateBatchAIQuestions, generateAIImage } from '../services/geminiService';
-import { generateQuestionBankPDF } from '../services/pdfService';
+import { Question, Subject, QuestionType, CognitiveLevel } from '../types.ts';
+import { SUBJECT_LIST, COGNITIVE_LEVELS } from '../constants.ts';
+import { generateBatchAIQuestions, generateAIImage } from '../services/geminiService.ts';
+import { generateQuestionBankPDF } from '../services/pdfService.ts';
 
 interface QuestionManagerProps {
   questions: Question[];
@@ -90,9 +90,13 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
         setAiFile(null);
         setAiMaterial('');
         setAiCustomPrompt('');
+        alert(`Berhasil membuat ${newQuestions.length} soal baru.`);
+      } else {
+        alert("AI tidak menghasilkan soal. Coba perjelas materi atau instruksi Anda.");
       }
-    } catch (err) {
-      alert("Terjadi kesalahan saat menghubungi AI.");
+    } catch (err: any) {
+      console.error(err);
+      alert(`Gagal menghubungi AI: ${err.message || "Terjadi kesalahan koneksi atau kuota API habis."}`);
     } finally {
       setIsAiLoading(false);
     }
@@ -174,7 +178,6 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   };
 
   const handleExport = () => {
-    // Sesuai permintaan, langsung download lengkap (kisi + soal tabel)
     generateQuestionBankPDF(processedQuestions, 'lengkap', subjectFilter !== 'ALL' ? subjectFilter as Subject : undefined);
   };
 

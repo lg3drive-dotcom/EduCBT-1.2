@@ -2,15 +2,31 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Subject, QuestionType, CognitiveLevel } from "../types.ts";
 
+// Polyfill sederhana untuk memastikan process.env aman diakses di browser
+if (typeof (window as any).process === 'undefined') {
+  (window as any).process = { env: {} };
+}
+
+/**
+ * Menghasilkan gambar ilustrasi soal menggunakan Gemini Image
+ */
 export const generateAIImage = async (prompt: string): Promise<string | null> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    console.error("API_KEY is missing");
+    return null;
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
-        parts: [{ text: `Ilustrasi pendidikan untuk: "${prompt}". Gaya vektor flat, bersih, tanpa teks.` }],
+        parts: [{ text: `Ilustrasi pendidikan sekolah untuk soal: "${prompt}". Gaya desain vektor flat modern, warna cerah, bersih, tanpa teks atau angka di dalam gambar.` }],
       },
-      config: { imageConfig: { aspectRatio: "1:1" } }
+      config: { 
+        imageConfig: { aspectRatio: "1:1" } 
+      }
     });
 
     for (const part of response.candidates?.[0]?.content?.parts || []) {
@@ -18,11 +34,14 @@ export const generateAIImage = async (prompt: string): Promise<string | null> =>
     }
     return null;
   } catch (error) {
-    console.error("AI Image Error:", error);
+    console.error("AI Image Generation Error:", error);
     return null;
   }
 };
 
+/**
+ * Menghasilkan kumpulan soal secara otomatis berdasarkan materi atau file
+ */
 export const generateBatchAIQuestions = async (
   subject: Subject, 
   material: string, 
@@ -32,11 +51,16 @@ export const generateBatchAIQuestions = async (
   fileData?: { data: string, mimeType: string },
   customPrompt?: string
 ) => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    throw new Error("API Key tidak ditemukan di environment.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
   
   const levelInstruction = specificLevel !== 'RANDOM' 
     ? `Semua soal HARUS memiliki level kognitif: ${specificLevel}.`
-    : `Tentukan level kognitif (C1-C6) yang paling sesuai. Prioritaskan C4-C6 untuk soal analisis.`;
+    : `Tentukan level kognitif (C1-C6) yang paling sesuai. Prioritaskan C4-C6 untuk soal analisis/HOTS.`;
 
   let cleanBase64 = "";
   if (fileData) {
@@ -45,21 +69,25 @@ export const generateBatchAIQuestions = async (
       : fileData.data;
   }
 
-  const promptText = `Tugas: Buatkan ${count} soal ${subject} dalam bahasa Indonesia.
-             ${material ? `Gunakan materi ini sebagai referensi: "${material}"` : 'Gunakan dokumen yang dilampirkan sebagai sumber materi utama.'}
+  const promptText = `Anda adalah ahli kurikulum pendidikan Indonesia. 
+             Tugas: Buatkan ${count} butir soal untuk mata pelajaran "${subject}".
              
-             ${customPrompt ? `INSTRUKSI KHUSUS DARI GURU (WAJIB DIIKUTI): "${customPrompt}"` : ''}
-
-             Tipe Soal: ${specificType !== 'RANDOM' ? specificType : 'Variasikan tipe soal'}
-             Level Kognitif: ${levelInstruction}
+             KONTEKS MATERI:
+             ${material ? `- Ringkasan Materi: "${material}"` : '- Gunakan dokumen yang dilampirkan sebagai sumber materi utama.'}
              
-             ATURAN FORMAT JAWABAN (correctAnswer):
-             1. "${QuestionType.SINGLE}": Harus angka index (0-3).
-             2. "${QuestionType.MULTIPLE}": Harus array angka index, misal [0, 2].
-             3. "${QuestionType.COMPLEX_CATEGORY}": Harus array boolean [true, false, true, true] sesuai jumlah options.
-             4. "${QuestionType.SHORT_ANSWER}": Harus string jawaban singkat.
+             ${customPrompt ? `INSTRUKSI TAMBAHAN (PENTING): "${customPrompt}"` : ''}
 
-             Hasilkan array JSON yang valid.`;
+             KRITERIA SOAL:
+             - Tipe Soal: ${specificType !== 'RANDOM' ? specificType : 'Variasikan antara Pilihan Ganda, Jamak, Kompleks, dan Isian.'}
+             - Level Kognitif: ${levelInstruction}
+             
+             ATURAN JAWABAN (correctAnswer):
+             - Jika "Pilihan Ganda": correctAnswer harus angka index (0, 1, 2, atau 3).
+             - Jika "Pilihan Jamak (MCMA)": correctAnswer harus array index, misal [0, 2].
+             - Jika "Pilihan Ganda Kompleks": correctAnswer harus array boolean [true, false, true, true] (sesuaikan jumlah options).
+             - Jika "Isian Singkat": correctAnswer harus string teks jawaban.
+
+             Pastikan bahasa yang digunakan formal, mudah dimengerti siswa, dan edukatif.`;
 
   const parts: any[] = [{ text: promptText }];
 
@@ -73,8 +101,9 @@ export const generateBatchAIQuestions = async (
   }
 
   try {
+    // Menggunakan gemini-3-pro-preview untuk penalaran pembuatan soal yang lebih baik
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3-pro-preview",
       contents: { parts },
       config: {
         responseMimeType: "application/json",
@@ -83,13 +112,20 @@ export const generateBatchAIQuestions = async (
           items: {
             type: Type.OBJECT,
             properties: {
-              text: { type: Type.STRING },
+              text: { type: Type.STRING, description: "Teks butir pertanyaan" },
               type: { type: Type.STRING, enum: Object.values(QuestionType) },
               level: { type: Type.STRING, enum: Object.values(CognitiveLevel) },
-              material: { type: Type.STRING },
-              explanation: { type: Type.STRING },
-              options: { type: Type.ARRAY, items: { type: Type.STRING } },
-              correctAnswer: { type: Type.STRING, description: "Bisa berupa angka, array angka, array boolean, atau string tergantung tipe soal" }
+              material: { type: Type.STRING, description: "Indikator atau cakupan materi spesifik" },
+              explanation: { type: Type.STRING, description: "Penjelasan mengapa jawaban tersebut benar" },
+              options: { 
+                type: Type.ARRAY, 
+                items: { type: Type.STRING },
+                description: "Daftar pilihan jawaban atau pernyataan untuk dianalisis"
+              },
+              correctAnswer: { 
+                type: Type.STRING, 
+                description: "Kunci jawaban dalam format string (akan diparse secara manual)" 
+              }
             },
             required: ["text", "type", "level", "material", "explanation", "options", "correctAnswer"]
           }
@@ -98,38 +134,28 @@ export const generateBatchAIQuestions = async (
     });
 
     const responseText = response.text;
-    if (!responseText) throw new Error("Empty AI response");
+    if (!responseText) throw new Error("AI tidak memberikan respon teks.");
 
     const raw = JSON.parse(responseText);
     
     return raw.map((q: any) => {
       let standardizedAnswer = q.correctAnswer;
       
-      if (q.type === QuestionType.SINGLE) {
-        if (typeof q.correctAnswer === 'string') {
-          const parsed = parseInt(q.correctAnswer, 10);
-          if (!isNaN(parsed)) standardizedAnswer = parsed;
-          else {
-            const foundIdx = q.options?.findIndex((opt: string) => opt.toLowerCase().trim() === q.correctAnswer.toLowerCase().trim());
-            standardizedAnswer = foundIdx !== -1 ? foundIdx : 0;
+      // Standarisasi tipe data correctAnswer karena dikirim sebagai STRING oleh AI agar aman
+      try {
+        if (q.type === QuestionType.SINGLE) {
+          standardizedAnswer = parseInt(String(q.correctAnswer), 10);
+          if (isNaN(standardizedAnswer)) standardizedAnswer = 0;
+        } 
+        else if (q.type === QuestionType.MULTIPLE || q.type === QuestionType.COMPLEX_CATEGORY) {
+          if (typeof q.correctAnswer === 'string') {
+            // Coba parse jika AI mengirimkan stringified array seperti "[0,1]" atau "[true,false]"
+            const parsed = JSON.parse(q.correctAnswer.replace(/'/g, '"'));
+            standardizedAnswer = parsed;
           }
-        } else standardizedAnswer = Number(q.correctAnswer) || 0;
-      } 
-      else if (q.type === QuestionType.MULTIPLE) {
-        try {
-          let arr = typeof q.correctAnswer === 'string' ? JSON.parse(q.correctAnswer) : q.correctAnswer;
-          standardizedAnswer = Array.isArray(arr) ? arr.map((v:any) => parseInt(v)) : [];
-        } catch { standardizedAnswer = []; }
-      }
-      else if (q.type === QuestionType.COMPLEX_CATEGORY) {
-        try {
-          let arr = typeof q.correctAnswer === 'string' ? JSON.parse(q.correctAnswer) : q.correctAnswer;
-          if (Array.isArray(arr)) {
-            standardizedAnswer = arr.map((v:any) => v === true || v === "true" || v === 1 || v === "Sesuai");
-          } else {
-            standardizedAnswer = q.options.map(() => true);
-          }
-        } catch { standardizedAnswer = q.options.map(() => true); }
+        }
+      } catch (e) {
+        console.warn("Gagal standarisasi jawaban AI, menggunakan nilai default.", e);
       }
 
       return { 
@@ -140,8 +166,9 @@ export const generateBatchAIQuestions = async (
         createdAt: Date.now() 
       };
     });
-  } catch (e) {
-    console.error("Detailed AI Generation Error:", e);
-    return [];
+  } catch (e: any) {
+    console.error("Fatal AI Generation Error:", e);
+    // Lempar error agar ditangkap oleh UI catch block dengan pesan yang lebih spesifik jika memungkinkan
+    throw new Error(e.message || "Gagal menghubungi AI");
   }
 };
