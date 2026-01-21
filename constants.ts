@@ -1,5 +1,5 @@
 
-import { Subject, Question, QuestionType, CognitiveLevel } from './types';
+import { Subject, Question, QuestionType, CognitiveLevel } from './types.ts';
 
 export const INITIAL_QUESTIONS: Question[] = [
   {

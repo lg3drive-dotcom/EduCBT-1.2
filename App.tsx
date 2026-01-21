@@ -1,13 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
-import { Question, Subject, StudentIdentity, QuizResult, AppSettings } from './types';
-import { INITIAL_QUESTIONS } from './constants';
-import QuizInterface from './components/QuizInterface';
-import AdminLogin from './components/AdminLogin';
-import QuestionManager from './components/QuestionManager';
-import AdminSettings from './components/AdminSettings';
-import TeacherPanel from './components/TeacherPanel';
-import { generateResultPDF } from './services/pdfService';
+import { Question, Subject, StudentIdentity, QuizResult, AppSettings } from './types.ts';
+import { INITIAL_QUESTIONS } from './constants.ts';
+import QuizInterface from './components/QuizInterface.tsx';
+import AdminLogin from './components/AdminLogin.tsx';
+import QuestionManager from './components/QuestionManager.tsx';
+import AdminSettings from './components/AdminSettings.tsx';
+import TeacherPanel from './components/TeacherPanel.tsx';
+import { generateResultPDF } from './services/pdfService.ts';
 
 type ViewMode = 'login' | 'quiz' | 'result' | 'admin-auth' | 'admin-panel' | 'teacher-auth' | 'teacher-panel';
 
@@ -80,19 +80,14 @@ const App: React.FC = () => {
     if (mode === 'replace') {
       setQuestions(newQuestions.map(q => ({ ...q, createdAt: Date.now() })));
     } else {
-      // Logic for append is already filtered for duplicates in AdminSettings if user chooses to see warning,
-      // but we ensure uniqueness by ID here just in case.
       setQuestions(prev => {
         const existingIds = new Set(prev.map(q => q.id));
         const filteredNew = newQuestions.filter(q => !existingIds.has(q.id));
-        
-        // Regenerate IDs for imported questions to ensure they don't conflict with any future state
         const uniqueNew = filteredNew.map(q => ({
           ...q,
           id: Math.random().toString(36).substr(2, 9) + Date.now(),
           createdAt: Date.now()
         }));
-        
         return [...prev, ...uniqueNew];
       });
     }

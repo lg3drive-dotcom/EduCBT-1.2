@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { Subject, QuestionType, CognitiveLevel } from "../types";
+import { Subject, QuestionType, CognitiveLevel } from "../types.ts";
 
 export const generateAIImage = async (prompt: string): Promise<string | null> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -38,7 +38,6 @@ export const generateBatchAIQuestions = async (
     ? `Semua soal HARUS memiliki level kognitif: ${specificLevel}.`
     : `Tentukan level kognitif (C1-C6) yang paling sesuai. Prioritaskan C4-C6 untuk soal analisis.`;
 
-  // Membersihkan base64 data jika ada prefix 'data:...base64,'
   let cleanBase64 = "";
   if (fileData) {
     cleanBase64 = fileData.data.includes("base64,") 
