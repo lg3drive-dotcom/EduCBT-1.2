@@ -24,7 +24,10 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   const [isImageGenerating, setIsImageGenerating] = useState(false);
   const [generatingOptionIdx, setGeneratingOptionIdx] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [hasApiKey, setHasApiKey] = useState(true);
+  
+  // State untuk melacak apakah kunci sudah dipilih (Hanya berlaku di lingkungan AI Studio)
+  const [isKeySelected, setIsKeySelected] = useState(true);
+  const [hasAiStudio, setHasAiStudio] = useState(false);
   
   const [aiMaterial, setAiMaterial] = useState('');
   const [aiCustomPrompt, setAiCustomPrompt] = useState('');
@@ -38,58 +41,47 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   const aiFileInputRef = useRef<HTMLInputElement>(null);
   const optionFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Cek ketersediaan API Key saat tab AI dibuka
+  // Cek ketersediaan Bridge AI Studio
   useEffect(() => {
-    if (activeTab === 'ai') {
-      const checkKey = async () => {
-        // @ts-ignore: Assume aistudio is globally available per guidelines
-        if (window.aistudio) {
-          // @ts-ignore
-          const hasKey = await window.aistudio.hasSelectedApiKey();
-          setHasApiKey(hasKey);
-        } else if (process.env.API_KEY) {
-          setHasApiKey(true);
-        } else {
-          // Jika tidak ada bridge dan tidak ada env key, set false agar user bisa dikasih tau
-          setHasApiKey(false);
-        }
-      };
-      checkKey();
-    }
+    const checkAiStudio = async () => {
+      // @ts-ignore
+      if (window.aistudio) {
+        setHasAiStudio(true);
+        // @ts-ignore
+        const selected = await window.aistudio.hasSelectedApiKey();
+        setIsKeySelected(selected);
+      } else {
+        setHasAiStudio(false);
+        setIsKeySelected(true); // Berasumsi kunci environment tersedia di Browser Standar
+      }
+    };
+    checkAiStudio();
   }, [activeTab]);
 
   const handleOpenKeySelector = async () => {
-    // @ts-ignore: Assume aistudio is globally available per guidelines
+    // @ts-ignore
     if (window.aistudio) {
       // @ts-ignore
       await window.aistudio.openSelectKey();
-      setHasApiKey(true);
-    } else {
-      // Jika di browser standar, informasikan bahwa key harus ada di environment
-      alert("Pastikan API_KEY telah diatur di environment variabel aplikasi Anda.");
+      setIsKeySelected(true);
     }
   };
 
-  const ensureKeySelected = async () => {
-    // @ts-ignore: Assume aistudio is globally available per guidelines
+  const handleBatchAI = async () => {
+    if (!aiMaterial && !aiFile) return alert("Masukkan acuan materi atau upload dokumen.");
+    
+    // Hanya buka dialog jika bridge tersedia
+    // @ts-ignore
     if (window.aistudio) {
       // @ts-ignore
       const isSelected = await window.aistudio.hasSelectedApiKey();
       if (!isSelected) {
         // @ts-ignore
         await window.aistudio.openSelectKey();
-        return true; // Asumsikan sukses setelah trigger dialog sesuai instruksi
       }
     }
-    return true;
-  };
 
-  const handleBatchAI = async () => {
-    if (!aiMaterial && !aiFile) return alert("Masukkan acuan materi atau upload dokumen.");
-    
-    await ensureKeySelected();
     setIsAiLoading(true);
-    
     try {
       const newQuestions = await generateBatchAIQuestions(
         aiSubject, aiMaterial, aiCount, aiType, aiLevel, 
@@ -118,52 +110,16 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     } catch (err: any) {
       console.error(err);
       const msg = err.message || "";
-      if (msg.includes("API Key") || msg.includes("not found") || msg.includes("must be set")) {
-        setHasApiKey(false);
+      if (msg.includes("Requested entity was not found")) {
+        // Reset state jika kunci salah/tidak valid
+        setIsKeySelected(false);
         await handleOpenKeySelector();
       } else {
-        alert(`Gagal: ${msg}`);
+        alert(`Terjadi kesalahan sistem AI. Pastikan konfigurasi API sudah benar.`);
       }
     } finally {
       setIsAiLoading(false);
     }
-  };
-
-  const handleGenerateMainImage = async () => {
-    if (!formData.text) return alert("Tuliskan pertanyaan dahulu.");
-    await ensureKeySelected();
-    setIsImageGenerating(true);
-    try {
-      const img = await generateAIImage(formData.text);
-      if (img) setFormData({ ...formData, questionImage: img });
-    } catch (err: any) {
-      if (err.message?.includes("API Key")) {
-        setHasApiKey(false);
-        await handleOpenKeySelector();
-      }
-    }
-    setIsImageGenerating(false);
-  };
-
-  const handleGenerateOptionImage = async (idx: number) => {
-    const optText = formData.options[idx];
-    if (!optText) return alert("Tulis teks opsi dahulu.");
-    await ensureKeySelected();
-    setGeneratingOptionIdx(idx);
-    try {
-      const img = await generateAIImage(`${formData.text} - ${optText}`);
-      if (img) {
-        const nextImgs = [...formData.optionImages];
-        nextImgs[idx] = img;
-        setFormData({ ...formData, optionImages: nextImgs });
-      }
-    } catch (err: any) {
-      if (err.message?.includes("API Key")) {
-        setHasApiKey(false);
-        await handleOpenKeySelector();
-      }
-    }
-    setGeneratingOptionIdx(null);
   };
 
   const [formData, setFormData] = useState<{
@@ -200,6 +156,35 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
       setAiFile({ data: base64, name: file.name, type: file.type || 'application/pdf' });
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleGenerateMainImage = async () => {
+    if (!formData.text) return alert("Tuliskan pertanyaan dahulu.");
+    setIsImageGenerating(true);
+    try {
+      const img = await generateAIImage(formData.text);
+      if (img) setFormData({ ...formData, questionImage: img });
+    } catch (err: any) {
+      console.error(err);
+    }
+    setIsImageGenerating(false);
+  };
+
+  const handleGenerateOptionImage = async (idx: number) => {
+    const optText = formData.options[idx];
+    if (!optText) return alert("Tulis teks opsi dahulu.");
+    setGeneratingOptionIdx(idx);
+    try {
+      const img = await generateAIImage(`${formData.text} - ${optText}`);
+      if (img) {
+        const nextImgs = [...formData.optionImages];
+        nextImgs[idx] = img;
+        setFormData({ ...formData, optionImages: nextImgs });
+      }
+    } catch (err: any) {
+      console.error(err);
+    }
+    setGeneratingOptionIdx(null);
   };
 
   const handleUploadImage = (e: React.ChangeEvent<HTMLInputElement>, index?: number) => {
@@ -312,7 +297,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
             {processedQuestions.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-32 text-slate-400 space-y-2">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-                <div className="font-medium text-sm">Data tidak ditemukan.</div>
+                <div className="font-medium text-sm text-center">Data tidak ditemukan.<br/><span className="text-[10px] opacity-50 font-bold uppercase tracking-widest">Silakan tambah soal atau impor file backup.</span></div>
               </div>
             ) : (
               processedQuestions.map((q, idx) => {
@@ -370,14 +355,15 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
         )}
         {activeTab === 'ai' && (
            <div className="max-w-3xl mx-auto py-12 px-6 space-y-8">
-              {!hasApiKey && (
+              {/* Hanya tampilkan pemilihan kunci jika berada di lingkungan AI Studio */}
+              {hasAiStudio && !isKeySelected && (
                 <div className="bg-amber-50 border border-amber-200 p-6 rounded-3xl flex flex-col md:flex-row items-center gap-4 animate-pulse">
                   <div className="bg-amber-100 p-3 rounded-full text-amber-600">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                   </div>
                   <div className="flex-1 text-center md:text-left">
-                    <p className="text-sm font-black text-amber-800">Konfigurasi API Key</p>
-                    <p className="text-xs text-amber-600 font-medium italic">Gemini 3 Pro membutuhkan akun Google Cloud dengan billing aktif atau kunci dari bridge AI Studio.</p>
+                    <p className="text-sm font-black text-amber-800">Pilih API Key Pro</p>
+                    <p className="text-xs text-amber-600 font-medium italic">Anda perlu memilih kunci berbayar dari proyek GCP untuk menggunakan fitur AI ini.</p>
                   </div>
                   <button onClick={handleOpenKeySelector} className="bg-amber-600 text-white px-6 py-2.5 rounded-xl text-xs font-black shadow-lg shadow-amber-200 transition-all hover:bg-amber-700">PILIH KUNCI</button>
                 </div>
@@ -427,9 +413,11 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                 {isAiLoading ? "MEMPROSES DENGAN GEMINI PRO..." : "GENERATE SOAL AI"}
               </button>
               
-              <div className="text-center">
-                <button onClick={handleOpenKeySelector} className="text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest">Update API Key Selection</button>
-              </div>
+              {hasAiStudio && (
+                <div className="text-center">
+                  <button onClick={handleOpenKeySelector} className="text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest">Update AI Key Selection</button>
+                </div>
+              )}
            </div>
         )}
       </div>
