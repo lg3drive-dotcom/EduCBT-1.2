@@ -6,13 +6,8 @@ import { Subject, QuestionType, CognitiveLevel } from "../types.ts";
  * Menghasilkan gambar ilustrasi soal menggunakan Gemini Image
  */
 export const generateAIImage = async (prompt: string): Promise<string | null> => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) {
-    throw new Error("API_KEY_MISSING");
-  }
-
   try {
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
@@ -29,10 +24,7 @@ export const generateAIImage = async (prompt: string): Promise<string | null> =>
     return null;
   } catch (error: any) {
     console.error("AI Image Generation Error:", error);
-    if (error.message?.includes("Requested entity was not found")) {
-      throw new Error("API_KEY_INVALID");
-    }
-    return null;
+    throw error;
   }
 };
 
@@ -48,12 +40,7 @@ export const generateBatchAIQuestions = async (
   fileData?: { data: string, mimeType: string },
   customPrompt?: string
 ) => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) {
-    throw new Error("API_KEY_MISSING");
-  }
-
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
   
   const levelInstruction = specificLevel !== 'RANDOM' 
     ? `Semua soal HARUS memiliki level kognitif: ${specificLevel}.`
@@ -84,7 +71,7 @@ export const generateBatchAIQuestions = async (
              - Jika "Pilihan Ganda Kompleks": harus array boolean [true, false, true, true].
              - Jika "Isian Singkat": harus string teks.
 
-             Hasilkan respon dalam format JSON murni.`;
+             Hasilkan respon dalam format JSON ARRAY.`;
 
   const parts: any[] = [{ text: promptText }];
 
@@ -123,7 +110,7 @@ export const generateBatchAIQuestions = async (
     });
 
     const responseText = response.text;
-    if (!responseText) throw new Error("Empty AI response");
+    if (!responseText) throw new Error("AI tidak memberikan respon teks.");
 
     const raw = JSON.parse(responseText);
     
@@ -139,7 +126,7 @@ export const generateBatchAIQuestions = async (
           }
         }
       } catch (e) {
-        console.warn("Parsing answer error, using raw value");
+        console.warn("Gagal menstandarisasi jawaban:", q.correctAnswer);
       }
 
       return { 
@@ -151,10 +138,7 @@ export const generateBatchAIQuestions = async (
       };
     });
   } catch (e: any) {
-    console.error("AI Generation Error:", e);
-    if (e.message?.includes("Requested entity was not found")) {
-      throw new Error("API_KEY_INVALID");
-    }
+    console.error("Gemini API Error:", e);
     throw e;
   }
 };

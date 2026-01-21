@@ -5,16 +5,15 @@ import { SUBJECT_LIST, COGNITIVE_LEVELS } from '../constants.ts';
 import { generateBatchAIQuestions, generateAIImage } from '../services/geminiService.ts';
 import { generateQuestionBankPDF } from '../services/pdfService.ts';
 
-// interface AIStudio for type matching as requested by compiler error
-interface AIStudio {
-  hasSelectedApiKey(): Promise<boolean>;
-  openSelectKey(): Promise<void>;
-}
-
-// Global window declaration for aistudio with correct modifiers (readonly) and type name (AIStudio)
+// Global window declaration for aistudio
+// @google/genai guidelines: Assume window.aistudio.hasSelectedApiKey() and window.aistudio.openSelectKey() are pre-configured.
 declare global {
+  interface AIStudio {
+    hasSelectedApiKey(): Promise<boolean>;
+    openSelectKey(): Promise<void>;
+  }
   interface Window {
-    readonly aistudio: AIStudio;
+    aistudio: AIStudio;
   }
 }
 
@@ -66,7 +65,51 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
       await window.aistudio.openSelectKey();
       setHasApiKey(true);
     } else {
-      alert("Fitur pemilihan API Key tidak tersedia di lingkungan ini.");
+      alert("Fitur pemilihan API Key tidak tersedia.");
+    }
+  };
+
+  const handleBatchAI = async () => {
+    if (!aiMaterial && !aiFile) return alert("Masukkan acuan materi atau upload dokumen (PDF/DOCX/TXT).");
+    
+    // Pastikan kunci dipilih
+    if (window.aistudio) {
+      const isSelected = await window.aistudio.hasSelectedApiKey();
+      if (!isSelected) {
+        await window.aistudio.openSelectKey();
+        // Lanjutkan setelah trigger
+      }
+    }
+
+    setIsAiLoading(true);
+    try {
+      const newQuestions = await generateBatchAIQuestions(
+        aiSubject, aiMaterial, aiCount, aiType, aiLevel, aiFile ? { data: aiFile.data, mimeType: aiFile.type } : undefined, aiCustomPrompt
+      );
+      if (newQuestions && newQuestions.length > 0) {
+        const subjectQuestions = questions.filter(q => q.subject === aiSubject && !q.isDeleted);
+        let currentMax = subjectQuestions.length > 0 ? Math.max(...subjectQuestions.map(q => q.order || 0)) : 0;
+        newQuestions.forEach((q, idx) => {
+          onAdd({ ...q, id: Math.random().toString(36).substr(2, 9) + Date.now(), order: currentMax + idx + 1 });
+        });
+        setActiveTab('active');
+        setSubjectFilter(aiSubject);
+        setAiFile(null);
+        setAiMaterial('');
+        setAiCustomPrompt('');
+        alert(`Berhasil membuat ${newQuestions.length} soal baru.`);
+      }
+    } catch (err: any) {
+      console.error(err);
+      const errMsg = err.message || "";
+      if (errMsg.includes("API Key") || errMsg.includes("Requested entity was not found") || errMsg.includes("must be set")) {
+        setHasApiKey(false);
+        await handleOpenKeySelector();
+      } else {
+        alert(`Terjadi kesalahan: ${errMsg}`);
+      }
+    } finally {
+      setIsAiLoading(false);
     }
   };
 
@@ -105,41 +148,6 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     }
   }, [formData.subject, editingId, showForm, questions]);
 
-  const handleBatchAI = async () => {
-    if (!aiMaterial && !aiFile) return alert("Masukkan acuan materi atau upload dokumen (PDF/DOCX/TXT).");
-    setIsAiLoading(true);
-    try {
-      const newQuestions = await generateBatchAIQuestions(
-        aiSubject, aiMaterial, aiCount, aiType, aiLevel, aiFile ? { data: aiFile.data, mimeType: aiFile.type } : undefined, aiCustomPrompt
-      );
-      if (newQuestions && newQuestions.length > 0) {
-        const subjectQuestions = questions.filter(q => q.subject === aiSubject && !q.isDeleted);
-        let currentMax = subjectQuestions.length > 0 ? Math.max(...subjectQuestions.map(q => q.order || 0)) : 0;
-        newQuestions.forEach((q, idx) => {
-          onAdd({ ...q, id: Math.random().toString(36).substr(2, 9) + Date.now(), order: currentMax + idx + 1 });
-        });
-        setActiveTab('active');
-        setSubjectFilter(aiSubject);
-        setAiFile(null);
-        setAiMaterial('');
-        setAiCustomPrompt('');
-        alert(`Berhasil membuat ${newQuestions.length} soal baru.`);
-      } else {
-        alert("AI tidak menghasilkan soal. Coba perjelas materi atau instruksi Anda.");
-      }
-    } catch (err: any) {
-      console.error(err);
-      if (err.message === "API_KEY_MISSING" || err.message === "API_KEY_INVALID") {
-        alert("API Key belum dikonfigurasi atau tidak valid. Silakan klik tombol 'Konfigurasi API Key' terlebih dahulu.");
-        setHasApiKey(false);
-      } else {
-        alert(`Gagal menghubungi AI: ${err.message || "Terjadi kesalahan koneksi atau kuota API habis."}`);
-      }
-    } finally {
-      setIsAiLoading(false);
-    }
-  };
-
   const handleAiFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -158,9 +166,9 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
       const img = await generateAIImage(formData.text);
       if (img) setFormData({ ...formData, questionImage: img });
     } catch (err: any) {
-      if (err.message === "API_KEY_MISSING" || err.message === "API_KEY_INVALID") {
-        alert("Konfigurasi API Key diperlukan untuk fitur ini.");
+      if (err.message?.includes("API Key") || err.message?.includes("must be set")) {
         setHasApiKey(false);
+        await handleOpenKeySelector();
       }
     }
     setIsImageGenerating(false);
@@ -178,8 +186,9 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
         setFormData({ ...formData, optionImages: nextImgs });
       }
     } catch (err: any) {
-      if (err.message === "API_KEY_MISSING" || err.message === "API_KEY_INVALID") {
+      if (err.message?.includes("API Key") || err.message?.includes("must be set")) {
         setHasApiKey(false);
+        await handleOpenKeySelector();
       }
     }
     setGeneratingOptionIdx(null);
@@ -299,7 +308,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
           <div className="p-6 space-y-4">
             {processedQuestions.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-32 text-slate-400 space-y-2">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                <svg xmlns="http://www.get-it.com/2000/svg" className="h-12 w-12 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
                 <div className="font-medium">Data soal tidak ditemukan.</div>
               </div>
             ) : (
@@ -364,8 +373,8 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                   </div>
                   <div className="flex-1 text-center md:text-left">
-                    <p className="text-sm font-black text-amber-800">API Key Belum Diset</p>
-                    <p className="text-xs text-amber-600 font-medium">Anda perlu mengonfigurasi API Key berbayar untuk menggunakan fitur AI ini.</p>
+                    <p className="text-sm font-black text-amber-800">API Key Belum Aktif</p>
+                    <p className="text-xs text-amber-600 font-medium">Gunakan akun Google Cloud dengan billing aktif (Paid) untuk fitur AI ini.</p>
                   </div>
                   <button onClick={handleOpenKeySelector} className="bg-amber-600 text-white px-6 py-2.5 rounded-xl text-xs font-black shadow-lg shadow-amber-200 transition-all hover:bg-amber-700">KONFIGURASI KEY</button>
                 </div>
@@ -416,7 +425,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
               </button>
               
               <div className="text-center">
-                <button onClick={handleOpenKeySelector} className="text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest">Atur Ulang API Key</button>
+                <button onClick={handleOpenKeySelector} className="text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest">Ganti / Atur API Key</button>
               </div>
            </div>
         )}
