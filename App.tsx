@@ -253,7 +253,10 @@ const App: React.FC = () => {
               </div>
             </div>
             <div className="mt-auto space-y-3 relative z-10">
-               <button onClick={() => setView('ai-lab')} className="w-full bg-purple-600 hover:bg-purple-700 p-4 rounded-2xl text-[10px] font-black flex items-center justify-center gap-2 transition-all shadow-xl shadow-purple-900/40 uppercase tracking-widest border border-purple-400/30">
+               <button 
+                onClick={() => window.open('https://ai.studio/apps/drive/184oMWbuP21ZRBGJr6ZSe-30eT2UgyfAz?fullscreenApplet=true', '_blank')} 
+                className="w-full bg-purple-600 hover:bg-purple-700 p-4 rounded-2xl text-[10px] font-black flex items-center justify-center gap-2 transition-all shadow-xl shadow-purple-900/40 uppercase tracking-widest border border-purple-400/30"
+               >
                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                  AI Question Lab (Generator)
                </button>
