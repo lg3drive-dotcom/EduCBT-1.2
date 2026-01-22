@@ -1,15 +1,5 @@
 
-export enum Subject {
-  PANCASILA = 'Pendidikan Pancasila',
-  INDONESIA = 'Bahasa Indonesia',
-  MATEMATIKA = 'Matematika',
-  IPAS = 'IPAS',
-  SENI = 'Seni Budaya',
-  SUNDA = 'Bahasa Sunda',
-  INGGRIS = 'Bahasa Inggris',
-  TKA_INDONESIA = 'TKA Bahasa Indonesia',
-  TKA_MATEMATIKA = 'TKA Matematika'
-}
+export type Subject = string;
 
 export enum QuestionType {
   SINGLE = 'Pilihan Ganda',
@@ -41,7 +31,7 @@ export interface Question {
   isDeleted: boolean;
   createdAt: number;
   order: number;
-  quizToken?: string; // Menghubungkan soal ke token spesifik
+  quizToken?: string; 
 }
 
 export interface StudentIdentity {
@@ -66,5 +56,4 @@ export interface QuizResult {
 export interface AppSettings {
   timerMinutes: number;
   activeToken: string;
-  activeSubject: Subject;
 }

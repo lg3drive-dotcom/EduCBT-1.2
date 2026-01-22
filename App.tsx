@@ -24,7 +24,6 @@ const App: React.FC = () => {
   const [authCode, setAuthCode] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // State Management
   const [questions, setQuestions] = useState<Question[]>(() => {
     const saved = localStorage.getItem('cbt_questions');
     return saved ? JSON.parse(saved) : INITIAL_QUESTIONS;
@@ -34,8 +33,7 @@ const App: React.FC = () => {
     const saved = localStorage.getItem('cbt_settings');
     return saved ? JSON.parse(saved) : { 
       timerMinutes: 60, 
-      activeToken: 'ABCDE',
-      activeSubject: Subject.PANCASILA
+      activeToken: 'ABCDE'
     };
   });
 
@@ -125,14 +123,14 @@ const App: React.FC = () => {
     try {
       const cloudData = await getLiveExamData(identity.token);
       if (!cloudData) {
-        alert('Token Tidak Ditemukan! Pastikan Admin sudah melakukan Sync Soal dengan token ini.');
+        alert('Token Tidak Ditemukan!');
         return;
       }
       setSettings(cloudData.settings);
       setQuestions(cloudData.questions);
       setView('confirm-data');
     } catch (err) {
-      alert('Gagal terhubung ke server ujian. Periksa koneksi internet Anda.');
+      alert('Gagal terhubung ke server.');
     } finally {
       setIsSyncing(false);
     }
@@ -145,7 +143,7 @@ const App: React.FC = () => {
       setLastResult(result);
       setView('result');
     } else {
-      alert('Gagal mengirim ke server! Silakan tekan tombol Selesai lagi.');
+      alert('Gagal mengirim ke server!');
     }
     setIsSyncing(false);
   };
@@ -196,8 +194,8 @@ const App: React.FC = () => {
             <div className="flex-1">
               <div className="flex justify-between items-center mb-8">
                 <div>
-                  <h1 className="text-3xl font-black text-slate-800">Manajemen Pusat Soal</h1>
-                  <p className="text-slate-400 font-medium text-sm">Mengatur soal untuk multi-tenant partition.</p>
+                  <h1 className="text-3xl font-black text-slate-800">Manajemen Bank Soal</h1>
+                  <p className="text-slate-400 font-medium text-sm">Token menentukan soal mana yang ditarik oleh siswa.</p>
                 </div>
               </div>
               <QuestionManager 
@@ -236,52 +234,51 @@ const App: React.FC = () => {
                 <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-black text-xl shadow-lg shadow-blue-500/20">C</div>
                 <div className="font-black text-2xl tracking-tighter">EduCBT Pro</div>
               </div>
-              <h1 className="text-4xl font-black mb-6 leading-tight">Selamat Datang di Ruang Ujian Digital.</h1>
+              <h1 className="text-4xl font-black mb-6 leading-tight">Mulai Ujian Anda.</h1>
               <div className="space-y-4">
                 <div className="bg-white/5 p-5 rounded-3xl border border-white/10 backdrop-blur-sm">
                   <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em] mb-2">Sistem</p>
-                  <p className="text-xl font-black text-white">Multi-Token Partitioning</p>
+                  <p className="text-xl font-black text-white">Dynamic Token Retrieval</p>
                 </div>
               </div>
             </div>
             <div className="mt-auto space-y-3 relative z-10">
                <div className="flex gap-2">
-                 <button onClick={() => setView('admin-auth')} className="flex-1 bg-white/5 hover:bg-white/10 p-4 rounded-2xl text-[10px] font-black flex items-center justify-center gap-2 transition-all border border-white/5 uppercase tracking-widest">Administrator</button>
-                 <button onClick={() => setView('teacher-auth')} className="flex-1 bg-white/5 hover:bg-white/10 p-4 rounded-2xl text-[10px] font-black flex items-center justify-center gap-2 transition-all border border-white/5 uppercase tracking-widest">Monitoring Guru</button>
+                 <button onClick={() => setView('admin-auth')} className="flex-1 bg-white/5 hover:bg-white/10 p-4 rounded-2xl text-[10px] font-black flex items-center justify-center gap-2 border border-white/5 uppercase tracking-widest">Administrator</button>
+                 <button onClick={() => setView('teacher-auth')} className="flex-1 bg-white/5 hover:bg-white/10 p-4 rounded-2xl text-[10px] font-black flex items-center justify-center gap-2 border border-white/5 uppercase tracking-widest">Monitoring</button>
                </div>
             </div>
           </div>
           <div className="md:w-7/12 p-12 bg-white">
             <div className="max-w-md mx-auto">
               <h2 className="text-3xl font-black text-slate-800 mb-2">Login Peserta</h2>
-              <p className="text-slate-400 font-medium mb-10 italic">Masukkan Token unik guru Anda untuk menarik soal yang tepat.</p>
+              <p className="text-slate-400 font-medium mb-10 italic">Masukkan Token untuk menarik paket soal Anda.</p>
               
               <form onSubmit={handleStartQuiz} className="space-y-5">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nama Lengkap Siswa</label>
-                  <input required type="text" placeholder="Masukkan nama sesuai absen" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold" onChange={e => setIdentity({...identity, name: e.target.value})} />
+                  <input required type="text" placeholder="Nama Anda" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold" onChange={e => setIdentity({...identity, name: e.target.value})} />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kelas / Rombel</label>
-                  <input required type="text" placeholder="Contoh: 6A / 6B" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold" onChange={e => setIdentity({...identity, className: e.target.value})} />
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kelas</label>
+                  <input required type="text" placeholder="Contoh: 6A" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold" onChange={e => setIdentity({...identity, className: e.target.value})} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tanggal Lahir</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tgl Lahir</label>
                     <input required type="date" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold text-slate-500" onChange={e => setIdentity({...identity, birthDate: e.target.value})} />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest ml-1">Token Ujian Guru</label>
-                    <input required type="text" placeholder="MISAL: IPA01" className="w-full p-4 bg-blue-50 border-2 border-blue-200 rounded-2xl font-black text-blue-700 text-center uppercase tracking-[0.3em] outline-none focus:ring-4 focus:ring-blue-500/10" onChange={e => setIdentity({...identity, token: e.target.value})} />
+                    <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest ml-1">Token Paket Soal</label>
+                    <input required type="text" placeholder="TOKEN" className="w-full p-4 bg-blue-50 border-2 border-blue-200 rounded-2xl font-black text-blue-700 text-center uppercase tracking-[0.3em] outline-none focus:ring-4 focus:ring-blue-500/10" onChange={e => setIdentity({...identity, token: e.target.value})} />
                   </div>
                 </div>
                 <div className="pt-4">
                   <button disabled={isSyncing} className={`w-full font-black py-5 rounded-[2rem] text-xl shadow-2xl transition-all active:scale-95 bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200 disabled:opacity-50`}>
-                    {isSyncing ? 'MENCARI SOAL...' : 'MASUK KE RUANG UJIAN'}
+                    {isSyncing ? 'MENGHUBUNGKAN...' : 'MASUK RUANG UJIAN'}
                   </button>
                 </div>
               </form>
-              <p className="text-center mt-8 text-[10px] font-black text-slate-300 uppercase tracking-widest">EduCBT Multi-Teacher Engine • © 2025</p>
             </div>
           </div>
         </div>
@@ -294,6 +291,8 @@ const App: React.FC = () => {
       <ConfirmIdentity 
         identity={identity} 
         settings={settings} 
+        // Menggunakan subjek dari soal pertama yang ditarik
+        subjectName={questions[0]?.subject || 'Ujian Digital'}
         onConfirm={() => setView('quiz')} 
         onCancel={() => setView('login')} 
       />
@@ -304,10 +303,9 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
         <form onSubmit={handleTeacherAuth} className="bg-white p-8 rounded-[2rem] shadow-2xl w-full max-sm">
-          <h2 className="text-2xl font-black text-center mb-6 text-slate-800">Panel Monitoring Guru</h2>
-          <p className="text-slate-400 text-center text-xs font-bold mb-8 uppercase tracking-widest">Masukkan kode akses pengawas</p>
-          <input type="password" autoFocus className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-2xl mb-4 text-center font-black tracking-[0.5em] text-2xl outline-none focus:border-blue-600" placeholder="••••••" onChange={e => setAuthCode(e.target.value)} />
-          <button className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl shadow-xl hover:bg-black transition-all">VERIFIKASI & MASUK</button>
+          <h2 className="text-2xl font-black text-center mb-6 text-slate-800">Panel Monitoring</h2>
+          <input type="password" autoFocus className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-2xl mb-4 text-center font-black tracking-[0.5em] text-2xl outline-none" placeholder="••••••" onChange={e => setAuthCode(e.target.value)} />
+          <button className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl">MASUK</button>
           <button type="button" onClick={() => setView('login')} className="w-full mt-4 text-slate-400 font-black text-xs uppercase tracking-widest">Batal</button>
         </form>
       </div>
@@ -321,11 +319,8 @@ const App: React.FC = () => {
           <div className="flex justify-between items-center mb-10">
             <div>
               <h1 className="text-3xl font-black text-slate-800">Monitoring Real-time</h1>
-              <p className="text-slate-400 font-medium">Data pengerjaan masuk secara langsung.</p>
             </div>
-            <div className="flex gap-3">
-               <button onClick={() => setView('login')} className="bg-slate-900 text-white font-black px-6 py-3 rounded-2xl shadow-lg text-xs uppercase tracking-widest">Logout</button>
-            </div>
+            <button onClick={() => setView('login')} className="bg-slate-900 text-white font-black px-6 py-3 rounded-2xl">Logout</button>
           </div>
           <TeacherPanel results={submissions} questions={questions.filter(q => !q.isDeleted)} onUpdateScore={handleUpdateScore} />
         </div>
@@ -333,7 +328,7 @@ const App: React.FC = () => {
     );
   }
 
-  if (view === 'quiz') return <QuizInterface questions={questions.filter(q => !q.isDeleted).sort((a, b) => (a.order || 0) - (b.order || 0))} identity={identity} timeLimitMinutes={settings.timerMinutes} subjectName={settings.activeSubject} onFinish={handleFinishQuiz} />;
+  if (view === 'quiz') return <QuizInterface questions={questions.filter(q => !q.isDeleted).sort((a, b) => (a.order || 0) - (b.order || 0))} identity={identity} timeLimitMinutes={settings.timerMinutes} subjectName={questions[0]?.subject || 'Ujian Digital'} onFinish={handleFinishQuiz} />;
 
   if (view === 'result' && lastResult) {
     return (
@@ -342,19 +337,13 @@ const App: React.FC = () => {
            <div className="w-24 h-24 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-8 shadow-xl shadow-green-200">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" /></svg>
            </div>
-           <h2 className="text-3xl font-black mb-2 text-slate-800">Jawaban Terkirim</h2>
-           <p className="text-slate-400 mb-10 font-medium italic">Data Anda telah sinkron dengan server pusat.</p>
-           
-           <div className="bg-blue-600 p-8 rounded-[2.5rem] mb-10 shadow-2xl shadow-blue-200 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12"></div>
-              <p className="text-[10px] font-black text-blue-200 uppercase tracking-[0.2em] mb-2 relative z-10">Skor Anda</p>
-              <p className="text-7xl font-black text-white relative z-10 leading-none">{lastResult.score.toFixed(1)}</p>
+           <h2 className="text-3xl font-black mb-2 text-slate-800">Berhasil</h2>
+           <p className="text-slate-400 mb-10 font-medium">Data Anda telah tersinkron dengan cloud.</p>
+           <div className="bg-blue-600 p-8 rounded-[2.5rem] mb-10 shadow-2xl shadow-blue-200">
+              <p className="text-[10px] font-black text-blue-200 uppercase tracking-[0.2em] mb-2">Skor Akhir</p>
+              <p className="text-7xl font-black text-white">{lastResult.score.toFixed(1)}</p>
            </div>
-           
-           <div className="grid grid-cols-2 gap-3 mb-4">
-             <button onClick={() => generateResultPDF(lastResult, questions)} className="bg-slate-50 text-slate-700 font-black py-4 rounded-2xl border border-slate-200 text-xs uppercase tracking-widest hover:bg-slate-100 transition-all">Download PDF</button>
-             <button onClick={() => window.location.reload()} className="bg-slate-900 text-white font-black py-4 rounded-2xl shadow-lg text-xs uppercase tracking-widest">Selesai</button>
-           </div>
+           <button onClick={() => window.location.reload()} className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl">SELESAI</button>
         </div>
       </div>
     );

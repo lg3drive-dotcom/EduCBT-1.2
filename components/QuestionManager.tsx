@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useMemo } from 'react';
 import { Question, Subject, QuestionType, CognitiveLevel } from '../types.ts';
-import { SUBJECT_LIST, COGNITIVE_LEVELS } from '../constants.ts';
+import { COGNITIVE_LEVELS } from '../constants.ts';
 import { generateQuestionBankPDF } from '../services/pdfService.ts';
 import { generateAIImage } from '../services/geminiService.ts';
 
@@ -19,7 +19,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   questions, activeToken, onAdd, onUpdate, onSoftDelete, onPermanentDelete, onRestore 
 }) => {
   const [activeTab, setActiveTab] = useState<'active' | 'trash'>('active');
-  const [subjectFilter, setSubjectFilter] = useState<Subject | 'ALL'>('ALL');
+  const [subjectFilter, setSubjectFilter] = useState<string>('');
   const [tokenFilter, setTokenFilter] = useState<string>('');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -47,7 +47,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     options: ['', '', '', ''],
     optionImages: [undefined, undefined, undefined, undefined],
     correctAnswer: 0,
-    subject: Subject.PANCASILA,
+    subject: 'Mata Pelajaran Umum',
     order: 1,
     quizToken: activeToken
   });
@@ -61,7 +61,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
       text: '', material: '', explanation: '', type: QuestionType.SINGLE, 
       level: CognitiveLevel.C1, options: ['', '', '', ''], 
       optionImages: [undefined, undefined, undefined, undefined], 
-      correctAnswer: 0, subject: Subject.PANCASILA, order: 1,
+      correctAnswer: 0, subject: 'Mata Pelajaran Umum', order: 1,
       quizToken: activeToken
     });
   };
@@ -128,7 +128,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   const processedQuestions = useMemo(() => {
     let filtered = questions.filter(q => activeTab === 'active' ? !q.isDeleted : (activeTab === 'trash' ? q.isDeleted : false));
     if (activeTab === 'active') {
-      if (subjectFilter !== 'ALL') filtered = filtered.filter(q => q.subject === subjectFilter);
+      if (subjectFilter.trim() !== '') filtered = filtered.filter(q => q.subject.toLowerCase().includes(subjectFilter.toLowerCase()));
       if (tokenFilter.trim() !== '') filtered = filtered.filter(q => q.quizToken?.toUpperCase().includes(tokenFilter.toUpperCase()));
     }
     return filtered.sort((a, b) => {
@@ -143,7 +143,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   };
 
   const handleExport = () => {
-    generateQuestionBankPDF(processedQuestions, 'lengkap', subjectFilter !== 'ALL' ? subjectFilter as Subject : undefined);
+    generateQuestionBankPDF(processedQuestions, 'lengkap', subjectFilter);
   };
 
   const handleAddOption = () => {
@@ -177,6 +177,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   const handleSave = () => {
     if (!formData.text) return alert("Pertanyaan tidak boleh kosong.");
     if (!formData.quizToken) return alert("Token wajib diisi agar soal dapat ditemukan siswa.");
+    if (!formData.subject) return alert("Nama Mata Pelajaran wajib diisi.");
     
     const finalData = {
       ...formData,
@@ -204,11 +205,14 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
           {activeTab === 'active' && (
             <>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mapel:</span>
-                <select value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value as any)} className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold outline-none text-slate-700">
-                  <option value="ALL">Semua Mapel</option>
-                  {SUBJECT_LIST.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cari Mapel:</span>
+                <input 
+                  type="text" 
+                  value={subjectFilter} 
+                  onChange={(e) => setSubjectFilter(e.target.value)} 
+                  placeholder="Nama Mapel..."
+                  className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold outline-none text-slate-700 w-32 focus:w-48 transition-all"
+                />
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Token:</span>
@@ -216,7 +220,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                   type="text" 
                   value={tokenFilter} 
                   onChange={(e) => setTokenFilter(e.target.value)} 
-                  placeholder="Cari Token..."
+                  placeholder="Token..."
                   className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold outline-none text-slate-700 w-24 focus:w-40 transition-all"
                 />
               </div>
@@ -235,7 +239,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
         <div className="p-6 space-y-4">
           {processedQuestions.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-32 text-slate-400">
-              <div className="font-medium text-sm text-center">Tidak ada soal ditemukan {tokenFilter ? `untuk token "${tokenFilter}"` : ""}.</div>
+              <div className="font-medium text-sm text-center">Tidak ada soal ditemukan.</div>
             </div>
           ) : (
             processedQuestions.map((q, idx) => {
@@ -298,10 +302,14 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                           />
                        </div>
                        <div className="space-y-1">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mata Pelajaran</label>
-                          <select value={formData.subject} onChange={e => setFormData({...formData, subject: e.target.value as Subject})} className="w-full p-4 border rounded-xl font-bold outline-none focus:border-blue-500 bg-slate-50 text-sm">
-                              {SUBJECT_LIST.map(s => <option key={s} value={s}>{s}</option>)}
-                          </select>
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nama Mata Pelajaran</label>
+                          <input 
+                            type="text" 
+                            value={formData.subject} 
+                            onChange={e => setFormData({...formData, subject: e.target.value})}
+                            placeholder="Ketik Mapel..."
+                            className="w-full p-4 border rounded-xl font-bold outline-none focus:border-blue-500 bg-slate-50 text-sm"
+                          />
                        </div>
                        <div className="space-y-1">
                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Level Kognitif</label>

@@ -5,11 +5,12 @@ import { StudentIdentity, AppSettings } from '../types';
 interface ConfirmIdentityProps {
   identity: StudentIdentity;
   settings: AppSettings;
+  subjectName: string;
   onConfirm: () => void;
   onCancel: () => void;
 }
 
-const ConfirmIdentity: React.FC<ConfirmIdentityProps> = ({ identity, settings, onConfirm, onCancel }) => {
+const ConfirmIdentity: React.FC<ConfirmIdentityProps> = ({ identity, settings, subjectName, onConfirm, onCancel }) => {
   return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200">
@@ -29,8 +30,8 @@ const ConfirmIdentity: React.FC<ConfirmIdentityProps> = ({ identity, settings, o
               <p className="text-xl font-black text-slate-800">{identity.className}</p>
             </div>
             <div className="p-6 bg-blue-50 rounded-3xl border border-blue-100">
-              <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Mata Pelajaran</p>
-              <p className="text-xl font-black text-blue-700">{settings.activeSubject}</p>
+              <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Paket Mata Pelajaran</p>
+              <p className="text-xl font-black text-blue-700">{subjectName}</p>
             </div>
             <div className="p-6 bg-orange-50 rounded-3xl border border-orange-100">
               <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-1">Alokasi Waktu</p>
