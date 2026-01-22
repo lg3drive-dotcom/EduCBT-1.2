@@ -50,9 +50,9 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('cbt_questions', JSON.stringify(questions));
     if (view === 'admin-panel') {
-      pushQuestionsToCloud(questions);
+      pushQuestionsToCloud(questions, settings.activeToken);
     }
-  }, [questions, view]);
+  }, [questions, view, settings.activeToken]);
 
   useEffect(() => {
     localStorage.setItem('cbt_settings', JSON.stringify(settings));
@@ -116,23 +116,20 @@ const App: React.FC = () => {
 
   const handleStartQuiz = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!identity.token) {
+      alert('Masukkan Token Ujian!');
+      return;
+    }
+    
     setIsSyncing(true);
     try {
-      const cloudData = await getLiveExamData();
+      const cloudData = await getLiveExamData(identity.token);
       if (!cloudData) {
-        alert('Server sedang tidak aktif atau token belum diatur oleh admin.');
-        return;
-      }
-      if (identity.token.toUpperCase() !== cloudData.settings.activeToken.toUpperCase()) {
-        alert('Token Ujian Tidak Valid! Mintalah token terbaru ke pengawas.');
+        alert('Token Tidak Ditemukan! Pastikan Admin sudah melakukan Sync Soal dengan token ini.');
         return;
       }
       setSettings(cloudData.settings);
       setQuestions(cloudData.questions);
-      if (cloudData.questions.length === 0) {
-        alert(`Belum ada soal untuk mata pelajaran ${cloudData.settings.activeSubject}.`);
-        return;
-      }
       setView('confirm-data');
     } catch (err) {
       alert('Gagal terhubung ke server ujian. Periksa koneksi internet Anda.');
@@ -155,7 +152,7 @@ const App: React.FC = () => {
 
   const handleImportQuestions = (newQuestions: Question[], mode: 'replace' | 'append') => {
     if (mode === 'replace') {
-      setQuestions(newQuestions.map(q => ({ ...q, createdAt: Date.now() })));
+      setQuestions(newQuestions.map(q => ({ ...q, createdAt: Date.now(), quizToken: q.quizToken || settings.activeToken })));
     } else {
       setQuestions(prev => {
         const existingIds = new Set(prev.map(q => q.id));
@@ -163,7 +160,8 @@ const App: React.FC = () => {
         const uniqueNew = filteredNew.map(q => ({
           ...q,
           id: Math.random().toString(36).substr(2, 9) + Date.now(),
-          createdAt: Date.now()
+          createdAt: Date.now(),
+          quizToken: q.quizToken || settings.activeToken
         }));
         return [...prev, ...uniqueNew];
       });
@@ -190,11 +188,6 @@ const App: React.FC = () => {
                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                GENERATOR AI
             </button>
-            <div className="pt-8 pb-2 px-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Koneksi Server</div>
-            <div className="px-4 flex items-center gap-2">
-               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-               <span className="text-xs font-bold text-green-500">Online & Sinkron</span>
-            </div>
           </nav>
           <button onClick={() => setView('login')} className="mt-auto p-4 text-red-400 font-bold hover:bg-red-500/10 rounded-xl transition-all">KELUAR</button>
         </aside>
@@ -204,11 +197,12 @@ const App: React.FC = () => {
               <div className="flex justify-between items-center mb-8">
                 <div>
                   <h1 className="text-3xl font-black text-slate-800">Manajemen Pusat Soal</h1>
-                  <p className="text-slate-400 font-medium text-sm">Setiap soal baru akan di-upload otomatis ke Cloud.</p>
+                  <p className="text-slate-400 font-medium text-sm">Mengatur soal untuk multi-tenant partition.</p>
                 </div>
               </div>
               <QuestionManager 
                 questions={questions}
+                activeToken={settings.activeToken}
                 onAdd={(q) => setQuestions(prev => [...prev, { ...q, id: Date.now().toString()+Math.random(), createdAt: Date.now(), isDeleted: false, order: q.order || (prev.length + 1) }])}
                 onUpdate={(updated) => setQuestions(prev => prev.map(q => q.id === updated.id ? updated : q))}
                 onSoftDelete={(id) => setQuestions(prev => prev.map(item => item.id === id ? { ...item, isDeleted: true } : item))}
@@ -246,11 +240,7 @@ const App: React.FC = () => {
               <div className="space-y-4">
                 <div className="bg-white/5 p-5 rounded-3xl border border-white/10 backdrop-blur-sm">
                   <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em] mb-2">Sistem</p>
-                  <p className="text-xl font-black text-white">Online Synchronized</p>
-                  <div className="mt-3 flex items-center gap-2">
-                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                    <span className="text-[10px] text-slate-400 font-bold uppercase">Server Cloud Aktif</span>
-                  </div>
+                  <p className="text-xl font-black text-white">Multi-Token Partitioning</p>
                 </div>
               </div>
             </div>
@@ -264,7 +254,7 @@ const App: React.FC = () => {
           <div className="md:w-7/12 p-12 bg-white">
             <div className="max-w-md mx-auto">
               <h2 className="text-3xl font-black text-slate-800 mb-2">Login Peserta</h2>
-              <p className="text-slate-400 font-medium mb-10 italic">Masukkan Token terbaru untuk menarik data soal dari Cloud.</p>
+              <p className="text-slate-400 font-medium mb-10 italic">Masukkan Token unik guru Anda untuk menarik soal yang tepat.</p>
               
               <form onSubmit={handleStartQuiz} className="space-y-5">
                 <div className="space-y-1">
@@ -281,17 +271,17 @@ const App: React.FC = () => {
                     <input required type="date" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold text-slate-500" onChange={e => setIdentity({...identity, birthDate: e.target.value})} />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest ml-1">Token Ujian</label>
-                    <input required type="text" placeholder="5 DIGIT" className="w-full p-4 bg-blue-50 border-2 border-blue-200 rounded-2xl font-black text-blue-700 text-center uppercase tracking-[0.3em] outline-none focus:ring-4 focus:ring-blue-500/10" onChange={e => setIdentity({...identity, token: e.target.value})} />
+                    <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest ml-1">Token Ujian Guru</label>
+                    <input required type="text" placeholder="MISAL: IPA01" className="w-full p-4 bg-blue-50 border-2 border-blue-200 rounded-2xl font-black text-blue-700 text-center uppercase tracking-[0.3em] outline-none focus:ring-4 focus:ring-blue-500/10" onChange={e => setIdentity({...identity, token: e.target.value})} />
                   </div>
                 </div>
                 <div className="pt-4">
                   <button disabled={isSyncing} className={`w-full font-black py-5 rounded-[2rem] text-xl shadow-2xl transition-all active:scale-95 bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200 disabled:opacity-50`}>
-                    {isSyncing ? 'MENGHUBUNGKAN...' : 'MASUK KE RUANG UJIAN'}
+                    {isSyncing ? 'MENCARI SOAL...' : 'MASUK KE RUANG UJIAN'}
                   </button>
                 </div>
               </form>
-              <p className="text-center mt-8 text-[10px] font-black text-slate-300 uppercase tracking-widest">EduCBT Cloud Engine • © 2025</p>
+              <p className="text-center mt-8 text-[10px] font-black text-slate-300 uppercase tracking-widest">EduCBT Multi-Teacher Engine • © 2025</p>
             </div>
           </div>
         </div>
@@ -331,7 +321,7 @@ const App: React.FC = () => {
           <div className="flex justify-between items-center mb-10">
             <div>
               <h1 className="text-3xl font-black text-slate-800">Monitoring Real-time</h1>
-              <p className="text-slate-400 font-medium">Data dari Cloud akan muncul otomatis tanpa refresh.</p>
+              <p className="text-slate-400 font-medium">Data pengerjaan masuk secara langsung.</p>
             </div>
             <div className="flex gap-3">
                <button onClick={() => setView('login')} className="bg-slate-900 text-white font-black px-6 py-3 rounded-2xl shadow-lg text-xs uppercase tracking-widest">Logout</button>
@@ -343,7 +333,7 @@ const App: React.FC = () => {
     );
   }
 
-  if (view === 'quiz') return <QuizInterface questions={questions.filter(q => !q.isDeleted && q.subject === settings.activeSubject).sort((a, b) => (a.order || 0) - (b.order || 0))} identity={identity} timeLimitMinutes={settings.timerMinutes} subjectName={settings.activeSubject} onFinish={handleFinishQuiz} />;
+  if (view === 'quiz') return <QuizInterface questions={questions.filter(q => !q.isDeleted).sort((a, b) => (a.order || 0) - (b.order || 0))} identity={identity} timeLimitMinutes={settings.timerMinutes} subjectName={settings.activeSubject} onFinish={handleFinishQuiz} />;
 
   if (view === 'result' && lastResult) {
     return (
@@ -362,7 +352,7 @@ const App: React.FC = () => {
            </div>
            
            <div className="grid grid-cols-2 gap-3 mb-4">
-             <button onClick={() => generateResultPDF(lastResult, questions.filter(q => !q.isDeleted && q.subject === settings.activeSubject))} className="bg-slate-50 text-slate-700 font-black py-4 rounded-2xl border border-slate-200 text-xs uppercase tracking-widest hover:bg-slate-100 transition-all">Download PDF</button>
+             <button onClick={() => generateResultPDF(lastResult, questions)} className="bg-slate-50 text-slate-700 font-black py-4 rounded-2xl border border-slate-200 text-xs uppercase tracking-widest hover:bg-slate-100 transition-all">Download PDF</button>
              <button onClick={() => window.location.reload()} className="bg-slate-900 text-white font-black py-4 rounded-2xl shadow-lg text-xs uppercase tracking-widest">Selesai</button>
            </div>
         </div>

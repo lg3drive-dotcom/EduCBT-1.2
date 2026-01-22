@@ -41,6 +41,7 @@ export interface Question {
   isDeleted: boolean;
   createdAt: number;
   order: number;
+  quizToken?: string; // Menghubungkan soal ke token spesifik
 }
 
 export interface StudentIdentity {

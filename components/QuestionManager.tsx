@@ -7,6 +7,7 @@ import { generateAIImage } from '../services/geminiService.ts';
 
 interface QuestionManagerProps {
   questions: Question[];
+  activeToken: string;
   onAdd: (q: any) => void;
   onUpdate: (q: Question) => void;
   onSoftDelete: (id: string) => void;
@@ -15,13 +16,13 @@ interface QuestionManagerProps {
 }
 
 const QuestionManager: React.FC<QuestionManagerProps> = ({ 
-  questions, onAdd, onUpdate, onSoftDelete, onPermanentDelete, onRestore 
+  questions, activeToken, onAdd, onUpdate, onSoftDelete, onPermanentDelete, onRestore 
 }) => {
   const [activeTab, setActiveTab] = useState<'active' | 'trash'>('active');
   const [subjectFilter, setSubjectFilter] = useState<Subject | 'ALL'>('ALL');
+  const [tokenFilter, setTokenFilter] = useState<string>('');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [isAiImageLoading, setIsAiImageLoading] = useState(false);
   const [aiLoadingIdx, setAiLoadingIdx] = useState<number | 'main' | null>(null);
   
   const [formData, setFormData] = useState<{
@@ -36,6 +37,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     correctAnswer: any;
     subject: Subject;
     order: number;
+    quizToken: string;
   }>({
     text: '',
     material: '',
@@ -46,11 +48,11 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     optionImages: [undefined, undefined, undefined, undefined],
     correctAnswer: 0,
     subject: Subject.PANCASILA,
-    order: 1
+    order: 1,
+    quizToken: activeToken
   });
 
   const mainFileInputRef = useRef<HTMLInputElement>(null);
-  const optionFileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const closeForm = () => {
     setShowForm(false);
@@ -59,7 +61,8 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
       text: '', material: '', explanation: '', type: QuestionType.SINGLE, 
       level: CognitiveLevel.C1, options: ['', '', '', ''], 
       optionImages: [undefined, undefined, undefined, undefined], 
-      correctAnswer: 0, subject: Subject.PANCASILA, order: 1 
+      correctAnswer: 0, subject: Subject.PANCASILA, order: 1,
+      quizToken: activeToken
     });
   };
 
@@ -76,7 +79,8 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
       optionImages: q.optionImages || (q.options ? q.options.map(() => undefined) : [undefined, undefined, undefined, undefined]),
       correctAnswer: q.correctAnswer,
       subject: q.subject,
-      order: q.order || 1
+      order: q.order || 1,
+      quizToken: q.quizToken || activeToken
     });
     setShowForm(true);
   };
@@ -123,17 +127,19 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
 
   const processedQuestions = useMemo(() => {
     let filtered = questions.filter(q => activeTab === 'active' ? !q.isDeleted : (activeTab === 'trash' ? q.isDeleted : false));
-    if (activeTab === 'active' && subjectFilter !== 'ALL') filtered = filtered.filter(q => q.subject === subjectFilter);
+    if (activeTab === 'active') {
+      if (subjectFilter !== 'ALL') filtered = filtered.filter(q => q.subject === subjectFilter);
+      if (tokenFilter.trim() !== '') filtered = filtered.filter(q => q.quizToken?.toUpperCase().includes(tokenFilter.toUpperCase()));
+    }
     return filtered.sort((a, b) => {
       if (a.subject !== b.subject) return a.subject.localeCompare(b.subject);
       return (a.order || 0) - (b.order || 0);
     });
-  }, [questions, activeTab, subjectFilter]);
+  }, [questions, activeTab, subjectFilter, tokenFilter]);
 
   const getDisplayNumber = (q: Question) => {
-    if (subjectFilter !== 'ALL') return processedQuestions.findIndex(item => item.id === q.id) + 1;
-    const sameSubjectQuestions = processedQuestions.filter(item => item.subject === q.subject);
-    return sameSubjectQuestions.findIndex(item => item.id === q.id) + 1;
+    const sameTokenSubject = processedQuestions.filter(item => item.quizToken === q.quizToken && item.subject === q.subject);
+    return sameTokenSubject.findIndex(item => item.id === q.id) + 1;
   };
 
   const handleExport = () => {
@@ -170,9 +176,11 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
 
   const handleSave = () => {
     if (!formData.text) return alert("Pertanyaan tidak boleh kosong.");
+    if (!formData.quizToken) return alert("Token wajib diisi agar soal dapat ditemukan siswa.");
     
     const finalData = {
       ...formData,
+      quizToken: formData.quizToken.toUpperCase(),
       isDeleted: false,
       createdAt: Date.now(),
     };
@@ -194,13 +202,25 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
             <button onClick={() => setActiveTab('trash')} className={`px-4 py-2 rounded-lg text-xs font-black transition-all ${activeTab === 'trash' ? 'bg-red-500 text-white' : 'text-slate-400 hover:text-slate-600'}`}>SAMPAH</button>
           </div>
           {activeTab === 'active' && (
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Filter:</span>
-              <select value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value as any)} className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold outline-none text-slate-700">
-                <option value="ALL">Semua Mapel</option>
-                {SUBJECT_LIST.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
+            <>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mapel:</span>
+                <select value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value as any)} className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold outline-none text-slate-700">
+                  <option value="ALL">Semua Mapel</option>
+                  {SUBJECT_LIST.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Token:</span>
+                <input 
+                  type="text" 
+                  value={tokenFilter} 
+                  onChange={(e) => setTokenFilter(e.target.value)} 
+                  placeholder="Cari Token..."
+                  className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold outline-none text-slate-700 w-24 focus:w-40 transition-all"
+                />
+              </div>
+            </>
           )}
         </div>
         <div className="flex gap-2">
@@ -215,7 +235,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
         <div className="p-6 space-y-4">
           {processedQuestions.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-32 text-slate-400">
-              <div className="font-medium text-sm text-center">Data tidak ditemukan.</div>
+              <div className="font-medium text-sm text-center">Tidak ada soal ditemukan {tokenFilter ? `untuk token "${tokenFilter}"` : ""}.</div>
             </div>
           ) : (
             processedQuestions.map((q, idx) => {
@@ -226,9 +246,9 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start mb-2">
                       <div className="flex flex-wrap gap-2">
-                        <span className="text-[10px] bg-blue-50 text-blue-700 px-2 py-1 rounded-full font-black uppercase">{q.subject}</span>
-                        <span className="text-[10px] bg-purple-50 text-purple-700 px-2 py-1 rounded-full font-black uppercase">{q.level}</span>
-                        {q.questionImage && <span className="text-[10px] bg-green-50 text-green-700 px-2 py-1 rounded-full font-black uppercase flex items-center gap-1"><svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg> Gambar</span>}
+                        <span className="text-[10px] bg-blue-600 text-white px-2 py-1 rounded font-black uppercase shadow-sm">TOKEN: {q.quizToken || 'TIDAK ADA'}</span>
+                        <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-1 rounded font-black uppercase">{q.subject}</span>
+                        <span className="text-[10px] bg-purple-50 text-purple-700 px-2 py-1 rounded font-black uppercase">{q.level.split(' ')[0]}</span>
                       </div>
                       <div className="flex gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
                         {activeTab === 'active' ? (
@@ -259,14 +279,24 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
              <div className="flex justify-between items-center mb-8 border-b pb-4 sticky top-0 bg-white z-10">
                 <div>
                    <h3 className="text-2xl font-black text-slate-800">{editingId ? 'Edit Soal' : 'Tambah Soal Manual'}</h3>
-                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">ID: {editingId || 'BARU'}</p>
+                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Status: {editingId ? 'Mode Edit' : 'Penyusunan Baru'}</p>
                 </div>
                 <button onClick={closeForm} className="text-3xl font-light text-slate-400 hover:text-slate-600">×</button>
              </div>
              
              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
                 <div className="lg:col-span-7 space-y-6">
-                   <div className="grid grid-cols-2 gap-4">
+                   <div className="grid grid-cols-3 gap-4">
+                       <div className="space-y-1">
+                          <label className="text-[10px] font-black text-blue-600 uppercase tracking-widest ml-1">Token Akses Soal</label>
+                          <input 
+                            type="text" 
+                            value={formData.quizToken} 
+                            onChange={e => setFormData({...formData, quizToken: e.target.value.toUpperCase()})}
+                            placeholder="MISAL: IPA01"
+                            className="w-full p-4 border-2 border-blue-100 rounded-xl font-black outline-none focus:border-blue-500 bg-blue-50 text-blue-700 text-sm placeholder:text-blue-200"
+                          />
+                       </div>
                        <div className="space-y-1">
                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mata Pelajaran</label>
                           <select value={formData.subject} onChange={e => setFormData({...formData, subject: e.target.value as Subject})} className="w-full p-4 border rounded-xl font-bold outline-none focus:border-blue-500 bg-slate-50 text-sm">
@@ -307,7 +337,6 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                                  {aiLoadingIdx === 'main' ? '⏳ Memproses...' : '✨ Generate AI'}
                                </button>
                             </div>
-                            <p className="text-[8px] font-bold text-slate-400 italic">Generate AI menggunakan teks pertanyaan di atas sebagai acuan visual.</p>
                          </div>
                       </div>
                    </div>
