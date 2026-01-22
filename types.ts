@@ -41,7 +41,7 @@ export interface Question {
   isDeleted: boolean;
   createdAt: number;
   order: number;
-  quizToken?: string; // Menghubungkan soal ke token spesifik
+  quizToken?: string; 
 }
 
 export interface StudentIdentity {
@@ -65,6 +65,6 @@ export interface QuizResult {
 
 export interface AppSettings {
   timerMinutes: number;
-  activeToken: string;
-  activeSubject: Subject;
+  // activeSubject is used to display the currently active exam subject name
+  activeSubject?: string;
 }

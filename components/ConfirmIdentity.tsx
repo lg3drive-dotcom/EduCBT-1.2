@@ -30,7 +30,8 @@ const ConfirmIdentity: React.FC<ConfirmIdentityProps> = ({ identity, settings, o
             </div>
             <div className="p-6 bg-blue-50 rounded-3xl border border-blue-100">
               <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Mata Pelajaran</p>
-              <p className="text-xl font-black text-blue-700">{settings.activeSubject}</p>
+              {/* FIX: Provide fallback value for activeSubject to handle initial or missing states */}
+              <p className="text-xl font-black text-blue-700">{settings.activeSubject || 'Ujian Digital'}</p>
             </div>
             <div className="p-6 bg-orange-50 rounded-3xl border border-orange-100">
               <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-1">Alokasi Waktu</p>

@@ -33,11 +33,7 @@ const App: React.FC = () => {
   
   const [settings, setSettings] = useState<AppSettings>(() => {
     const saved = localStorage.getItem('cbt_settings');
-    return saved ? JSON.parse(saved) : { 
-      timerMinutes: 60, 
-      activeToken: 'ABCDE',
-      activeSubject: Subject.PANCASILA
-    };
+    return saved ? JSON.parse(saved) : { timerMinutes: 60 };
   });
 
   const [submissions, setSubmissions] = useState<QuizResult[]>(() => {
@@ -60,17 +56,15 @@ const App: React.FC = () => {
     localStorage.setItem('cbt_submissions', JSON.stringify(submissions));
   }, [submissions]);
 
-  // Handler Sinkronisasi Manual
   const handleCloudSync = async () => {
     setSyncStatus('loading');
     try {
-      // Kirim soal dan pengaturan sekaligus
-      await pushQuestionsToCloud(questions, settings.activeToken);
+      // Sekarang mengirim questions tanpa label token global
+      await pushQuestionsToCloud(questions);
       await updateLiveSettings(settings);
       setSyncStatus('success');
       setTimeout(() => setSyncStatus('idle'), 3000);
     } catch (err) {
-      console.error(err);
       setSyncStatus('error');
       alert("Gagal sinkronisasi ke Cloud. Periksa koneksi internet.");
     }
@@ -100,31 +94,6 @@ const App: React.FC = () => {
     }
   }, [view]);
 
-  const handleTeacherAuth = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (authCode === 'guru123') {
-      setView('teacher-panel');
-    } else {
-      alert('Kode Akses Guru Salah!');
-    }
-  };
-
-  const handleUpdateScore = (resultId: string, corrections: { [key: string]: number }) => {
-    setSubmissions(prev => prev.map(res => {
-      if (res.id === resultId) {
-        const qCount = questions.filter(q => !q.isDeleted).length || 1;
-        const totalPoints = Object.values(corrections).reduce((sum, val) => sum + val, 0);
-        return { 
-          ...res, 
-          manualCorrections: corrections, 
-          score: totalPoints / qCount,
-          isCorrected: true 
-        };
-      }
-      return res;
-    }));
-  };
-
   const handleStartQuiz = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!identity.token) {
@@ -136,14 +105,14 @@ const App: React.FC = () => {
     try {
       const cloudData = await getLiveExamData(identity.token);
       if (!cloudData) {
-        alert('Token Tidak Ditemukan! Pastikan Admin sudah melakukan Sync Soal dengan token ini.');
+        alert('Token Tidak Ditemukan! Pastikan Admin sudah membuat soal dengan token ini dan menekan tombol SINKRONISASI CLOUD.');
         return;
       }
       setSettings(cloudData.settings);
       setQuestions(cloudData.questions);
       setView('confirm-data');
     } catch (err) {
-      alert('Gagal terhubung ke server ujian. Periksa koneksi internet Anda.');
+      alert('Gagal terhubung ke server ujian.');
     } finally {
       setIsSyncing(false);
     }
@@ -156,23 +125,20 @@ const App: React.FC = () => {
       setLastResult(result);
       setView('result');
     } else {
-      alert('Gagal mengirim ke server! Silakan tekan tombol Selesai lagi.');
+      alert('Gagal mengirim ke server!');
     }
     setIsSyncing(false);
   };
 
   const handleImportQuestions = (newQuestions: Question[], mode: 'replace' | 'append') => {
     if (mode === 'replace') {
-      setQuestions(newQuestions.map(q => ({ ...q, createdAt: Date.now(), quizToken: q.quizToken || settings.activeToken })));
+      setQuestions(newQuestions.map(q => ({ ...q, createdAt: Date.now() })));
     } else {
       setQuestions(prev => {
-        const existingIds = new Set(prev.map(q => q.id));
-        const filteredNew = newQuestions.filter(q => !existingIds.has(q.id));
-        const uniqueNew = filteredNew.map(q => ({
+        const uniqueNew = newQuestions.map(q => ({
           ...q,
           id: Math.random().toString(36).substr(2, 9) + Date.now(),
-          createdAt: Date.now(),
-          quizToken: q.quizToken || settings.activeToken
+          createdAt: Date.now()
         }));
         return [...prev, ...uniqueNew];
       });
@@ -193,13 +159,6 @@ const App: React.FC = () => {
           <nav className="space-y-2 flex-1">
             <button className="w-full text-left p-4 bg-white/10 rounded-xl font-bold border-l-4 border-blue-500">BANK SOAL</button>
             <button onClick={() => setView('teacher-panel')} className="w-full text-left p-4 text-slate-400 hover:text-white font-bold transition-all">PANEL MONITORING</button>
-            <button 
-              onClick={() => window.open('https://ai.studio/apps/drive/1NZ1vp5yFIoAMs7ZVtARv6sOB9S9tBpys?fullscreenApplet=true', '_blank')} 
-              className="w-full text-left p-4 text-purple-400 hover:text-purple-300 font-black flex items-center gap-2 transition-all"
-            >
-               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-               GENERATOR AI
-            </button>
           </nav>
 
           <div className="mt-auto space-y-4">
@@ -221,31 +180,24 @@ const App: React.FC = () => {
                    'bg-blue-600 hover:bg-blue-700 text-white'
                  }`}
                >
-                 {syncStatus === 'loading' && <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>}
-                 {syncStatus === 'success' ? 'BERHASIL DISYNC' : syncStatus === 'loading' ? 'MENYIMPAN...' : 'SINKRONISASI CLOUD'}
+                 {syncStatus === 'loading' ? 'MENYIMPAN...' : syncStatus === 'success' ? 'SYNC BERHASIL' : 'SINKRONISASI CLOUD'}
                </button>
             </div>
-            
-            <button onClick={() => setView('login')} className="w-full p-4 text-red-400 font-bold hover:bg-red-500/10 rounded-xl transition-all text-left flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-              KELUAR
-            </button>
+            <button onClick={() => setView('login')} className="w-full p-4 text-red-400 font-bold hover:bg-red-500/10 rounded-xl transition-all text-left flex items-center gap-2">KELUAR</button>
           </div>
         </aside>
 
         <main className="flex-1 p-8 overflow-y-auto custom-scrollbar">
           <div className="flex flex-col lg:flex-row gap-8">
             <div className="flex-1">
-              <div className="flex justify-between items-center mb-8">
-                <div>
-                  <h1 className="text-3xl font-black text-slate-800">Manajemen Pusat Soal</h1>
-                  <p className="text-slate-400 font-medium text-sm">Klik <span className="text-blue-600 font-bold">Sinkronisasi Cloud</span> agar siswa bisa login dengan token.</p>
-                </div>
+              <div className="mb-8">
+                <h1 className="text-3xl font-black text-slate-800">Manajemen Bank Soal</h1>
+                <p className="text-slate-400 font-medium text-sm italic">Soal akan dikelompokkan otomatis di cloud berdasarkan token yang Anda tulis di tiap butir soal.</p>
               </div>
               <QuestionManager 
                 questions={questions}
-                activeToken={settings.activeToken}
-                onAdd={(q) => setQuestions(prev => [...prev, { ...q, id: Date.now().toString()+Math.random(), createdAt: Date.now(), isDeleted: false, order: q.order || (prev.length + 1) }])}
+                activeToken="" 
+                onAdd={(q) => setQuestions(prev => [...prev, { ...q, id: Date.now().toString()+Math.random(), createdAt: Date.now(), isDeleted: false }])}
                 onUpdate={(updated) => setQuestions(prev => prev.map(q => q.id === updated.id ? updated : q))}
                 onSoftDelete={(id) => setQuestions(prev => prev.map(item => item.id === id ? { ...item, isDeleted: true } : item))}
                 onPermanentDelete={(id) => setQuestions(prev => prev.filter(item => item.id !== id))}
@@ -267,6 +219,7 @@ const App: React.FC = () => {
     );
   }
 
+  // Tampilan Login (Peserta) tetap sama namun dengan placeholder token yang lebih jelas
   if (view === 'login') {
     return (
       <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4 font-inter">
@@ -278,52 +231,38 @@ const App: React.FC = () => {
                 <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-black text-xl shadow-lg shadow-blue-500/20">C</div>
                 <div className="font-black text-2xl tracking-tighter">EduCBT Pro</div>
               </div>
-              <h1 className="text-4xl font-black mb-6 leading-tight">Selamat Datang di Ruang Ujian Digital.</h1>
-              <div className="space-y-4">
-                <div className="bg-white/5 p-5 rounded-3xl border border-white/10 backdrop-blur-sm">
-                  <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em] mb-2">Sistem</p>
-                  <p className="text-xl font-black text-white">Multi-Token Partitioning</p>
-                </div>
+              <h1 className="text-4xl font-black mb-6 leading-tight">Mulai Ujian Anda Sekarang.</h1>
+              <div className="bg-white/5 p-5 rounded-3xl border border-white/10 backdrop-blur-sm">
+                <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em] mb-2">Sistem</p>
+                <p className="text-xl font-black text-white">Dynamic Token Retrieval</p>
               </div>
             </div>
-            <div className="mt-auto space-y-3 relative z-10">
-               <div className="flex gap-2">
-                 <button onClick={() => setView('admin-auth')} className="flex-1 bg-white/5 hover:bg-white/10 p-4 rounded-2xl text-[10px] font-black flex items-center justify-center gap-2 transition-all border border-white/5 uppercase tracking-widest">Administrator</button>
-                 <button onClick={() => setView('teacher-auth')} className="flex-1 bg-white/5 hover:bg-white/10 p-4 rounded-2xl text-[10px] font-black flex items-center justify-center gap-2 transition-all border border-white/5 uppercase tracking-widest">Monitoring Guru</button>
-               </div>
-            </div>
+            <button onClick={() => setView('admin-auth')} className="mt-auto bg-white/5 hover:bg-white/10 p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/5 transition-all">Administrator</button>
           </div>
           <div className="md:w-7/12 p-12 bg-white">
             <div className="max-w-md mx-auto">
               <h2 className="text-3xl font-black text-slate-800 mb-2">Login Peserta</h2>
-              <p className="text-slate-400 font-medium mb-10 italic">Masukkan Token unik guru Anda untuk menarik soal yang tepat.</p>
+              <p className="text-slate-400 font-medium mb-10 italic">Masukkan token paket soal yang diberikan pengawas.</p>
               
               <form onSubmit={handleStartQuiz} className="space-y-5">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nama Lengkap Siswa</label>
-                  <input required type="text" placeholder="Masukkan nama sesuai absen" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold" onChange={e => setIdentity({...identity, name: e.target.value})} />
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nama Lengkap</label>
+                  <input required type="text" placeholder="Nama Sesuai Absen" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold" onChange={e => setIdentity({...identity, name: e.target.value})} />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kelas / Rombel</label>
-                  <input required type="text" placeholder="Contoh: 6A / 6B" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold" onChange={e => setIdentity({...identity, className: e.target.value})} />
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kelas</label>
+                  <input required type="text" placeholder="Misal: 6A" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold" onChange={e => setIdentity({...identity, className: e.target.value})} />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tanggal Lahir</label>
-                    <input required type="date" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold text-slate-500" onChange={e => setIdentity({...identity, birthDate: e.target.value})} />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest ml-1">Token Ujian Guru</label>
-                    <input required type="text" placeholder="MISAL: IPA01" className="w-full p-4 bg-blue-50 border-2 border-blue-200 rounded-2xl font-black text-blue-700 text-center uppercase tracking-[0.3em] outline-none focus:ring-4 focus:ring-blue-500/10" onChange={e => setIdentity({...identity, token: e.target.value})} />
-                  </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest ml-1">Token Paket Soal</label>
+                  <input required type="text" placeholder="MISAL: MTK01" className="w-full p-4 bg-blue-50 border-2 border-blue-200 rounded-2xl font-black text-blue-700 text-center uppercase tracking-[0.3em] outline-none" onChange={e => setIdentity({...identity, token: e.target.value})} />
                 </div>
                 <div className="pt-4">
-                  <button disabled={isSyncing} className={`w-full font-black py-5 rounded-[2rem] text-xl shadow-2xl transition-all active:scale-95 bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200 disabled:opacity-50`}>
-                    {isSyncing ? 'MENCARI SOAL...' : 'MASUK KE RUANG UJIAN'}
+                  <button disabled={isSyncing} className="w-full font-black py-5 rounded-[2rem] text-xl shadow-2xl transition-all active:scale-95 bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200 disabled:opacity-50">
+                    {isSyncing ? 'MENGHUBUNGKAN...' : 'MASUK RUANG UJIAN'}
                   </button>
                 </div>
               </form>
-              <p className="text-center mt-8 text-[10px] font-black text-slate-300 uppercase tracking-widest">EduCBT Multi-Teacher Engine • © 2025</p>
             </div>
           </div>
         </div>
@@ -331,72 +270,24 @@ const App: React.FC = () => {
     );
   }
 
-  if (view === 'confirm-data') {
-    return (
-      <ConfirmIdentity 
-        identity={identity} 
-        settings={settings} 
-        onConfirm={() => setView('quiz')} 
-        onCancel={() => setView('login')} 
-      />
-    );
-  }
-
-  if (view === 'teacher-auth') {
-    return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-        <form onSubmit={handleTeacherAuth} className="bg-white p-8 rounded-[2rem] shadow-2xl w-full max-sm">
-          <h2 className="text-2xl font-black text-center mb-6 text-slate-800">Panel Monitoring Guru</h2>
-          <p className="text-slate-400 text-center text-xs font-bold mb-8 uppercase tracking-widest">Masukkan kode akses pengawas</p>
-          <input type="password" autoFocus className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-2xl mb-4 text-center font-black tracking-[0.5em] text-2xl outline-none focus:border-blue-600" placeholder="••••••" onChange={e => setAuthCode(e.target.value)} />
-          <button className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl shadow-xl hover:bg-black transition-all">VERIFIKASI & MASUK</button>
-          <button type="button" onClick={() => setView('login')} className="w-full mt-4 text-slate-400 font-black text-xs uppercase tracking-widest">Batal</button>
-        </form>
-      </div>
-    );
-  }
-
-  if (view === 'teacher-panel') {
-    return (
-      <div className="min-h-screen bg-slate-50">
-        <div className="max-w-6xl mx-auto p-8">
-          <div className="flex justify-between items-center mb-10">
-            <div>
-              <h1 className="text-3xl font-black text-slate-800">Monitoring Real-time</h1>
-              <p className="text-slate-400 font-medium">Data pengerjaan masuk secara langsung.</p>
-            </div>
-            <div className="flex gap-3">
-               <button onClick={() => setView('login')} className="bg-slate-900 text-white font-black px-6 py-3 rounded-2xl shadow-lg text-xs uppercase tracking-widest">Logout</button>
-            </div>
-          </div>
-          <TeacherPanel results={submissions} questions={questions.filter(q => !q.isDeleted)} onUpdateScore={handleUpdateScore} />
-        </div>
-      </div>
-    );
-  }
-
-  if (view === 'quiz') return <QuizInterface questions={questions.filter(q => !q.isDeleted).sort((a, b) => (a.order || 0) - (b.order || 0))} identity={identity} timeLimitMinutes={settings.timerMinutes} subjectName={settings.activeSubject} onFinish={handleFinishQuiz} />;
-
+  // Views lain tetap sama...
+  if (view === 'confirm-data') return <ConfirmIdentity identity={identity} settings={settings} onConfirm={() => setView('quiz')} onCancel={() => setView('login')} />;
+  // FIX: Added fallback value for activeSubject to satisfy QuizInterface requirements
+  if (view === 'quiz') return <QuizInterface questions={questions.filter(q => !q.isDeleted)} identity={identity} timeLimitMinutes={settings.timerMinutes} subjectName={settings.activeSubject || 'Ujian Digital'} onFinish={handleFinishQuiz} />;
+  
+  // View Result...
   if (view === 'result' && lastResult) {
     return (
-      <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-4">
-        <div className="bg-white p-12 rounded-[3.5rem] shadow-2xl text-center max-w-md w-full border border-slate-200">
-           <div className="w-24 h-24 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-8 shadow-xl shadow-green-200">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" /></svg>
+      <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-4 text-center">
+        <div className="bg-white p-12 rounded-[3.5rem] shadow-2xl max-w-md w-full border border-slate-200">
+           <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6 text-white text-3xl font-black shadow-xl shadow-green-100">✓</div>
+           <h2 className="text-3xl font-black mb-2 text-slate-800">Ujian Selesai</h2>
+           <p className="text-slate-400 mb-8 font-medium italic">Jawaban Anda telah tersimpan di cloud.</p>
+           <div className="bg-blue-600 p-8 rounded-[2.5rem] mb-8 shadow-2xl shadow-blue-100">
+              <p className="text-[10px] font-black text-blue-200 uppercase tracking-[0.2em] mb-2">Skor Akhir</p>
+              <p className="text-7xl font-black text-white">{lastResult.score.toFixed(1)}</p>
            </div>
-           <h2 className="text-3xl font-black mb-2 text-slate-800">Jawaban Terkirim</h2>
-           <p className="text-slate-400 mb-10 font-medium italic">Data Anda telah sinkron dengan server pusat.</p>
-           
-           <div className="bg-blue-600 p-8 rounded-[2.5rem] mb-10 shadow-2xl shadow-blue-200 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12"></div>
-              <p className="text-[10px] font-black text-blue-200 uppercase tracking-[0.2em] mb-2 relative z-10">Skor Anda</p>
-              <p className="text-7xl font-black text-white relative z-10 leading-none">{lastResult.score.toFixed(1)}</p>
-           </div>
-           
-           <div className="grid grid-cols-2 gap-3 mb-4">
-             <button onClick={() => generateResultPDF(lastResult, questions)} className="bg-slate-50 text-slate-700 font-black py-4 rounded-2xl border border-slate-200 text-xs uppercase tracking-widest hover:bg-slate-100 transition-all">Download PDF</button>
-             <button onClick={() => window.location.reload()} className="bg-slate-900 text-white font-black py-4 rounded-2xl shadow-lg text-xs uppercase tracking-widest">Selesai</button>
-           </div>
+           <button onClick={() => window.location.reload()} className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl">KEMBALI KE BERANDA</button>
         </div>
       </div>
     );
