@@ -8,6 +8,7 @@ import QuestionManager from './components/QuestionManager.tsx';
 import AdminSettings from './components/AdminSettings.tsx';
 import TeacherPanel from './components/TeacherPanel.tsx';
 import ConfirmIdentity from './components/ConfirmIdentity.tsx';
+import AiQuestionLab from './components/AiQuestionLab.tsx';
 import { generateResultPDF } from './services/pdfService.ts';
 import { 
   pushQuestionsToCloud, 
@@ -17,7 +18,7 @@ import {
   listenToSubmissions
 } from './services/supabaseService.ts';
 
-type ViewMode = 'login' | 'confirm-data' | 'quiz' | 'result' | 'admin-auth' | 'admin-panel' | 'teacher-auth' | 'teacher-panel';
+type ViewMode = 'login' | 'confirm-data' | 'quiz' | 'result' | 'admin-auth' | 'admin-panel' | 'teacher-auth' | 'teacher-panel' | 'ai-lab';
 
 const App: React.FC = () => {
   const [view, setView] = useState<ViewMode>('login');
@@ -47,8 +48,6 @@ const App: React.FC = () => {
   const [identity, setIdentity] = useState<StudentIdentity>({ name: '', className: '', birthDate: '', token: '' });
   const [lastResult, setLastResult] = useState<QuizResult | null>(null);
 
-  // --- LOGIKA SINKRONISASI CLOUD ---
-
   useEffect(() => {
     localStorage.setItem('cbt_questions', JSON.stringify(questions));
     if (view === 'admin-panel') {
@@ -62,6 +61,11 @@ const App: React.FC = () => {
       updateLiveSettings(settings);
     }
   }, [settings, view]);
+
+  // Save submissions to local storage when they change
+  useEffect(() => {
+    localStorage.setItem('cbt_submissions', JSON.stringify(submissions));
+  }, [submissions]);
 
   useEffect(() => {
     if (view === 'teacher-panel') {
@@ -87,33 +91,52 @@ const App: React.FC = () => {
     }
   }, [view]);
 
-  // --- ACTION HANDLERS ---
+  // Fix: Added handleTeacherAuth to verify teacher access code
+  const handleTeacherAuth = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (authCode === 'guru123') {
+      setView('teacher-panel');
+    } else {
+      alert('Kode Akses Guru Salah!');
+    }
+  };
+
+  // Fix: Added handleUpdateScore to update submissions with manual corrections
+  const handleUpdateScore = (resultId: string, corrections: { [key: string]: number }) => {
+    setSubmissions(prev => prev.map(res => {
+      if (res.id === resultId) {
+        const qCount = questions.filter(q => !q.isDeleted).length || 1;
+        const totalPoints = Object.values(corrections).reduce((sum, val) => sum + val, 0);
+        return { 
+          ...res, 
+          manualCorrections: corrections, 
+          score: totalPoints / qCount,
+          isCorrected: true 
+        };
+      }
+      return res;
+    }));
+  };
 
   const handleStartQuiz = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSyncing(true);
-    
     try {
       const cloudData = await getLiveExamData();
-      
       if (!cloudData) {
         alert('Server sedang tidak aktif atau token belum diatur oleh admin.');
         return;
       }
-
       if (identity.token.toUpperCase() !== cloudData.settings.activeToken.toUpperCase()) {
         alert('Token Ujian Tidak Valid! Mintalah token terbaru ke pengawas.');
         return;
       }
-
       setSettings(cloudData.settings);
       setQuestions(cloudData.questions);
-
       if (cloudData.questions.length === 0) {
         alert(`Belum ada soal untuk mata pelajaran ${cloudData.settings.activeSubject}.`);
         return;
       }
-
       setView('confirm-data');
     } catch (err) {
       alert('Gagal terhubung ke server ujian. Periksa koneksi internet Anda.');
@@ -125,7 +148,6 @@ const App: React.FC = () => {
   const handleFinishQuiz = async (result: QuizResult) => {
     setIsSyncing(true);
     const success = await submitResultToCloud(result);
-    
     if (success) {
       setLastResult(result);
       setView('result');
@@ -133,25 +155,6 @@ const App: React.FC = () => {
       alert('Gagal mengirim ke server! Silakan tekan tombol Selesai lagi.');
     }
     setIsSyncing(false);
-  };
-
-  const activeQuestionsForQuiz = questions
-    .filter(q => !q.isDeleted && q.subject === settings.activeSubject)
-    .sort((a, b) => (a.order || 0) - (b.order || 0));
-
-  const handleTeacherAuth = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (authCode === 'guru123') setView('teacher-panel');
-    else alert('Kode Guru Salah!');
-  };
-
-  const handleUpdateScore = (resultId: string, corrections: {[key: string]: number}) => {
-    setSubmissions(prev => prev.map(res => {
-      if (res.id === resultId) {
-        return { ...res, manualCorrections: corrections, isCorrected: true };
-      }
-      return res;
-    }));
   };
 
   const handleImportQuestions = (newQuestions: Question[], mode: 'replace' | 'append') => {
@@ -171,6 +174,7 @@ const App: React.FC = () => {
     }
   };
 
+  if (view === 'ai-lab') return <AiQuestionLab onBack={() => setView('login')} />;
   if (view === 'admin-auth') return <AdminLogin onLogin={() => setView('admin-panel')} />;
 
   if (view === 'admin-panel') {
@@ -249,6 +253,10 @@ const App: React.FC = () => {
               </div>
             </div>
             <div className="mt-auto space-y-3 relative z-10">
+               <button onClick={() => setView('ai-lab')} className="w-full bg-purple-600 hover:bg-purple-700 p-4 rounded-2xl text-[10px] font-black flex items-center justify-center gap-2 transition-all shadow-xl shadow-purple-900/40 uppercase tracking-widest border border-purple-400/30">
+                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                 AI Question Lab (Generator)
+               </button>
                <div className="flex gap-2">
                  <button onClick={() => setView('admin-auth')} className="flex-1 bg-white/5 hover:bg-white/10 p-4 rounded-2xl text-[10px] font-black flex items-center justify-center gap-2 transition-all border border-white/5 uppercase tracking-widest">Administrator</button>
                  <button onClick={() => setView('teacher-auth')} className="flex-1 bg-white/5 hover:bg-white/10 p-4 rounded-2xl text-[10px] font-black flex items-center justify-center gap-2 transition-all border border-white/5 uppercase tracking-widest">Monitoring Guru</button>
@@ -307,7 +315,7 @@ const App: React.FC = () => {
   if (view === 'teacher-auth') {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-        <form onSubmit={handleTeacherAuth} className="bg-white p-8 rounded-[2rem] shadow-2xl w-full max-w-sm">
+        <form onSubmit={handleTeacherAuth} className="bg-white p-8 rounded-[2rem] shadow-2xl w-full max-sm">
           <h2 className="text-2xl font-black text-center mb-6 text-slate-800">Panel Monitoring Guru</h2>
           <p className="text-slate-400 text-center text-xs font-bold mb-8 uppercase tracking-widest">Masukkan kode akses pengawas</p>
           <input type="password" autoFocus className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-2xl mb-4 text-center font-black tracking-[0.5em] text-2xl outline-none focus:border-blue-600" placeholder="••••••" onChange={e => setAuthCode(e.target.value)} />
@@ -337,7 +345,7 @@ const App: React.FC = () => {
     );
   }
 
-  if (view === 'quiz') return <QuizInterface questions={activeQuestionsForQuiz} identity={identity} timeLimitMinutes={settings.timerMinutes} subjectName={settings.activeSubject} onFinish={handleFinishQuiz} />;
+  if (view === 'quiz') return <QuizInterface questions={questions.filter(q => !q.isDeleted && q.subject === settings.activeSubject).sort((a, b) => (a.order || 0) - (b.order || 0))} identity={identity} timeLimitMinutes={settings.timerMinutes} subjectName={settings.activeSubject} onFinish={handleFinishQuiz} />;
 
   if (view === 'result' && lastResult) {
     return (
@@ -356,7 +364,7 @@ const App: React.FC = () => {
            </div>
            
            <div className="grid grid-cols-2 gap-3 mb-4">
-             <button onClick={() => generateResultPDF(lastResult, activeQuestionsForQuiz)} className="bg-slate-50 text-slate-700 font-black py-4 rounded-2xl border border-slate-200 text-xs uppercase tracking-widest hover:bg-slate-100 transition-all">Download PDF</button>
+             <button onClick={() => generateResultPDF(lastResult, questions.filter(q => !q.isDeleted && q.subject === settings.activeSubject))} className="bg-slate-50 text-slate-700 font-black py-4 rounded-2xl border border-slate-200 text-xs uppercase tracking-widest hover:bg-slate-100 transition-all">Download PDF</button>
              <button onClick={() => window.location.reload()} className="bg-slate-900 text-white font-black py-4 rounded-2xl shadow-lg text-xs uppercase tracking-widest">Selesai</button>
            </div>
         </div>
