@@ -6,9 +6,12 @@ import { Subject, QuestionType, CognitiveLevel } from "../types.ts";
  * Menghasilkan gambar ilustrasi soal menggunakan Gemini 3 Pro Image
  */
 export const generateAIImage = async (prompt: string): Promise<string | null> => {
+  if (!process.env.API_KEY) {
+    throw new Error("API Key belum dipilih. Silakan klik tombol 'PILIH KUNCI' pada tab AI Generator.");
+  }
+
   try {
-    // Inisialisasi baru setiap kali untuk menangani pembaruan kunci di browser
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-image-preview',
       contents: {
@@ -25,7 +28,6 @@ export const generateAIImage = async (prompt: string): Promise<string | null> =>
     return null;
   } catch (error: any) {
     console.error("AI Image Generation Error:", error);
-    // Jika error karena kunci tidak ditemukan, biarkan pemanggil menangani alur pemilihan kunci
     throw error;
   }
 };
@@ -42,8 +44,11 @@ export const generateBatchAIQuestions = async (
   fileData?: { data: string, mimeType: string },
   customPrompt?: string
 ) => {
-  // Inisialisasi baru untuk memastikan menggunakan kunci terbaru dari environment/bridge
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+  if (!process.env.API_KEY) {
+    throw new Error("API Key belum dipilih. Silakan klik tombol 'PILIH KUNCI' pada tab AI Generator.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const levelInstruction = specificLevel !== 'RANDOM' 
     ? `Semua soal HARUS memiliki level kognitif: ${specificLevel}.`
@@ -56,7 +61,7 @@ export const generateBatchAIQuestions = async (
       : fileData.data;
   }
 
-  const promptText = `Anda adalah pakar pembuat soal ujian nasional Indonesia.
+  const promptText = `Anda adalah pakar pembuat soal ujian Indonesia.
              Buatkan ${count} butir soal untuk mata pelajaran "${subject}".
              
              KONTEKS MATERI:
@@ -67,11 +72,11 @@ export const generateBatchAIQuestions = async (
              - Tipe: ${specificType !== 'RANDOM' ? specificType : 'Variasikan Tipe Soal'}
              - Level: ${levelInstruction}
              
-             FORMAT JAWABAN (correctAnswer):
-             - Pilihan Ganda: angka (0-3).
-             - Pilihan Jamak: array index [0, 2].
-             - Kompleks: array boolean [true, false].
-             - Isian: string.`;
+             PANDUAN JAWABAN (correctAnswer):
+             - SINGLE: Angka indeks (0-3).
+             - MULTIPLE: Array angka [0, 2].
+             - COMPLEX: Array boolean [true, false].
+             - SHORT: String teks singkat.`;
 
   const parts: any[] = [{ text: promptText }];
 
@@ -90,8 +95,7 @@ export const generateBatchAIQuestions = async (
       contents: { parts },
       config: {
         responseMimeType: "application/json",
-        // Menggunakan thinking budget untuk kualitas logika soal yang lebih baik (HOTS)
-        thinkingConfig: { thinkingBudget: 2000 },
+        thinkingConfig: { thinkingBudget: 4000 },
         responseSchema: {
           type: Type.ARRAY,
           items: {
@@ -112,22 +116,24 @@ export const generateBatchAIQuestions = async (
     });
 
     const responseText = response.text;
-    if (!responseText) throw new Error("AI response empty");
+    if (!responseText) throw new Error("AI memberikan respons kosong.");
 
     const raw = JSON.parse(responseText);
     
     return raw.map((q: any) => {
       let standardizedAnswer = q.correctAnswer;
+      // Normalisasi tipe data jawaban karena schema JSON sering mengembalikan string
       try {
         if (q.type === QuestionType.SINGLE) {
           standardizedAnswer = parseInt(String(q.correctAnswer), 10);
         } else if (q.type === QuestionType.MULTIPLE || q.type === QuestionType.COMPLEX_CATEGORY) {
           if (typeof q.correctAnswer === 'string') {
-            standardizedAnswer = JSON.parse(q.correctAnswer.replace(/'/g, '"'));
+            const cleaned = q.correctAnswer.replace(/'/g, '"');
+            standardizedAnswer = JSON.parse(cleaned);
           }
         }
       } catch (e) {
-        console.warn("Parsing answer error, keeping raw");
+        console.warn("Kesalahan parsing jawaban, menggunakan data mentah.");
       }
 
       return { 

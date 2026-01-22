@@ -25,7 +25,6 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   const [generatingOptionIdx, setGeneratingOptionIdx] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   
-  // State untuk melacak apakah kunci sudah dipilih (Hanya berlaku di lingkungan AI Studio)
   const [isKeySelected, setIsKeySelected] = useState(true);
   const [hasAiStudio, setHasAiStudio] = useState(false);
   
@@ -41,7 +40,6 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   const aiFileInputRef = useRef<HTMLInputElement>(null);
   const optionFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Cek ketersediaan Bridge AI Studio
   useEffect(() => {
     const checkAiStudio = async () => {
       // @ts-ignore
@@ -52,7 +50,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
         setIsKeySelected(selected);
       } else {
         setHasAiStudio(false);
-        setIsKeySelected(true); // Berasumsi kunci environment tersedia di Browser Standar
+        setIsKeySelected(true); 
       }
     };
     checkAiStudio();
@@ -70,14 +68,12 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   const handleBatchAI = async () => {
     if (!aiMaterial && !aiFile) return alert("Masukkan acuan materi atau upload dokumen.");
     
-    // Hanya buka dialog jika bridge tersedia
     // @ts-ignore
     if (window.aistudio) {
       // @ts-ignore
       const isSelected = await window.aistudio.hasSelectedApiKey();
       if (!isSelected) {
-        // @ts-ignore
-        await window.aistudio.openSelectKey();
+        await handleOpenKeySelector();
       }
     }
 
@@ -111,11 +107,11 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
       console.error(err);
       const msg = err.message || "";
       if (msg.includes("Requested entity was not found")) {
-        // Reset state jika kunci salah/tidak valid
         setIsKeySelected(false);
+        alert("Kunci API tidak valid atau tidak ditemukan. Pastikan Anda memilih kunci dari proyek GCP yang sudah memiliki billing aktif.");
         await handleOpenKeySelector();
       } else {
-        alert(`Terjadi kesalahan sistem AI. Pastikan konfigurasi API sudah benar.`);
+        alert(`Gagal Generate Soal: ${msg || "Terjadi kesalahan sistem AI."}`);
       }
     } finally {
       setIsAiLoading(false);
@@ -165,7 +161,13 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
       const img = await generateAIImage(formData.text);
       if (img) setFormData({ ...formData, questionImage: img });
     } catch (err: any) {
-      console.error(err);
+      const msg = err.message || "";
+      if (msg.includes("Requested entity was not found")) {
+        setIsKeySelected(false);
+        await handleOpenKeySelector();
+      } else {
+        alert(`Gagal Generate Gambar: ${msg}`);
+      }
     }
     setIsImageGenerating(false);
   };
@@ -182,7 +184,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
         setFormData({ ...formData, optionImages: nextImgs });
       }
     } catch (err: any) {
-      console.error(err);
+      alert(`Gagal Generate Gambar Opsi: ${err.message}`);
     }
     setGeneratingOptionIdx(null);
   };
@@ -355,23 +357,38 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
         )}
         {activeTab === 'ai' && (
            <div className="max-w-3xl mx-auto py-12 px-6 space-y-8">
-              {/* Hanya tampilkan pemilihan kunci jika berada di lingkungan AI Studio */}
               {hasAiStudio && !isKeySelected && (
-                <div className="bg-amber-50 border border-amber-200 p-6 rounded-3xl flex flex-col md:flex-row items-center gap-4 animate-pulse">
-                  <div className="bg-amber-100 p-3 rounded-full text-amber-600">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                <div className="bg-amber-50 border border-amber-200 p-8 rounded-[2.5rem] flex flex-col gap-6 animate-in fade-in slide-in-from-top-4 duration-500 shadow-xl shadow-amber-100/50">
+                  <div className="flex flex-col md:flex-row items-center gap-6">
+                    <div className="bg-white p-4 rounded-3xl text-amber-600 shadow-inner">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                    </div>
+                    <div className="flex-1 text-center md:text-left">
+                      <p className="text-xl font-black text-amber-900 leading-tight">Konfigurasi AI Diperlukan</p>
+                      <p className="text-sm text-amber-700 font-medium mt-1 leading-relaxed">Anda harus memilih **Paid API Key** dari proyek Google Cloud untuk menggunakan fitur Gemini 3 Pro.</p>
+                    </div>
+                    <button onClick={handleOpenKeySelector} className="whitespace-nowrap bg-amber-600 text-white px-8 py-4 rounded-2xl text-xs font-black shadow-lg shadow-amber-300 transition-all hover:bg-amber-700 active:scale-95 uppercase tracking-widest">Pilih Kunci API</button>
                   </div>
-                  <div className="flex-1 text-center md:text-left">
-                    <p className="text-sm font-black text-amber-800">Pilih API Key Pro</p>
-                    <p className="text-xs text-amber-600 font-medium italic">Anda perlu memilih kunci berbayar dari proyek GCP untuk menggunakan fitur AI ini.</p>
+                  <div className="pt-4 border-t border-amber-200 flex flex-col gap-3">
+                    <p className="text-[10px] font-black text-amber-800 uppercase tracking-widest">Langkah-langkah:</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-white/50 p-3 rounded-2xl text-[11px] text-amber-900 font-bold border border-amber-100 flex items-start gap-3">
+                        <span className="bg-amber-600 text-white w-5 h-5 rounded-full flex items-center justify-center shrink-0">1</span>
+                        <span>Siapkan proyek berbayar di dashboard Google AI Studio.</span>
+                      </div>
+                      <div className="bg-white/50 p-3 rounded-2xl text-[11px] text-amber-900 font-bold border border-amber-100 flex items-start gap-3">
+                        <span className="bg-amber-600 text-white w-5 h-5 rounded-full flex items-center justify-center shrink-0">2</span>
+                        <span>Pastikan billing diaktifkan pada tautan resmi di bawah.</span>
+                      </div>
+                    </div>
+                    <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="text-[10px] font-black text-blue-600 hover:text-blue-800 underline uppercase tracking-widest mt-2">Dokumentasi Billing Google Gemini →</a>
                   </div>
-                  <button onClick={handleOpenKeySelector} className="bg-amber-600 text-white px-6 py-2.5 rounded-xl text-xs font-black shadow-lg shadow-amber-200 transition-all hover:bg-amber-700">PILIH KUNCI</button>
                 </div>
               )}
 
               <div className="text-center space-y-2 mb-4">
-                <h2 className="text-2xl font-black text-slate-800">AI Soal Generator (Pro)</h2>
-                <p className="text-slate-400 text-sm">Gunakan kecerdasan buatan Gemini 3 Pro untuk merancang butir soal analisis.</p>
+                <h2 className="text-2xl font-black text-slate-800">AI Soal Generator (Gemini 3 Pro)</h2>
+                <p className="text-slate-400 text-sm italic">Otomasi pembuatan bank soal HOTS dari materi ajar pilihan Anda.</p>
               </div>
 
               <div className="space-y-2">
@@ -409,13 +426,16 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                 </div>
               </div>
 
-              <button onClick={handleBatchAI} disabled={isAiLoading} className="w-full bg-purple-600 text-white font-black py-5 rounded-[1.5rem] shadow-xl shadow-purple-200 hover:bg-purple-700 transition-all active:scale-[0.98]">
-                {isAiLoading ? "MEMPROSES DENGAN GEMINI PRO..." : "GENERATE SOAL AI"}
+              <button onClick={handleBatchAI} disabled={isAiLoading || (hasAiStudio && !isKeySelected)} className="w-full bg-purple-600 text-white font-black py-5 rounded-[1.5rem] shadow-xl shadow-purple-200 hover:bg-purple-700 transition-all active:scale-[0.98] disabled:opacity-50">
+                {isAiLoading ? "MEMPROSES DENGAN GEMINI 3 PRO..." : "GENERATE SOAL SEKARANG"}
               </button>
               
-              {hasAiStudio && (
-                <div className="text-center">
-                  <button onClick={handleOpenKeySelector} className="text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest">Update AI Key Selection</button>
+              {hasAiStudio && isKeySelected && (
+                <div className="flex justify-center gap-4">
+                  <button onClick={handleOpenKeySelector} className="text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest flex items-center gap-1 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
+                    Update API Key
+                  </button>
                 </div>
               )}
            </div>
@@ -462,12 +482,12 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                     <div className="flex-1">
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Media Soal</p>
                       <div className="flex gap-2">
-                        <button onClick={() => fileInputRef.current?.click()} className="bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-xl text-[10px] font-black hover:bg-slate-50 flex items-center gap-2">UPLOAD</button>
-                        <button onClick={handleGenerateMainImage} disabled={isImageGenerating} className="bg-purple-600 text-white px-4 py-2 rounded-xl text-[10px] font-black hover:bg-purple-700">AI PRO IMAGE</button>
+                        <button onClick={() => fileInputRef.current?.click()} className="bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-xl text-[10px] font-black hover:bg-slate-50 flex items-center gap-2 transition-all">UPLOAD</button>
+                        <button onClick={handleGenerateMainImage} disabled={isImageGenerating || (hasAiStudio && !isKeySelected)} className="bg-purple-600 text-white px-4 py-2 rounded-xl text-[10px] font-black hover:bg-purple-700 disabled:opacity-50 transition-all">AI PRO IMAGE</button>
                       </div>
                       <input type="file" ref={fileInputRef} onChange={(e) => handleUploadImage(e)} className="hidden" accept="image/*" />
                     </div>
-                    {formData.questionImage && <img src={formData.questionImage} className="w-24 h-24 object-cover rounded-xl border" alt="Preview" />}
+                    {formData.questionImage && <img src={formData.questionImage} className="w-24 h-24 object-cover rounded-xl border shadow-sm" alt="Preview" />}
                   </div>
                </div>
 
@@ -475,23 +495,30 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                  <div className="space-y-4">
                     <div className="flex justify-between items-center">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Opsi Jawaban</label>
-                      <button onClick={handleAddOption} className="text-[10px] font-black text-blue-600 hover:underline">+ Opsi</button>
+                      <button onClick={handleAddOption} className="text-[10px] font-black text-blue-600 hover:underline">+ Tambah Opsi</button>
                     </div>
                     <div className="space-y-3">
                       {formData.options.map((opt, idx) => (
-                        <div key={idx} className="flex gap-4 items-start bg-white p-4 border border-slate-200 rounded-2xl group">
+                        <div key={idx} className="flex gap-4 items-start bg-white p-4 border border-slate-200 rounded-2xl group hover:border-blue-200 transition-all shadow-sm">
                            <div className="pt-2">
-                             {formData.type === QuestionType.SINGLE && <input type="radio" name="correctSingle" checked={formData.correctAnswer === idx} onChange={() => setFormData({...formData, correctAnswer: idx})} />}
-                             {formData.type === QuestionType.MULTIPLE && <input type="checkbox" checked={(formData.correctAnswer || []).includes(idx)} onChange={(e) => { const prev = formData.correctAnswer || []; const next = e.target.checked ? [...prev, idx] : prev.filter((i:any) => i !== idx); setFormData({...formData, correctAnswer: next}); }} />}
+                             {formData.type === QuestionType.SINGLE && <input type="radio" name="correctSingle" checked={formData.correctAnswer === idx} onChange={() => setFormData({...formData, correctAnswer: idx})} className="w-5 h-5 accent-blue-600" />}
+                             {formData.type === QuestionType.MULTIPLE && <input type="checkbox" checked={(formData.correctAnswer || []).includes(idx)} onChange={(e) => { const prev = formData.correctAnswer || []; const next = e.target.checked ? [...prev, idx] : prev.filter((i:any) => i !== idx); setFormData({...formData, correctAnswer: next}); }} className="w-5 h-5 accent-blue-600" />}
+                             {formData.type === QuestionType.COMPLEX_CATEGORY && (
+                               <div className="flex flex-col gap-1 items-center">
+                                 <button onClick={() => { const next = [...formData.correctAnswer]; next[idx] = true; setFormData({...formData, correctAnswer: next}); }} className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${formData.correctAnswer[idx] === true ? 'bg-green-600 text-white' : 'bg-slate-100 text-slate-400'}`}>YA</button>
+                                 <button onClick={() => { const next = [...formData.correctAnswer]; next[idx] = false; setFormData({...formData, correctAnswer: next}); }} className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${formData.correctAnswer[idx] === false ? 'bg-red-500 text-white' : 'bg-slate-100 text-slate-400'}`}>TD</button>
+                               </div>
+                             )}
                            </div>
                            <div className="flex-1 space-y-2">
-                              <input type="text" value={opt} onChange={(e) => { const next = [...formData.options]; next[idx] = e.target.value; setFormData({...formData, options: next}); }} className="w-full bg-transparent border-b border-slate-200 outline-none focus:border-blue-500 py-1 text-sm" placeholder={`Teks Opsi ${idx+1}...`} />
-                              <div className="flex gap-2">
-                                 <button onClick={() => { setGeneratingOptionIdx(idx); optionFileInputRef.current?.click(); }} className="text-[9px] font-bold text-slate-400">UPLOAD</button>
-                                 <button onClick={() => handleGenerateOptionImage(idx)} className="text-[9px] font-bold text-slate-400">AI</button>
-                                 <button onClick={() => handleRemoveOption(idx)} className="text-[9px] font-bold text-red-400">HAPUS</button>
+                              <input type="text" value={opt} onChange={(e) => { const next = [...formData.options]; next[idx] = e.target.value; setFormData({...formData, options: next}); }} className="w-full bg-transparent border-b border-slate-100 outline-none focus:border-blue-500 py-1 text-sm font-medium" placeholder={`Teks Opsi ${idx+1}...`} />
+                              <div className="flex gap-4">
+                                 <button onClick={() => { setGeneratingOptionIdx(idx); optionFileInputRef.current?.click(); }} className="text-[9px] font-black text-slate-400 hover:text-blue-600 uppercase tracking-widest transition-colors">Upload</button>
+                                 <button onClick={() => handleGenerateOptionImage(idx)} disabled={isImageGenerating || (hasAiStudio && !isKeySelected)} className="text-[9px] font-black text-purple-400 hover:text-purple-600 disabled:opacity-50 uppercase tracking-widest transition-colors">AI Image</button>
+                                 <button onClick={() => handleRemoveOption(idx)} className="text-[9px] font-black text-red-300 hover:text-red-500 uppercase tracking-widest transition-colors">Hapus</button>
                               </div>
                            </div>
+                           {formData.optionImages[idx] && <img src={formData.optionImages[idx]} className="w-12 h-12 object-cover rounded-lg border" />}
                         </div>
                       ))}
                     </div>
@@ -499,9 +526,16 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                  </div>
                )}
 
+               <div className="space-y-4 pt-4">
+                  <div className="flex flex-col gap-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Penjelasan / Pembahasan</label>
+                    <textarea value={formData.explanation} onChange={e => setFormData({...formData, explanation: e.target.value})} className="w-full p-5 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-2xl h-24 outline-none font-medium text-sm italic" placeholder="Tuliskan alasan atau cara penyelesaian..." />
+                  </div>
+               </div>
+
                <div className="flex gap-4 py-6 border-t bg-white sticky bottom-0">
-                 <button onClick={closeForm} className="flex-1 py-4 text-slate-400 font-black text-xs uppercase">BATAL</button>
-                 <button onClick={() => { if (editingId) onUpdate({...formData, id: editingId, isDeleted: false, createdAt: Date.now()}); else onAdd({...formData, id: Math.random().toString(), isDeleted: false, createdAt: Date.now(), order: formData.order }); closeForm(); }} className="flex-[2] py-4 bg-blue-600 text-white font-black rounded-2xl">SIMPAN SOAL</button>
+                 <button onClick={closeForm} className="flex-1 py-4 text-slate-400 font-black text-xs uppercase tracking-widest hover:text-slate-600 transition-colors">Batal</button>
+                 <button onClick={() => { if (editingId) onUpdate({...formData, id: editingId, isDeleted: false, createdAt: Date.now()}); else onAdd({...formData, id: Math.random().toString(), isDeleted: false, createdAt: Date.now(), order: formData.order }); closeForm(); }} className="flex-[2] py-4 bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95 uppercase tracking-widest">Simpan Soal</button>
                </div>
              </div>
           </div>
