@@ -23,6 +23,7 @@ const App: React.FC = () => {
   const [view, setView] = useState<ViewMode>('login');
   const [authCode, setAuthCode] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
   // State Management
   const [questions, setQuestions] = useState<Question[]>(() => {
@@ -49,21 +50,31 @@ const App: React.FC = () => {
 
   useEffect(() => {
     localStorage.setItem('cbt_questions', JSON.stringify(questions));
-    if (view === 'admin-panel') {
-      pushQuestionsToCloud(questions, settings.activeToken);
-    }
-  }, [questions, view, settings.activeToken]);
+  }, [questions]);
 
   useEffect(() => {
     localStorage.setItem('cbt_settings', JSON.stringify(settings));
-    if (view === 'admin-panel') {
-      updateLiveSettings(settings);
-    }
-  }, [settings, view]);
+  }, [settings]);
 
   useEffect(() => {
     localStorage.setItem('cbt_submissions', JSON.stringify(submissions));
   }, [submissions]);
+
+  // Handler Sinkronisasi Manual
+  const handleCloudSync = async () => {
+    setSyncStatus('loading');
+    try {
+      // Kirim soal dan pengaturan sekaligus
+      await pushQuestionsToCloud(questions, settings.activeToken);
+      await updateLiveSettings(settings);
+      setSyncStatus('success');
+      setTimeout(() => setSyncStatus('idle'), 3000);
+    } catch (err) {
+      console.error(err);
+      setSyncStatus('error');
+      alert("Gagal sinkronisasi ke Cloud. Periksa koneksi internet.");
+    }
+  };
 
   useEffect(() => {
     if (view === 'teacher-panel') {
@@ -178,7 +189,8 @@ const App: React.FC = () => {
             <div className="w-8 h-8 bg-blue-600 rounded-lg"></div>
             CBT SERVER
           </div>
-          <nav className="space-y-2">
+          
+          <nav className="space-y-2 flex-1">
             <button className="w-full text-left p-4 bg-white/10 rounded-xl font-bold border-l-4 border-blue-500">BANK SOAL</button>
             <button onClick={() => setView('teacher-panel')} className="w-full text-left p-4 text-slate-400 hover:text-white font-bold transition-all">PANEL MONITORING</button>
             <button 
@@ -189,15 +201,45 @@ const App: React.FC = () => {
                GENERATOR AI
             </button>
           </nav>
-          <button onClick={() => setView('login')} className="mt-auto p-4 text-red-400 font-bold hover:bg-red-500/10 rounded-xl transition-all">KELUAR</button>
+
+          <div className="mt-auto space-y-4">
+            <div className="p-4 bg-white/5 border border-white/10 rounded-2xl">
+               <div className="flex items-center justify-between mb-3">
+                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Status Cloud</span>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span className="text-[9px] font-black text-green-500 uppercase">Online</span>
+                  </div>
+               </div>
+               <button 
+                 onClick={handleCloudSync}
+                 disabled={syncStatus === 'loading'}
+                 className={`w-full py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 shadow-xl ${
+                   syncStatus === 'loading' ? 'bg-slate-700 text-slate-400 cursor-not-allowed' :
+                   syncStatus === 'success' ? 'bg-green-600 text-white' :
+                   syncStatus === 'error' ? 'bg-red-600 text-white' :
+                   'bg-blue-600 hover:bg-blue-700 text-white'
+                 }`}
+               >
+                 {syncStatus === 'loading' && <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>}
+                 {syncStatus === 'success' ? 'BERHASIL DISYNC' : syncStatus === 'loading' ? 'MENYIMPAN...' : 'SINKRONISASI CLOUD'}
+               </button>
+            </div>
+            
+            <button onClick={() => setView('login')} className="w-full p-4 text-red-400 font-bold hover:bg-red-500/10 rounded-xl transition-all text-left flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+              KELUAR
+            </button>
+          </div>
         </aside>
+
         <main className="flex-1 p-8 overflow-y-auto custom-scrollbar">
           <div className="flex flex-col lg:flex-row gap-8">
             <div className="flex-1">
               <div className="flex justify-between items-center mb-8">
                 <div>
                   <h1 className="text-3xl font-black text-slate-800">Manajemen Pusat Soal</h1>
-                  <p className="text-slate-400 font-medium text-sm">Mengatur soal untuk multi-tenant partition.</p>
+                  <p className="text-slate-400 font-medium text-sm">Klik <span className="text-blue-600 font-bold">Sinkronisasi Cloud</span> agar siswa bisa login dengan token.</p>
                 </div>
               </div>
               <QuestionManager 
