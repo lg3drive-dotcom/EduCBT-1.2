@@ -171,7 +171,7 @@ const App: React.FC = () => {
     }
   };
 
-  if (view === 'ai-lab') return <AiQuestionLab onBack={() => setView('login')} />;
+  if (view === 'ai-lab') return <AiQuestionLab onBack={() => setView('admin-panel')} />;
   
   if (view === 'ai-choice') {
     return (
@@ -203,7 +203,7 @@ const App: React.FC = () => {
                 </div>
              </button>
           </div>
-          <button onClick={() => setView('login')} className="mt-12 text-slate-400 hover:text-slate-600 font-black text-xs uppercase tracking-[0.2em] transition-colors">Batal & Kembali</button>
+          <button onClick={() => setView('admin-panel')} className="mt-12 text-slate-400 hover:text-slate-600 font-black text-xs uppercase tracking-[0.2em] transition-colors">Batal & Kembali</button>
         </div>
       </div>
     );
@@ -222,6 +222,10 @@ const App: React.FC = () => {
           <nav className="space-y-2">
             <button className="w-full text-left p-4 bg-white/10 rounded-xl font-bold border-l-4 border-blue-500">BANK SOAL</button>
             <button onClick={() => setView('teacher-panel')} className="w-full text-left p-4 text-slate-400 hover:text-white font-bold transition-all">PANEL MONITORING</button>
+            <button onClick={() => setView('ai-choice')} className="w-full text-left p-4 text-purple-400 hover:text-purple-300 font-black flex items-center gap-2 transition-all">
+               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+               GENERATOR AI
+            </button>
             <div className="pt-8 pb-2 px-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Koneksi Server</div>
             <div className="px-4 flex items-center gap-2">
                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -287,10 +291,6 @@ const App: React.FC = () => {
               </div>
             </div>
             <div className="mt-auto space-y-3 relative z-10">
-               <button onClick={() => setView('ai-choice')} className="w-full bg-purple-600 hover:bg-purple-700 p-4 rounded-2xl text-[10px] font-black flex items-center justify-center gap-2 transition-all shadow-xl shadow-purple-900/40 uppercase tracking-widest border border-purple-400/30">
-                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                 AI Question Lab (Generator)
-               </button>
                <div className="flex gap-2">
                  <button onClick={() => setView('admin-auth')} className="flex-1 bg-white/5 hover:bg-white/10 p-4 rounded-2xl text-[10px] font-black flex items-center justify-center gap-2 transition-all border border-white/5 uppercase tracking-widest">Administrator</button>
                  <button onClick={() => setView('teacher-auth')} className="flex-1 bg-white/5 hover:bg-white/10 p-4 rounded-2xl text-[10px] font-black flex items-center justify-center gap-2 transition-all border border-white/5 uppercase tracking-widest">Monitoring Guru</button>
