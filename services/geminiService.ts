@@ -7,7 +7,7 @@ import { Subject, QuestionType, CognitiveLevel } from "../types.ts";
  */
 export const generateAIImage = async (prompt: string): Promise<string | null> => {
   if (!process.env.API_KEY) {
-    throw new Error("API Key belum dipilih. Silakan klik tombol 'PILIH KUNCI' pada tab AI Generator.");
+    throw new Error("API Key sistem tidak ditemukan. Hubungi administrator.");
   }
 
   try {
@@ -45,7 +45,7 @@ export const generateBatchAIQuestions = async (
   customPrompt?: string
 ) => {
   if (!process.env.API_KEY) {
-    throw new Error("API Key belum dipilih. Silakan klik tombol 'PILIH KUNCI' pada tab AI Generator.");
+    throw new Error("API Key sistem tidak ditemukan. Hubungi administrator.");
   }
 
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -122,7 +122,6 @@ export const generateBatchAIQuestions = async (
     
     return raw.map((q: any) => {
       let standardizedAnswer = q.correctAnswer;
-      // Normalisasi tipe data jawaban karena schema JSON sering mengembalikan string
       try {
         if (q.type === QuestionType.SINGLE) {
           standardizedAnswer = parseInt(String(q.correctAnswer), 10);
