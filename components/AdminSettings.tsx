@@ -1,7 +1,6 @@
 
 import React, { useState, useRef } from 'react';
 import { AppSettings, Question } from '../types';
-import { SUBJECT_LIST } from '../constants';
 
 interface AdminSettingsProps {
   settings: AppSettings;
@@ -17,6 +16,7 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, questions, onUp
 
   const handleSave = () => {
     onUpdateSettings({
+      ...settings,
       timerMinutes: parseInt(timer) || 60
     });
     alert('Pengaturan waktu berhasil disimpan!');
@@ -36,7 +36,7 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, questions, onUp
     <div className="space-y-6">
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
         <h2 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M11.49 3.17c-.38-3.9-5.59-3.9-5.81 0H2.15c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h15.7c1.1 0 2-.9 2-2V5.17c0-1.1-.9-2-2-2h-6.36zM3 7a1 1 0 011-1h1a1 1 0 110 2H4a1 1 0 01-1-1zm3 1a1 1 0 100-2H5a1 1 0 100 2h1zm2-1a1 1 0 011-1h1a1 1 0 110 2H9a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" /></svg>
           Durasi Ujian
         </h2>
         
@@ -55,7 +55,7 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, questions, onUp
           Data & Backup
         </h2>
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           <button onClick={handleBackup} className="w-full bg-slate-100 text-slate-700 font-bold py-3 rounded-2xl border border-slate-200 hover:bg-slate-200 transition-all uppercase text-[10px] tracking-widest">Download Bank Soal</button>
           
           <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={(e) => {
@@ -66,7 +66,7 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, questions, onUp
               try {
                 const imported = JSON.parse(event.target?.result as string);
                 onImportQuestions(imported, 'replace');
-                alert("Import berhasil! Tekan Sinkronisasi Cloud untuk mengirim ke server.");
+                alert("Import berhasil! Tekan Sinkronisasi Cloud untuk memperbarui server.");
               } catch(e) { alert("Format file tidak valid."); }
             };
             reader.readAsText(file);
@@ -76,6 +76,11 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, questions, onUp
           
           <button onClick={() => { if(confirm('Kosongkan semua soal di perangkat?')) onReset(); }} className="w-full text-red-500 text-[10px] font-black uppercase tracking-[0.2em] pt-4">Reset Lokal</button>
         </div>
+      </div>
+      
+      <div className="p-5 bg-blue-50 border border-blue-100 rounded-3xl">
+        <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-2">Tips Token</p>
+        <p className="text-[11px] text-blue-800 leading-relaxed font-medium">Sistem kini <b>otomatis</b>. Siswa cukup masukkan token yang Anda tulis di edit soal. Pastikan tekan tombol sinkron setiap ada perubahan token soal.</p>
       </div>
     </div>
   );

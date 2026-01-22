@@ -8,7 +8,8 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 /**
- * ADMIN: Mengirim bank soal ke cloud menggunakan token MASING-MASING soal
+ * ADMIN: Mengirim bank soal ke cloud. 
+ * Setiap soal membawa identitas tokennya masing-masing.
  */
 export const pushQuestionsToCloud = async (questions: Question[]) => {
   const { error } = await supabase
@@ -28,8 +29,9 @@ export const pushQuestionsToCloud = async (questions: Question[]) => {
       is_deleted: q.isDeleted,
       created_at: q.createdAt,
       order: q.order,
-      quiz_token: q.quizToken?.toUpperCase() // Gunakan token unik tiap soal!
+      quiz_token: (q.quizToken || 'UJI01').toUpperCase() // Fallback ke UJI01 jika kosong
     })));
+  
   if (error) {
     console.error("Gagal sinkron soal ke Cloud:", error);
     throw error;
@@ -37,7 +39,7 @@ export const pushQuestionsToCloud = async (questions: Question[]) => {
 };
 
 /**
- * ADMIN: Mengupdate durasi waktu global
+ * ADMIN: Mengupdate durasi waktu global (berlaku untuk semua ujian)
  */
 export const updateLiveSettings = async (settings: AppSettings) => {
   const { error } = await supabase
@@ -50,14 +52,14 @@ export const updateLiveSettings = async (settings: AppSettings) => {
 };
 
 /**
- * SISWA: Mengambil data ujian secara dinamis berdasarkan TOKEN pengerjaan
+ * SISWA: Menarik soal secara dinamis hanya berdasarkan token yang diinput.
+ * Tidak peduli pengaturan global apa yang sedang aktif.
  */
 export const getLiveExamData = async (studentToken: string) => {
   try {
-    const cleanToken = studentToken.toUpperCase();
+    const cleanToken = studentToken.trim().toUpperCase();
     
-    // Langsung cari soal yang memiliki quiz_token sesuai input siswa
-    // Tanpa filter active_settings agar fleksibel
+    // Tahap 1: Cari semua soal yang memiliki token ini
     const { data: questions, error: questionsError } = await supabase
       .from('questions')
       .select('*')
@@ -65,28 +67,36 @@ export const getLiveExamData = async (studentToken: string) => {
       .eq('is_deleted', false)
       .order('order', { ascending: true });
 
-    if (questionsError || !questions || questions.length === 0) return null;
+    if (questionsError) throw questionsError;
 
-    // Ambil setting global hanya untuk timer
+    // Jika tidak ada soal dengan token tersebut, return null (memicu notifikasi di UI)
+    if (!questions || questions.length === 0) {
+      console.warn(`Tidak ada soal ditemukan untuk token: ${cleanToken}`);
+      return null;
+    }
+
+    // Tahap 2: Ambil durasi waktu dari settings (opsional, fallback ke 60 menit)
     const { data: settings } = await supabase
       .from('active_settings')
       .select('*')
+      .eq('id', 1)
       .single();
 
     return {
       settings: {
         timerMinutes: settings?.timer_minutes || 60,
-        activeSubject: questions[0].subject || 'Ujian Digital'
+        activeSubject: questions[0].subject || 'Ujian Digital' // Ambil nama mapel dari soal pertama
       },
       questions: questions.map(q => ({
         ...q,
         questionImage: q.question_image,
         optionImages: q.option_images,
-        correctAnswer: q.correct_answer
+        correctAnswer: q.correct_answer,
+        quizToken: q.quiz_token
       }))
     };
   } catch (err) {
-    console.error("Cloud Connection Error:", err);
+    console.error("Kesalahan koneksi Cloud:", err);
     return null;
   }
 };
@@ -101,7 +111,7 @@ export const submitResultToCloud = async (result: QuizResult) => {
       score: result.score,
       answers: result.answers,
       timestamp: result.timestamp,
-      subject: result.identity.token.toUpperCase() 
+      subject: result.identity.token.toUpperCase() // Labeli hasil dengan token yang dipakai
     }]);
   return !error;
 };

@@ -25,7 +25,6 @@ const App: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
-  // State Management
   const [questions, setQuestions] = useState<Question[]>(() => {
     const saved = localStorage.getItem('cbt_questions');
     return saved ? JSON.parse(saved) : INITIAL_QUESTIONS;
@@ -59,7 +58,6 @@ const App: React.FC = () => {
   const handleCloudSync = async () => {
     setSyncStatus('loading');
     try {
-      // Sekarang mengirim questions tanpa label token global
       await pushQuestionsToCloud(questions);
       await updateLiveSettings(settings);
       setSyncStatus('success');
@@ -96,23 +94,24 @@ const App: React.FC = () => {
 
   const handleStartQuiz = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!identity.token) {
+    const token = identity.token.trim().toUpperCase();
+    if (!token) {
       alert('Masukkan Token Ujian!');
       return;
     }
     
     setIsSyncing(true);
     try {
-      const cloudData = await getLiveExamData(identity.token);
+      const cloudData = await getLiveExamData(token);
       if (!cloudData) {
-        alert('Token Tidak Ditemukan! Pastikan Admin sudah membuat soal dengan token ini dan menekan tombol SINKRONISASI CLOUD.');
+        alert(`Token "${token}" tidak ditemukan di database cloud!\n\nPastikan:\n1. Di Panel Admin, kolom "Token Akses Soal" pada tiap soal sudah diisi dengan "${token}".\n2. Anda sudah menekan tombol "SINKRONISASI CLOUD" setelah mengedit soal.`);
         return;
       }
       setSettings(cloudData.settings);
       setQuestions(cloudData.questions);
       setView('confirm-data');
     } catch (err) {
-      alert('Gagal terhubung ke server ujian.');
+      alert('Gagal terhubung ke server ujian. Periksa koneksi internet.');
     } finally {
       setIsSyncing(false);
     }
@@ -125,24 +124,9 @@ const App: React.FC = () => {
       setLastResult(result);
       setView('result');
     } else {
-      alert('Gagal mengirim ke server!');
+      alert('Gagal mengirim ke server! Silakan tekan tombol Selesai lagi.');
     }
     setIsSyncing(false);
-  };
-
-  const handleImportQuestions = (newQuestions: Question[], mode: 'replace' | 'append') => {
-    if (mode === 'replace') {
-      setQuestions(newQuestions.map(q => ({ ...q, createdAt: Date.now() })));
-    } else {
-      setQuestions(prev => {
-        const uniqueNew = newQuestions.map(q => ({
-          ...q,
-          id: Math.random().toString(36).substr(2, 9) + Date.now(),
-          createdAt: Date.now()
-        }));
-        return [...prev, ...uniqueNew];
-      });
-    }
   };
 
   if (view === 'admin-auth') return <AdminLogin onLogin={() => setView('admin-panel')} />;
@@ -180,10 +164,10 @@ const App: React.FC = () => {
                    'bg-blue-600 hover:bg-blue-700 text-white'
                  }`}
                >
-                 {syncStatus === 'loading' ? 'MENYIMPAN...' : syncStatus === 'success' ? 'SYNC BERHASIL' : 'SINKRONISASI CLOUD'}
+                 {syncStatus === 'loading' ? 'MENYIMPAN...' : syncStatus === 'success' ? 'BERHASIL DISYNC' : 'SINKRONISASI CLOUD'}
                </button>
             </div>
-            <button onClick={() => setView('login')} className="w-full p-4 text-red-400 font-bold hover:bg-red-500/10 rounded-xl transition-all text-left flex items-center gap-2">KELUAR</button>
+            <button onClick={() => setView('login')} className="w-full p-4 text-red-400 font-bold hover:bg-red-500/10 rounded-xl transition-all text-left">KELUAR</button>
           </div>
         </aside>
 
@@ -192,12 +176,12 @@ const App: React.FC = () => {
             <div className="flex-1">
               <div className="mb-8">
                 <h1 className="text-3xl font-black text-slate-800">Manajemen Bank Soal</h1>
-                <p className="text-slate-400 font-medium text-sm italic">Soal akan dikelompokkan otomatis di cloud berdasarkan token yang Anda tulis di tiap butir soal.</p>
+                <p className="text-slate-400 font-medium text-sm italic">Isi kolom "Token" pada tiap soal agar siswa dapat mengakses paket soal tersebut.</p>
               </div>
               <QuestionManager 
                 questions={questions}
                 activeToken="" 
-                onAdd={(q) => setQuestions(prev => [...prev, { ...q, id: Date.now().toString()+Math.random(), createdAt: Date.now(), isDeleted: false }])}
+                onAdd={(q) => setQuestions(prev => [...prev, { ...q, id: Date.now().toString()+Math.random(), createdAt: Date.now(), isDeleted: false, order: q.order || (prev.length + 1) }])}
                 onUpdate={(updated) => setQuestions(prev => prev.map(q => q.id === updated.id ? updated : q))}
                 onSoftDelete={(id) => setQuestions(prev => prev.map(item => item.id === id ? { ...item, isDeleted: true } : item))}
                 onPermanentDelete={(id) => setQuestions(prev => prev.filter(item => item.id !== id))}
@@ -209,8 +193,11 @@ const App: React.FC = () => {
                 settings={settings} 
                 questions={questions}
                 onUpdateSettings={setSettings} 
-                onImportQuestions={handleImportQuestions}
-                onReset={() => { setQuestions([]); }} 
+                onImportQuestions={(newQs, mode) => {
+                   if(mode === 'replace') setQuestions(newQs);
+                   else setQuestions(prev => [...prev, ...newQs]);
+                }}
+                onReset={() => setQuestions([])} 
               />
             </div>
           </div>
@@ -219,7 +206,6 @@ const App: React.FC = () => {
     );
   }
 
-  // Tampilan Login (Peserta) tetap sama namun dengan placeholder token yang lebih jelas
   if (view === 'login') {
     return (
       <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4 font-inter">
@@ -228,13 +214,13 @@ const App: React.FC = () => {
             <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600 rounded-full -mr-32 -mt-32 blur-3xl opacity-20"></div>
             <div className="relative z-10">
               <div className="flex items-center gap-3 mb-12">
-                <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-black text-xl shadow-lg shadow-blue-500/20">C</div>
+                <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-black text-xl shadow-lg">C</div>
                 <div className="font-black text-2xl tracking-tighter">EduCBT Pro</div>
               </div>
-              <h1 className="text-4xl font-black mb-6 leading-tight">Mulai Ujian Anda Sekarang.</h1>
+              <h1 className="text-4xl font-black mb-6 leading-tight">Ujian Digital Mandiri.</h1>
               <div className="bg-white/5 p-5 rounded-3xl border border-white/10 backdrop-blur-sm">
-                <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em] mb-2">Sistem</p>
-                <p className="text-xl font-black text-white">Dynamic Token Retrieval</p>
+                <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em] mb-2">Fitur Utama</p>
+                <p className="text-xl font-black text-white italic">Multi-Token Partitioning</p>
               </div>
             </div>
             <button onClick={() => setView('admin-auth')} className="mt-auto bg-white/5 hover:bg-white/10 p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/5 transition-all">Administrator</button>
@@ -242,7 +228,7 @@ const App: React.FC = () => {
           <div className="md:w-7/12 p-12 bg-white">
             <div className="max-w-md mx-auto">
               <h2 className="text-3xl font-black text-slate-800 mb-2">Login Peserta</h2>
-              <p className="text-slate-400 font-medium mb-10 italic">Masukkan token paket soal yang diberikan pengawas.</p>
+              <p className="text-slate-400 font-medium mb-10 italic">Masukkan token paket soal dari Guru Anda.</p>
               
               <form onSubmit={handleStartQuiz} className="space-y-5">
                 <div className="space-y-1">
@@ -255,10 +241,10 @@ const App: React.FC = () => {
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest ml-1">Token Paket Soal</label>
-                  <input required type="text" placeholder="MISAL: MTK01" className="w-full p-4 bg-blue-50 border-2 border-blue-200 rounded-2xl font-black text-blue-700 text-center uppercase tracking-[0.3em] outline-none" onChange={e => setIdentity({...identity, token: e.target.value})} />
+                  <input required type="text" placeholder="MISAL: IPA01 / MTK02" className="w-full p-4 bg-blue-50 border-2 border-blue-200 rounded-2xl font-black text-blue-700 text-center uppercase tracking-[0.3em] outline-none" onChange={e => setIdentity({...identity, token: e.target.value})} />
                 </div>
                 <div className="pt-4">
-                  <button disabled={isSyncing} className="w-full font-black py-5 rounded-[2rem] text-xl shadow-2xl transition-all active:scale-95 bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200 disabled:opacity-50">
+                  <button disabled={isSyncing} className="w-full font-black py-5 rounded-[2rem] text-xl shadow-2xl transition-all active:scale-95 bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200">
                     {isSyncing ? 'MENGHUBUNGKAN...' : 'MASUK RUANG UJIAN'}
                   </button>
                 </div>
@@ -270,17 +256,14 @@ const App: React.FC = () => {
     );
   }
 
-  // Views lain tetap sama...
   if (view === 'confirm-data') return <ConfirmIdentity identity={identity} settings={settings} onConfirm={() => setView('quiz')} onCancel={() => setView('login')} />;
-  // FIX: Added fallback value for activeSubject to satisfy QuizInterface requirements
   if (view === 'quiz') return <QuizInterface questions={questions.filter(q => !q.isDeleted)} identity={identity} timeLimitMinutes={settings.timerMinutes} subjectName={settings.activeSubject || 'Ujian Digital'} onFinish={handleFinishQuiz} />;
   
-  // View Result...
   if (view === 'result' && lastResult) {
     return (
       <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-4 text-center">
         <div className="bg-white p-12 rounded-[3.5rem] shadow-2xl max-w-md w-full border border-slate-200">
-           <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6 text-white text-3xl font-black shadow-xl shadow-green-100">✓</div>
+           <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6 text-white text-3xl font-black">✓</div>
            <h2 className="text-3xl font-black mb-2 text-slate-800">Ujian Selesai</h2>
            <p className="text-slate-400 mb-8 font-medium italic">Jawaban Anda telah tersimpan di cloud.</p>
            <div className="bg-blue-600 p-8 rounded-[2.5rem] mb-8 shadow-2xl shadow-blue-100">

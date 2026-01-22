@@ -9,12 +9,13 @@ export const INITIAL_QUESTIONS: Question[] = [
     subject: Subject.PANCASILA,
     material: 'Disediakan soal tentang sila Pancasila, murid dapat menjawab sesuai lambangnya.',
     text: 'Sila pertama Pancasila dilambangkan dengan...',
-    explanation: 'Sila pertama "Ketuhanan Yang Maha Esa" dilambangkan dengan Bintang Emas. Bintang dimaksudkan sebagai sebuah cahaya, seperti layaknya Tuhan yang menjadi cahaya kerohanian bagi setiap manusia.',
+    explanation: 'Sila pertama "Ketuhanan Yang Maha Esa" dilambangkan dengan Bintang Emas.',
     options: ['Pohon Beringin', 'Bintang', 'Rantai', 'Kepala Banteng'],
     correctAnswer: 1,
     isDeleted: false,
     createdAt: Date.now(),
-    order: 1
+    order: 1,
+    quizToken: 'PANCASILA01'
   },
   {
     id: '2',
@@ -23,12 +24,13 @@ export const INITIAL_QUESTIONS: Question[] = [
     subject: Subject.MATEMATIKA,
     material: 'Menghitung hasil operasi perkalian dalam konteks soal cerita sederhana.',
     text: 'Berapakah hasil dari 12 dikali 5?',
-    explanation: 'Operasi perkalian 12 x 5 dapat dihitung dengan menjumlahkan angka 12 sebanyak 5 kali (12+12+12+12+12) atau 5 sebanyak 12 kali. Hasilnya adalah 60.',
+    explanation: 'Operasi perkalian 12 x 5 = 60.',
     options: ['50', '55', '60', '65'],
     correctAnswer: 2,
     isDeleted: false,
     createdAt: Date.now(),
-    order: 1
+    order: 1,
+    quizToken: 'MTK01'
   }
 ];
 
