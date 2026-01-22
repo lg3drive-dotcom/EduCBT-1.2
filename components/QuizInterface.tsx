@@ -3,7 +3,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Question, StudentIdentity, QuizResult, QuestionType } from '../types';
 
 interface QuizInterfaceProps {
-  // Fix: Use generic Question[] type instead of referencing the undefined INITIAL_QUESTIONS constant
   questions: Question[];
   identity: StudentIdentity;
   timeLimitMinutes: number;
@@ -16,7 +15,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
   const [answers, setAnswers] = useState<{ [key: string]: any }>({});
   const [doubtfuls, setDoubtfuls] = useState<{ [key: string]: boolean }>({});
   const [timeLeft, setTimeLeft] = useState(timeLimitMinutes * 60);
-  const [fontSize, setFontSize] = useState(18); // Default font size in px
+  const [fontSize, setFontSize] = useState(18); 
   const startTime = useRef(Date.now());
 
   useEffect(() => {
@@ -31,7 +30,6 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
       });
     }, 1000);
     
-    // Prevent accidentally leaving or context menu
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = '';
@@ -62,9 +60,6 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
         const correctArr = q.correctAnswer || [];
         const studentArr = studentAns || [];
         isCorrect = correctArr.length === studentArr.length && correctArr.every((v:any, i:number) => v === studentArr[i]);
-      }
-      else if (q.type === QuestionType.SHORT_ANSWER) {
-        isCorrect = (studentAns || "").toLowerCase().trim() === (q.correctAnswer || "").toLowerCase().trim();
       }
 
       if (isCorrect) score += weight;
@@ -98,6 +93,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
   };
 
   const renderInput = () => {
+    if (!q) return null;
     switch (q.type) {
       case QuestionType.SINGLE:
         return (
@@ -183,26 +179,22 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
              </table>
           </div>
         );
-      case QuestionType.SHORT_ANSWER:
-        return <input type="text" value={currentAnswer || ''} onChange={e => setAnswers({...answers, [q.id]: e.target.value})} className="w-full p-6 border-2 border-slate-200 rounded-2xl text-2xl outline-none focus:border-blue-600 bg-slate-50 font-black text-blue-800" placeholder="Ketik jawaban tepat di sini..." />;
       default: return null;
     }
   };
 
   return (
     <div className="min-h-screen bg-slate-200 flex flex-col select-none overflow-hidden h-screen" onContextMenu={e => e.preventDefault()}>
-       {/* CBT Header */}
        <header className="bg-white border-b-4 border-blue-600 p-4 shadow-md flex justify-between items-center z-10 shrink-0">
          <div className="flex items-center gap-4">
            <div className="bg-blue-600 text-white w-12 h-12 rounded-xl flex items-center justify-center font-black text-2xl shadow-lg">C</div>
            <div>
-             <h1 className="font-black text-slate-800 uppercase tracking-tight text-lg leading-none">EduCBT v1.2</h1>
+             <h1 className="font-black text-slate-800 uppercase tracking-tight text-lg leading-none">EduCBT Pro</h1>
              <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">{subjectName}</p>
            </div>
          </div>
          
          <div className="flex items-center gap-8">
-            {/* Font Control */}
             <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
                <span className="text-[10px] font-black text-slate-400 px-3 uppercase tracking-tighter">Ukuran Font</span>
                <button onClick={() => setFontSize(Math.max(14, fontSize - 2))} className="w-8 h-8 rounded-lg bg-white text-slate-600 font-bold hover:bg-blue-50 transition-all shadow-sm">A-</button>
@@ -210,7 +202,6 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                <button onClick={() => setFontSize(Math.min(32, fontSize + 2))} className="w-8 h-8 rounded-lg bg-white text-slate-600 font-bold hover:bg-blue-50 transition-all shadow-sm">A+</button>
             </div>
 
-            {/* Timer */}
             <div className={`flex flex-col items-center px-8 border-l-2 border-slate-200 transition-colors ${timeLeft < 300 ? 'text-red-600 animate-pulse' : 'text-blue-700'}`}>
                <p className="text-[10px] font-black uppercase tracking-widest mb-1">Sisa Waktu</p>
                <p className="font-mono text-3xl font-black leading-none">
@@ -220,34 +211,30 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
          </div>
        </header>
 
-       {/* Main Layout Body */}
        <div className="flex-1 flex overflow-hidden">
-          {/* Main Question Panel */}
           <main className="flex-1 overflow-y-auto p-8 custom-scrollbar">
              <div className="max-w-4xl mx-auto space-y-6">
                 <div className="bg-white rounded-[2rem] shadow-xl border border-white p-10 relative overflow-hidden">
-                   {/* Question Header */}
                    <div className="flex justify-between items-center mb-8 border-b pb-6 border-slate-100">
                       <div className="flex items-center gap-3">
                          <span className="bg-blue-600 text-white w-14 h-14 rounded-2xl flex items-center justify-center font-black text-2xl shadow-lg shadow-blue-100">{currentIdx + 1}</span>
                          <div>
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Soal Nomor</p>
-                            <p className="text-sm font-black text-slate-800 uppercase tracking-tighter">{q.type}</p>
+                            <p className="text-sm font-black text-slate-800 uppercase tracking-tighter">{q?.type}</p>
                          </div>
                       </div>
                       <div className="text-right">
                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tingkat Kesulitan</p>
-                         <p className="text-sm font-black text-purple-600 uppercase tracking-tighter">{q.level.split(' ')[0]}</p>
+                         <p className="text-sm font-black text-purple-600 uppercase tracking-tighter">{q?.level.split(' ')[0]}</p>
                       </div>
                    </div>
 
-                   {/* Question Content */}
                    <div className="space-y-8">
                       <div className="leading-relaxed text-slate-800 font-medium" style={{ fontSize: `${fontSize}px` }}>
-                        {q.text}
+                        {q?.text}
                       </div>
 
-                      {q.questionImage && (
+                      {q?.questionImage && (
                         <div className="rounded-3xl border-4 border-slate-50 shadow-inner overflow-hidden bg-slate-100 p-2">
                           <img src={q.questionImage} className="max-w-full h-auto mx-auto rounded-2xl shadow-sm" alt="Ilustrasi Soal" />
                         </div>
@@ -259,7 +246,6 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                    </div>
                 </div>
 
-                {/* Question Footer Action */}
                 <div className="flex justify-between items-center bg-white p-4 rounded-3xl border-2 border-slate-300/50 shadow-md">
                    <button 
                      disabled={currentIdx === 0} 
@@ -288,7 +274,6 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
              </div>
           </main>
 
-          {/* Sidebar Navigation Grid */}
           <aside className="w-80 bg-white border-l-4 border-slate-300 overflow-y-auto p-6 flex flex-col gap-6 shrink-0 custom-scrollbar shadow-inner">
              <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
                 <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Status Navigasi</p>

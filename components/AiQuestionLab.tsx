@@ -15,6 +15,7 @@ const AiQuestionLab: React.FC<AiQuestionLabProps> = ({ onBack }) => {
   // AI Config States
   const [subject, setSubject] = useState(Subject.PANCASILA);
   const [material, setMaterial] = useState('');
+  const [customPrompt, setCustomPrompt] = useState('');
   const [count, setCount] = useState(5);
   const [type, setType] = useState<QuestionType | 'RANDOM'>('RANDOM');
   const [level, setLevel] = useState<CognitiveLevel | 'RANDOM'>('RANDOM');
@@ -40,7 +41,8 @@ const AiQuestionLab: React.FC<AiQuestionLabProps> = ({ onBack }) => {
     try {
       const result = await generateBatchAIQuestions(
         subject, material, count, type, level,
-        file ? { data: file.data, mimeType: file.type } : undefined
+        file ? { data: file.data, mimeType: file.type } : undefined,
+        customPrompt
       );
       if (result) setGeneratedQuestions(prev => [...result, ...prev]);
     } catch (err: any) {
@@ -106,7 +108,11 @@ const AiQuestionLab: React.FC<AiQuestionLabProps> = ({ onBack }) => {
                </div>
                <div>
                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Ringkasan Materi / Topik</label>
-                 <textarea value={material} onChange={e => setMaterial(e.target.value)} className="w-full bg-slate-950 border border-slate-800 p-4 rounded-2xl h-32 text-sm outline-none focus:ring-2 focus:ring-purple-500 transition-all font-medium text-slate-300" placeholder="Contoh: Bunyi Sila-sila Pancasila dan penerapannya..." />
+                 <textarea value={material} onChange={e => setMaterial(e.target.value)} className="w-full bg-slate-950 border border-slate-800 p-4 rounded-2xl h-24 text-sm outline-none focus:ring-2 focus:ring-purple-500 transition-all font-medium text-slate-300" placeholder="Tulis ringkasan singkat materi..." />
+               </div>
+               <div>
+                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Instruksi Khusus (Optional Prompt)</label>
+                 <textarea value={customPrompt} onChange={e => setCustomPrompt(e.target.value)} className="w-full bg-slate-950 border border-slate-800 p-4 rounded-2xl h-24 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium text-blue-300" placeholder="Contoh: Fokus pada analisis HOTS, gunakan bahasa kelas 6 SD..." />
                </div>
             </div>
           </section>

@@ -14,8 +14,7 @@ export enum Subject {
 export enum QuestionType {
   SINGLE = 'Pilihan Ganda',
   MULTIPLE = 'Pilihan Jamak (MCMA)',
-  COMPLEX_CATEGORY = 'Pilihan Ganda Kompleks',
-  SHORT_ANSWER = 'Isian Singkat'
+  COMPLEX_CATEGORY = 'Pilihan Ganda Kompleks'
 }
 
 export enum CognitiveLevel {
@@ -36,9 +35,9 @@ export interface Question {
   text: string;
   explanation: string;
   questionImage?: string;
-  options?: string[]; // Statements for COMPLEX_CATEGORY or Choices for SINGLE/MULTIPLE
+  options?: string[]; 
   optionImages?: (string | undefined)[];
-  correctAnswer: any; // Indeks (SINGLE), Array Indeks (MULTIPLE), Array Boolean (COMPLEX_CATEGORY), String (SHORT)
+  correctAnswer: any; 
   isDeleted: boolean;
   createdAt: number;
   order: number;

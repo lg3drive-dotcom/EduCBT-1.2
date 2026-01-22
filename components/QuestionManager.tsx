@@ -121,40 +121,6 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     setIsImageGenerating(false);
   };
 
-  const handleGenerateOptionImage = async (idx: number) => {
-    const optText = formData.options[idx];
-    if (!optText) return alert("Tulis teks opsi dahulu.");
-    setGeneratingOptionIdx(idx);
-    try {
-      const img = await generateAIImage(`${formData.text} - ${optText}`);
-      if (img) {
-        const nextImgs = [...formData.optionImages];
-        nextImgs[idx] = img;
-        setFormData({ ...formData, optionImages: nextImgs });
-      }
-    } catch (err: any) {
-      alert(`Gagal Generate Gambar Opsi: ${err.message}`);
-    }
-    setGeneratingOptionIdx(null);
-  };
-
-  const handleUploadImage = (e: React.ChangeEvent<HTMLInputElement>, index?: number) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64 = event.target?.result as string;
-      if (index !== undefined) {
-        const nextImgs = [...formData.optionImages];
-        nextImgs[index] = base64;
-        setFormData({ ...formData, optionImages: nextImgs });
-      } else {
-        setFormData({ ...formData, questionImage: base64 });
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-
   const closeForm = () => {
     setShowForm(false);
     setEditingId(null);
@@ -209,7 +175,6 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
       let nextCorrect: any = 0;
       if (newType === QuestionType.MULTIPLE) nextCorrect = [];
       else if (newType === QuestionType.COMPLEX_CATEGORY) nextCorrect = prev.options.map(() => false);
-      else if (newType === QuestionType.SHORT_ANSWER) nextCorrect = '';
       return { ...prev, type: newType, correctAnswer: nextCorrect };
     });
   };
@@ -290,8 +255,12 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Ringkasan Materi</label>
-                <textarea value={aiMaterial} onChange={e => setAiMaterial(e.target.value)} className="w-full p-5 border border-slate-200 rounded-[2rem] h-24 outline-none focus:ring-4 focus:ring-purple-500/10 bg-white font-medium text-sm" placeholder="Tulis topik bahasan..." />
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Ringkasan Materi Utama</label>
+                <textarea value={aiMaterial} onChange={e => setAiMaterial(e.target.value)} className="w-full p-5 border border-slate-200 rounded-[2rem] h-24 outline-none focus:ring-4 focus:ring-purple-500/10 bg-white font-medium text-sm" placeholder="Tulis topik utama materi..." />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest ml-1">Instruksi Khusus / Prompt Tambahan</label>
+                <textarea value={aiCustomPrompt} onChange={e => setAiCustomPrompt(e.target.value)} className="w-full p-5 border border-blue-200 rounded-[2rem] h-24 outline-none focus:ring-4 focus:ring-blue-500/10 bg-blue-50/30 font-medium text-sm text-blue-800" placeholder="Contoh: Buatlah soal dengan kategori sulit (HOTS), fokus pada analisis data..." />
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <select value={aiSubject} onChange={e => setAiSubject(e.target.value as Subject)} className="w-full p-3 border border-slate-200 rounded-xl font-bold bg-white text-xs outline-none">{SUBJECT_LIST.map(s => <option key={s} value={s}>{s}</option>)}</select>
@@ -314,9 +283,20 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                 <button onClick={closeForm} className="text-2xl">×</button>
              </div>
              <div className="space-y-6">
-                <textarea value={formData.text} onChange={e => setFormData({...formData, text: e.target.value})} className="w-full p-5 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-2xl h-24 outline-none" placeholder="Tulis butir soal..." />
+                <div className="grid grid-cols-2 gap-4">
+                    <select value={formData.type} onChange={e => handleTypeChange(e.target.value as QuestionType)} className="p-4 border rounded-xl font-bold outline-none focus:border-blue-500">
+                        {Object.values(QuestionType).map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                    <select value={formData.level} onChange={e => setFormData({...formData, level: e.target.value as CognitiveLevel})} className="p-4 border rounded-xl font-bold outline-none focus:border-blue-500">
+                        {COGNITIVE_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+                    </select>
+                </div>
+                <textarea value={formData.text} onChange={e => setFormData({...formData, text: e.target.value})} className="w-full p-5 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-2xl h-24 outline-none font-bold" placeholder="Tulis butir soal..." />
+                
+                {formData.type !== QuestionType.SINGLE && <p className="text-xs text-slate-400 font-bold italic">Tipe {formData.type} memerlukan opsi jawaban yang valid.</p>}
+                
                 <div className="flex gap-4">
-                   <button onClick={() => { if (editingId) onUpdate({...formData, id: editingId, isDeleted: false, createdAt: Date.now()}); else onAdd({...formData, id: Math.random().toString(), isDeleted: false, createdAt: Date.now(), order: formData.order }); closeForm(); }} className="w-full py-4 bg-blue-600 text-white font-black rounded-2xl uppercase">Simpan Soal</button>
+                   <button onClick={() => { if (editingId) onUpdate({...formData, id: editingId, isDeleted: false, createdAt: Date.now()}); else onAdd({...formData, id: Math.random().toString(), isDeleted: false, createdAt: Date.now(), order: formData.order }); closeForm(); }} className="w-full py-4 bg-blue-600 text-white font-black rounded-2xl uppercase shadow-lg shadow-blue-100 transition-all active:scale-95">Simpan Soal</button>
                 </div>
              </div>
           </div>

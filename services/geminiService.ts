@@ -15,7 +15,7 @@ export const generateAIImage = async (prompt: string): Promise<string | null> =>
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-image-preview',
       contents: {
-        parts: [{ text: `Ilustrasi pendidikan sekolah untuk soal: "${prompt}". Gaya desain vektor flat modern, warna cerah, bersih, tanpa teks atau angka di dalam gambar.` }],
+        parts: [{ text: `Ilustrasi pendidikan sekolah dasar untuk soal: "${prompt}". Gaya desain vektor flat modern, warna cerah ceria, bersih, tanpa teks di dalam gambar.` }],
       },
       config: { 
         imageConfig: { aspectRatio: "1:1", imageSize: "1K" } 
@@ -52,7 +52,7 @@ export const generateBatchAIQuestions = async (
   
   const levelInstruction = specificLevel !== 'RANDOM' 
     ? `Semua soal HARUS memiliki level kognitif: ${specificLevel}.`
-    : `Tentukan level kognitif (C1-C6) yang paling sesuai. Prioritaskan C4-C6 untuk soal analisis/HOTS.`;
+    : `Tentukan level kognitif (C1-C6) yang paling sesuai. Prioritaskan soal HOTS.`;
 
   let cleanBase64 = "";
   if (fileData) {
@@ -61,22 +61,21 @@ export const generateBatchAIQuestions = async (
       : fileData.data;
   }
 
-  const promptText = `Anda adalah pakar pembuat soal ujian Indonesia.
+  const promptText = `Anda adalah pakar pembuat soal ujian (CBT) di Indonesia.
              Buatkan ${count} butir soal untuk mata pelajaran "${subject}".
              
              KONTEKS MATERI:
              ${material ? `- Ringkasan Materi: "${material}"` : '- Gunakan lampiran file sebagai sumber utama.'}
-             ${customPrompt ? `INSTRUKSI TAMBAHAN: "${customPrompt}"` : ''}
+             ${customPrompt ? `INSTRUKSI TAMBAHAN (SANGAT PENTING): "${customPrompt}"` : ''}
 
              KRITERIA:
-             - Tipe: ${specificType !== 'RANDOM' ? specificType : 'Variasikan Tipe Soal'}
+             - Tipe Soal: ${specificType !== 'RANDOM' ? specificType : 'Variasikan antara Pilihan Ganda, Jamak, dan Kompleks'} (Dilarang membuat soal Isian/Uraian).
              - Level: ${levelInstruction}
              
              PANDUAN JAWABAN (correctAnswer):
-             - SINGLE: Angka indeks (0-3).
-             - MULTIPLE: Array angka [0, 2].
-             - COMPLEX: Array boolean [true, false].
-             - SHORT: String teks singkat.`;
+             - Pilihan Ganda: Integer indeks (0-3).
+             - Pilihan Jamak (MCMA): Array integer (contoh: [0, 2]).
+             - Pilihan Ganda Kompleks: Array boolean sesuai jumlah pernyataan (contoh: [true, false, true]).`;
 
   const parts: any[] = [{ text: promptText }];
 
@@ -95,7 +94,7 @@ export const generateBatchAIQuestions = async (
       contents: { parts },
       config: {
         responseMimeType: "application/json",
-        thinkingConfig: { thinkingBudget: 4000 },
+        thinkingConfig: { thinkingBudget: 6000 },
         responseSchema: {
           type: Type.ARRAY,
           items: {
@@ -132,7 +131,7 @@ export const generateBatchAIQuestions = async (
           }
         }
       } catch (e) {
-        console.warn("Kesalahan parsing jawaban, menggunakan data mentah.");
+        console.warn("Kesalahan parsing jawaban.");
       }
 
       return { 
