@@ -55,5 +55,6 @@ export interface QuizResult {
 
 export interface AppSettings {
   timerMinutes: number;
+  activeSubject: Subject;
   activeToken: string;
 }

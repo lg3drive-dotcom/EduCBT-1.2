@@ -1,6 +1,18 @@
 
 import { Question, QuestionType, CognitiveLevel } from './types.ts';
 
+export const SUBJECT_LIST = [
+  'Matematika',
+  'Bahasa Indonesia',
+  'Bahasa Inggris',
+  'IPA (Sains)',
+  'IPS (Sosial)',
+  'Pendidikan Pancasila',
+  'PAI & Budi Pekerti',
+  'PJOK',
+  'Seni Budaya'
+];
+
 export const INITIAL_QUESTIONS: Question[] = [
   {
     id: '1',

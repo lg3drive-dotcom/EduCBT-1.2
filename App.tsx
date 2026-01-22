@@ -8,7 +8,6 @@ import QuestionManager from './components/QuestionManager.tsx';
 import AdminSettings from './components/AdminSettings.tsx';
 import TeacherPanel from './components/TeacherPanel.tsx';
 import ConfirmIdentity from './components/ConfirmIdentity.tsx';
-import { generateResultPDF } from './services/pdfService.ts';
 import { 
   pushQuestionsToCloud, 
   updateLiveSettings, 
@@ -32,8 +31,9 @@ const App: React.FC = () => {
   const [settings, setSettings] = useState<AppSettings>(() => {
     const saved = localStorage.getItem('cbt_settings');
     return saved ? JSON.parse(saved) : { 
-      timerMinutes: 60, 
-      activeToken: 'ABCDE'
+      timerMinutes: 60,
+      activeSubject: 'Pendidikan Pancasila',
+      activeToken: 'DEMO123'
     };
   });
 
@@ -48,9 +48,9 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('cbt_questions', JSON.stringify(questions));
     if (view === 'admin-panel') {
-      pushQuestionsToCloud(questions, settings.activeToken);
+      pushQuestionsToCloud(questions);
     }
-  }, [questions, view, settings.activeToken]);
+  }, [questions, view]);
 
   useEffect(() => {
     localStorage.setItem('cbt_settings', JSON.stringify(settings));
@@ -63,55 +63,6 @@ const App: React.FC = () => {
     localStorage.setItem('cbt_submissions', JSON.stringify(submissions));
   }, [submissions]);
 
-  useEffect(() => {
-    if (view === 'teacher-panel') {
-      const channel = listenToSubmissions((newSub) => {
-        setSubmissions(prev => {
-            const exists = prev.find(s => s.id === newSub.id);
-            if (exists) return prev;
-            const mapped: QuizResult = {
-                id: newSub.id,
-                identity: { name: newSub.student_name, className: newSub.class_name, birthDate: '', token: newSub.subject },
-                score: newSub.score,
-                totalQuestions: 0, 
-                answers: newSub.answers,
-                manualCorrections: {},
-                timestamp: newSub.timestamp,
-                duration: 0,
-                isCorrected: false
-            };
-            return [mapped, ...prev];
-        });
-      });
-      return () => { channel.unsubscribe(); };
-    }
-  }, [view]);
-
-  const handleTeacherAuth = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (authCode === 'guru123') {
-      setView('teacher-panel');
-    } else {
-      alert('Kode Akses Guru Salah!');
-    }
-  };
-
-  const handleUpdateScore = (resultId: string, corrections: { [key: string]: number }) => {
-    setSubmissions(prev => prev.map(res => {
-      if (res.id === resultId) {
-        const qCount = questions.filter(q => !q.isDeleted).length || 1;
-        const totalPoints = Object.values(corrections).reduce((sum, val) => sum + val, 0);
-        return { 
-          ...res, 
-          manualCorrections: corrections, 
-          score: totalPoints / qCount,
-          isCorrected: true 
-        };
-      }
-      return res;
-    }));
-  };
-
   const handleStartQuiz = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!identity.token) {
@@ -123,7 +74,7 @@ const App: React.FC = () => {
     try {
       const cloudData = await getLiveExamData(identity.token);
       if (!cloudData) {
-        alert('Token Tidak Ditemukan!');
+        alert('Token Tidak Valid atau Paket Soal tidak ditemukan di Cloud!');
         return;
       }
       setSettings(cloudData.settings);
@@ -150,19 +101,9 @@ const App: React.FC = () => {
 
   const handleImportQuestions = (newQuestions: Question[], mode: 'replace' | 'append') => {
     if (mode === 'replace') {
-      setQuestions(newQuestions.map(q => ({ ...q, createdAt: Date.now(), quizToken: q.quizToken || settings.activeToken })));
+      setQuestions(newQuestions.map(q => ({ ...q, createdAt: Date.now() })));
     } else {
-      setQuestions(prev => {
-        const existingIds = new Set(prev.map(q => q.id));
-        const filteredNew = newQuestions.filter(q => !existingIds.has(q.id));
-        const uniqueNew = filteredNew.map(q => ({
-          ...q,
-          id: Math.random().toString(36).substr(2, 9) + Date.now(),
-          createdAt: Date.now(),
-          quizToken: q.quizToken || settings.activeToken
-        }));
-        return [...prev, ...uniqueNew];
-      });
+      setQuestions(prev => [...prev, ...newQuestions.map(q => ({ ...q, id: Math.random().toString(), createdAt: Date.now() }))]);
     }
   };
 
@@ -179,29 +120,15 @@ const App: React.FC = () => {
           <nav className="space-y-2">
             <button className="w-full text-left p-4 bg-white/10 rounded-xl font-bold border-l-4 border-blue-500">BANK SOAL</button>
             <button onClick={() => setView('teacher-panel')} className="w-full text-left p-4 text-slate-400 hover:text-white font-bold transition-all">PANEL MONITORING</button>
-            <button 
-              onClick={() => window.open('https://ai.studio/apps/drive/1NZ1vp5yFIoAMs7ZVtARv6sOB9S9tBpys?fullscreenApplet=true', '_blank')} 
-              className="w-full text-left p-4 text-purple-400 hover:text-purple-300 font-black flex items-center gap-2 transition-all"
-            >
-               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-               GENERATOR AI
-            </button>
           </nav>
           <button onClick={() => setView('login')} className="mt-auto p-4 text-red-400 font-bold hover:bg-red-500/10 rounded-xl transition-all">KELUAR</button>
         </aside>
         <main className="flex-1 p-8 overflow-y-auto custom-scrollbar">
           <div className="flex flex-col lg:flex-row gap-8">
             <div className="flex-1">
-              <div className="flex justify-between items-center mb-8">
-                <div>
-                  <h1 className="text-3xl font-black text-slate-800">Manajemen Bank Soal</h1>
-                  <p className="text-slate-400 font-medium text-sm">Token menentukan soal mana yang ditarik oleh siswa.</p>
-                </div>
-              </div>
               <QuestionManager 
                 questions={questions}
-                activeToken={settings.activeToken}
-                onAdd={(q) => setQuestions(prev => [...prev, { ...q, id: Date.now().toString()+Math.random(), createdAt: Date.now(), isDeleted: false, order: q.order || (prev.length + 1) }])}
+                onAdd={(q) => setQuestions(prev => [...prev, { ...q, id: Date.now().toString(), createdAt: Date.now(), isDeleted: false }])}
                 onUpdate={(updated) => setQuestions(prev => prev.map(q => q.id === updated.id ? updated : q))}
                 onSoftDelete={(id) => setQuestions(prev => prev.map(item => item.id === id ? { ...item, isDeleted: true } : item))}
                 onPermanentDelete={(id) => setQuestions(prev => prev.filter(item => item.id !== id))}
@@ -235,18 +162,13 @@ const App: React.FC = () => {
                 <div className="font-black text-2xl tracking-tighter">EduCBT Pro</div>
               </div>
               <h1 className="text-4xl font-black mb-6 leading-tight">Mulai Ujian Anda.</h1>
-              <div className="space-y-4">
-                <div className="bg-white/5 p-5 rounded-3xl border border-white/10 backdrop-blur-sm">
-                  <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em] mb-2">Sistem</p>
-                  <p className="text-xl font-black text-white">Dynamic Token Retrieval</p>
-                </div>
+              <div className="bg-white/5 p-5 rounded-3xl border border-white/10 backdrop-blur-sm">
+                <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em] mb-2">Sistem</p>
+                <p className="text-xl font-black text-white">Dynamic Token Retrieval</p>
               </div>
             </div>
-            <div className="mt-auto space-y-3 relative z-10">
-               <div className="flex gap-2">
-                 <button onClick={() => setView('admin-auth')} className="flex-1 bg-white/5 hover:bg-white/10 p-4 rounded-2xl text-[10px] font-black flex items-center justify-center gap-2 border border-white/5 uppercase tracking-widest">Administrator</button>
-                 <button onClick={() => setView('teacher-auth')} className="flex-1 bg-white/5 hover:bg-white/10 p-4 rounded-2xl text-[10px] font-black flex items-center justify-center gap-2 border border-white/5 uppercase tracking-widest">Monitoring</button>
-               </div>
+            <div className="mt-auto flex gap-2 relative z-10">
+                 <button onClick={() => setView('admin-auth')} className="flex-1 bg-white/5 hover:bg-white/10 p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/5">Administrator</button>
             </div>
           </div>
           <div className="md:w-7/12 p-12 bg-white">
@@ -270,11 +192,11 @@ const App: React.FC = () => {
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest ml-1">Token Paket Soal</label>
-                    <input required type="text" placeholder="TOKEN" className="w-full p-4 bg-blue-50 border-2 border-blue-200 rounded-2xl font-black text-blue-700 text-center uppercase tracking-[0.3em] outline-none focus:ring-4 focus:ring-blue-500/10" onChange={e => setIdentity({...identity, token: e.target.value})} />
+                    <input required type="text" placeholder="TOKEN" className="w-full p-4 bg-blue-50 border-2 border-blue-200 rounded-2xl font-black text-blue-700 text-center uppercase tracking-[0.3em] outline-none" onChange={e => setIdentity({...identity, token: e.target.value})} />
                   </div>
                 </div>
                 <div className="pt-4">
-                  <button disabled={isSyncing} className={`w-full font-black py-5 rounded-[2rem] text-xl shadow-2xl transition-all active:scale-95 bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200 disabled:opacity-50`}>
+                  <button disabled={isSyncing} className="w-full font-black py-5 rounded-[2rem] text-xl shadow-2xl transition-all active:scale-95 bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200 disabled:opacity-50">
                     {isSyncing ? 'MENGHUBUNGKAN...' : 'MASUK RUANG UJIAN'}
                   </button>
                 </div>
@@ -291,44 +213,14 @@ const App: React.FC = () => {
       <ConfirmIdentity 
         identity={identity} 
         settings={settings} 
-        // Menggunakan subjek dari soal pertama yang ditarik
-        subjectName={questions[0]?.subject || 'Ujian Digital'}
+        subjectName={settings.activeSubject}
         onConfirm={() => setView('quiz')} 
         onCancel={() => setView('login')} 
       />
     );
   }
 
-  if (view === 'teacher-auth') {
-    return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-        <form onSubmit={handleTeacherAuth} className="bg-white p-8 rounded-[2rem] shadow-2xl w-full max-sm">
-          <h2 className="text-2xl font-black text-center mb-6 text-slate-800">Panel Monitoring</h2>
-          <input type="password" autoFocus className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-2xl mb-4 text-center font-black tracking-[0.5em] text-2xl outline-none" placeholder="••••••" onChange={e => setAuthCode(e.target.value)} />
-          <button className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl">MASUK</button>
-          <button type="button" onClick={() => setView('login')} className="w-full mt-4 text-slate-400 font-black text-xs uppercase tracking-widest">Batal</button>
-        </form>
-      </div>
-    );
-  }
-
-  if (view === 'teacher-panel') {
-    return (
-      <div className="min-h-screen bg-slate-50">
-        <div className="max-w-6xl mx-auto p-8">
-          <div className="flex justify-between items-center mb-10">
-            <div>
-              <h1 className="text-3xl font-black text-slate-800">Monitoring Real-time</h1>
-            </div>
-            <button onClick={() => setView('login')} className="bg-slate-900 text-white font-black px-6 py-3 rounded-2xl">Logout</button>
-          </div>
-          <TeacherPanel results={submissions} questions={questions.filter(q => !q.isDeleted)} onUpdateScore={handleUpdateScore} />
-        </div>
-      </div>
-    );
-  }
-
-  if (view === 'quiz') return <QuizInterface questions={questions.filter(q => !q.isDeleted).sort((a, b) => (a.order || 0) - (b.order || 0))} identity={identity} timeLimitMinutes={settings.timerMinutes} subjectName={questions[0]?.subject || 'Ujian Digital'} onFinish={handleFinishQuiz} />;
+  if (view === 'quiz') return <QuizInterface questions={questions.filter(q => !q.isDeleted)} identity={identity} timeLimitMinutes={settings.timerMinutes} subjectName={settings.activeSubject} onFinish={handleFinishQuiz} />;
 
   if (view === 'result' && lastResult) {
     return (
@@ -337,7 +229,7 @@ const App: React.FC = () => {
            <div className="w-24 h-24 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-8 shadow-xl shadow-green-200">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" /></svg>
            </div>
-           <h2 className="text-3xl font-black mb-2 text-slate-800">Berhasil</h2>
+           <h2 className="text-3xl font-black mb-2 text-slate-800">Ujian Selesai</h2>
            <p className="text-slate-400 mb-10 font-medium">Data Anda telah tersinkron dengan cloud.</p>
            <div className="bg-blue-600 p-8 rounded-[2.5rem] mb-10 shadow-2xl shadow-blue-200">
               <p className="text-[10px] font-black text-blue-200 uppercase tracking-[0.2em] mb-2">Skor Akhir</p>
