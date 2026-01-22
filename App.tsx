@@ -8,7 +8,6 @@ import QuestionManager from './components/QuestionManager.tsx';
 import AdminSettings from './components/AdminSettings.tsx';
 import TeacherPanel from './components/TeacherPanel.tsx';
 import ConfirmIdentity from './components/ConfirmIdentity.tsx';
-import AiQuestionLab from './components/AiQuestionLab.tsx';
 import { generateResultPDF } from './services/pdfService.ts';
 import { 
   pushQuestionsToCloud, 
@@ -18,7 +17,7 @@ import {
   listenToSubmissions
 } from './services/supabaseService.ts';
 
-type ViewMode = 'login' | 'confirm-data' | 'quiz' | 'result' | 'admin-auth' | 'admin-panel' | 'teacher-auth' | 'teacher-panel' | 'ai-lab' | 'ai-choice';
+type ViewMode = 'login' | 'confirm-data' | 'quiz' | 'result' | 'admin-auth' | 'admin-panel' | 'teacher-auth' | 'teacher-panel';
 
 const App: React.FC = () => {
   const [view, setView] = useState<ViewMode>('login');
@@ -171,44 +170,6 @@ const App: React.FC = () => {
     }
   };
 
-  if (view === 'ai-lab') return <AiQuestionLab onBack={() => setView('admin-panel')} />;
-  
-  if (view === 'ai-choice') {
-    return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-purple-600 rounded-full -mr-48 -mt-48 blur-[100px] opacity-20"></div>
-        <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-2xl p-12 text-center relative z-10 border border-slate-200">
-          <div className="w-20 h-20 bg-purple-600 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-2xl shadow-purple-200">
-             <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-          </div>
-          <h2 className="text-3xl font-black text-slate-800 mb-4">Pilih Metode Generate</h2>
-          <p className="text-slate-500 font-medium mb-10">Gunakan AI Lab internal untuk generate otomatis ke sistem, atau buka halaman eksternal untuk pengelolaan lanjutan.</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-             <button onClick={() => setView('ai-lab')} className="group p-8 bg-slate-50 hover:bg-purple-600 border-2 border-slate-100 hover:border-purple-400 rounded-[2.5rem] transition-all flex flex-col items-center gap-4 shadow-sm hover:shadow-xl hover:shadow-purple-200">
-                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
-                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" /></svg>
-                </div>
-                <div>
-                   <p className="font-black text-slate-800 group-hover:text-white transition-colors text-sm">Lab Generator Internal</p>
-                   <p className="text-[10px] font-black text-slate-400 group-hover:text-purple-200 uppercase tracking-widest mt-1">Sistem Otomatis</p>
-                </div>
-             </button>
-             <button onClick={() => window.open('https://ai.studio/apps/drive/184oMWbuP21ZRBGJr6ZSe-30eT2UgyfAz?fullscreenApplet=true', '_blank')} className="group p-8 bg-slate-50 hover:bg-blue-600 border-2 border-slate-100 hover:border-blue-400 rounded-[2.5rem] transition-all flex flex-col items-center gap-4 shadow-sm hover:shadow-xl hover:shadow-blue-200">
-                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
-                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                </div>
-                <div>
-                   <p className="font-black text-slate-800 group-hover:text-white transition-colors text-sm">Halaman Generate</p>
-                   <p className="text-[10px] font-black text-slate-400 group-hover:text-blue-200 uppercase tracking-widest mt-1">Eksternal Applet</p>
-                </div>
-             </button>
-          </div>
-          <button onClick={() => setView('admin-panel')} className="mt-12 text-slate-400 hover:text-slate-600 font-black text-xs uppercase tracking-[0.2em] transition-colors">Batal & Kembali</button>
-        </div>
-      </div>
-    );
-  }
-
   if (view === 'admin-auth') return <AdminLogin onLogin={() => setView('admin-panel')} />;
 
   if (view === 'admin-panel') {
@@ -222,7 +183,10 @@ const App: React.FC = () => {
           <nav className="space-y-2">
             <button className="w-full text-left p-4 bg-white/10 rounded-xl font-bold border-l-4 border-blue-500">BANK SOAL</button>
             <button onClick={() => setView('teacher-panel')} className="w-full text-left p-4 text-slate-400 hover:text-white font-bold transition-all">PANEL MONITORING</button>
-            <button onClick={() => setView('ai-choice')} className="w-full text-left p-4 text-purple-400 hover:text-purple-300 font-black flex items-center gap-2 transition-all">
+            <button 
+              onClick={() => window.open('https://ai.studio/apps/drive/1NZ1vp5yFIoAMs7ZVtARv6sOB9S9tBpys?fullscreenApplet=true', '_blank')} 
+              className="w-full text-left p-4 text-purple-400 hover:text-purple-300 font-black flex items-center gap-2 transition-all"
+            >
                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                GENERATOR AI
             </button>
