@@ -60,12 +60,13 @@ export const pushQuestionsToCloud = async (questions: Question[]) => {
 };
 
 /**
- * ADMIN: Mengupdate durasi waktu global
+ * ADMIN: Mengupdate durasi waktu global dan password admin
  */
 export const updateLiveSettings = async (settings: AppSettings) => {
   const cleanSettings = sanitizeData({
     id: 1, 
-    timer_minutes: Number(settings.timerMinutes) || 60
+    timer_minutes: Number(settings.timerMinutes) || 60,
+    admin_password: settings.adminPassword || null
   });
 
   const { error } = await supabase
@@ -76,6 +77,27 @@ export const updateLiveSettings = async (settings: AppSettings) => {
     console.error("Gagal update settings:", error);
     throw new Error(`Settings Error: ${error.message}`);
   }
+};
+
+/**
+ * MENGAMBIL SETTING GLOBAL (Termasuk Password Admin yang tersinkron)
+ */
+export const getGlobalSettings = async () => {
+  const { data, error } = await supabase
+    .from('active_settings')
+    .select('*')
+    .eq('id', 1)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Gagal mengambil global settings:", error);
+    return null;
+  }
+
+  return data ? {
+    timerMinutes: data.timer_minutes,
+    adminPassword: data.admin_password
+  } : null;
 };
 
 /**

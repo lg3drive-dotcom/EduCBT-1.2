@@ -13,7 +13,8 @@ import {
   pushQuestionsToCloud, 
   updateLiveSettings, 
   getLiveExamData, 
-  submitResultToCloud
+  submitResultToCloud,
+  getGlobalSettings
 } from './services/supabaseService.ts';
 
 type ViewMode = 'login' | 'confirm-data' | 'quiz' | 'result' | 'admin-auth' | 'admin-panel';
@@ -25,7 +26,7 @@ const App: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
 
-  // Persistence for Admin Password
+  // Default admin password from localStorage or fallback
   const [adminPassword, setAdminPassword] = useState(() => {
     return localStorage.getItem('cbt_admin_pass') || 'admin123';
   });
@@ -43,6 +44,7 @@ const App: React.FC = () => {
   const [identity, setIdentity] = useState<StudentIdentity>({ name: '', className: '', birthDate: '', token: '' });
   const [lastResult, setLastResult] = useState<QuizResult | null>(null);
 
+  // Sync LOCAL STORAGE
   useEffect(() => {
     localStorage.setItem('cbt_questions', JSON.stringify(questions));
   }, [questions]);
@@ -54,6 +56,27 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('cbt_admin_pass', adminPassword);
   }, [adminPassword]);
+
+  // INITIAL LOAD: Sync from Cloud (Password and global settings)
+  useEffect(() => {
+    const syncWithCloud = async () => {
+      try {
+        const cloudSettings = await getGlobalSettings();
+        if (cloudSettings) {
+          if (cloudSettings.adminPassword) {
+            setAdminPassword(cloudSettings.adminPassword);
+          }
+          setSettings(prev => ({
+            ...prev,
+            timerMinutes: cloudSettings.timerMinutes || prev.timerMinutes
+          }));
+        }
+      } catch (err) {
+        console.error("Cloud Initialization Error:", err);
+      }
+    };
+    syncWithCloud();
+  }, []);
 
   // Show guide automatically as a welcome message every time entering admin panel
   useEffect(() => {
@@ -71,7 +94,8 @@ const App: React.FC = () => {
     setSyncStatus('loading');
     try {
       await pushQuestionsToCloud(questions);
-      await updateLiveSettings(settings);
+      // Ensure current password is also pushed during full sync
+      await updateLiveSettings({ ...settings, adminPassword });
       setSyncStatus('success');
       setTimeout(() => setSyncStatus('idle'), 3000);
     } catch (err: any) {
@@ -134,13 +158,21 @@ const App: React.FC = () => {
     }
   };
 
-  const handleChangeAdminPass = () => {
+  const handleChangeAdminPass = async () => {
     const accessCode = prompt("Masukkan KODE AKSES PUSAT:");
     if (accessCode === "Indme&781l") {
       const newPass = prompt("PENGATURAN ULANG: Masukkan Password Admin Baru:", adminPassword);
       if (newPass && newPass.trim() !== "") {
-        setAdminPassword(newPass.trim());
-        alert("SISTEM: Password administrator berhasil diperbarui.");
+        const trimmedPass = newPass.trim();
+        setAdminPassword(trimmedPass);
+        
+        // SYNC TO CLOUD IMMEDIATELY
+        try {
+          await updateLiveSettings({ ...settings, adminPassword: trimmedPass });
+          alert("SISTEM: Password administrator berhasil diperbarui di CLOUD. Device lain akan otomatis tersinkron saat dibuka.");
+        } catch (e) {
+          alert("Peringatan: Password tersimpan secara LOKAL, tapi gagal mengirim ke server. Gunakan tombol 'SINKRONISASI CLOUD' nanti.");
+        }
       }
     } else if (accessCode !== null) {
       alert("KODE AKSES PUSAT SALAH!");
@@ -238,7 +270,11 @@ const App: React.FC = () => {
               <AdminSettings 
                 settings={settings} 
                 questions={questions} 
-                onUpdateSettings={setSettings} 
+                onUpdateSettings={(newSettings) => {
+                   setSettings(newSettings);
+                   // Ensure cloud sync for any manual settings update
+                   updateLiveSettings({ ...newSettings, adminPassword });
+                }} 
                 onImportQuestions={(newQs) => setQuestions(newQs)} 
                 onReset={() => setQuestions([])} 
               />
