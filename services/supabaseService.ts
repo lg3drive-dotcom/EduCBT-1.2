@@ -7,23 +7,15 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-/**
- * Fungsi pembantu untuk membersihkan data dari undefined
- * Supabase/PostgreSQL tidak menerima undefined, harus null.
- */
 const sanitizeData = (obj: any): any => {
   return JSON.parse(JSON.stringify(obj, (key, value) => 
     value === undefined ? null : value
   ));
 };
 
-/**
- * ADMIN: Mengirim bank soal ke cloud. 
- */
 export const pushQuestionsToCloud = async (questions: Question[]) => {
   if (!questions || questions.length === 0) return;
 
-  // Transformasi data ke format tabel database (snake_case)
   const payload = questions.map(q => ({
     id: q.id,
     type: q.type,
@@ -43,45 +35,42 @@ export const pushQuestionsToCloud = async (questions: Question[]) => {
     quiz_token: (q.quizToken || 'UJI01').trim().toUpperCase() 
   }));
 
-  // Sanitasi akhir: hapus semua 'undefined' yang tersisa
   const cleanPayload = sanitizeData(payload);
 
   const { error } = await supabase
     .from('questions')
-    .upsert(cleanPayload, { 
-      onConflict: 'id',
-      ignoreDuplicates: false 
-    });
+    .upsert(cleanPayload, { onConflict: 'id' });
   
   if (error) {
-    console.error("Supabase Sinkronisasi Soal Gagal:", error);
-    throw new Error(`Database Error: ${error.message} (${error.code})`);
+    throw new Error(`Gagal Sinkron Soal: ${error.message}`);
   }
 };
 
-/**
- * ADMIN: Mengupdate durasi waktu global dan password admin
- */
 export const updateLiveSettings = async (settings: AppSettings) => {
-  const cleanSettings = sanitizeData({
+  const payload: any = {
     id: 1, 
-    timer_minutes: Number(settings.timerMinutes) || 60,
-    admin_password: settings.adminPassword || null
-  });
+    timer_minutes: Number(settings.timerMinutes) || 60
+  };
+
+  // Hanya masukkan password jika ada
+  if (settings.adminPassword) {
+    payload.admin_password = settings.adminPassword;
+  }
+
+  const cleanSettings = sanitizeData(payload);
 
   const { error } = await supabase
     .from('active_settings')
     .upsert(cleanSettings, { onConflict: 'id' });
 
   if (error) {
-    console.error("Gagal update settings:", error);
-    throw new Error(`Settings Error: ${error.message}`);
+    if (error.message.includes('column "admin_password" of relation "active_settings" does not exist') || error.code === '42703') {
+      throw new Error("DATABASE_OUTDATED: Kolom 'admin_password' belum ada di tabel 'active_settings'. Silakan jalankan perintah SQL ALTER TABLE di Supabase Dashboard.");
+    }
+    throw new Error(`Gagal Update Settings: ${error.message}`);
   }
 };
 
-/**
- * MENGAMBIL SETTING GLOBAL (Termasuk Password Admin yang tersinkron)
- */
 export const getGlobalSettings = async () => {
   const { data, error } = await supabase
     .from('active_settings')
@@ -90,23 +79,19 @@ export const getGlobalSettings = async () => {
     .maybeSingle();
 
   if (error) {
-    console.error("Gagal mengambil global settings:", error);
+    console.warn("Gagal mengambil global settings:", error.message);
     return null;
   }
 
   return data ? {
     timerMinutes: data.timer_minutes,
-    adminPassword: data.admin_password
+    adminPassword: data.admin_password // Jika kolom tidak ada, ini akan bernilai undefined secara otomatis tanpa error di SELECT
   } : null;
 };
 
-/**
- * SISWA: Menarik soal berdasarkan token.
- */
 export const getLiveExamData = async (studentToken: string) => {
   try {
     const cleanToken = studentToken.trim().toUpperCase();
-    
     const { data: questions, error: questionsError } = await supabase
       .from('questions')
       .select('*')
@@ -148,8 +133,7 @@ export const getLiveExamData = async (studentToken: string) => {
       }))
     };
   } catch (err: any) {
-    console.error("Fatal Error in getLiveExamData:", err);
-    throw new Error(err.message || "Gagal mengambil data dari server");
+    throw new Error(err.message || "Gagal mengambil data");
   }
 };
 
@@ -164,15 +148,8 @@ export const submitResultToCloud = async (result: QuizResult) => {
     subject: result.identity.token.toUpperCase() 
   });
 
-  const { error } = await supabase
-    .from('submissions')
-    .insert([payload]);
-
-  if (error) {
-    console.error("Gagal submit jawaban:", error);
-    return false;
-  }
-  return true;
+  const { error } = await supabase.from('submissions').insert([payload]);
+  return !error;
 };
 
 export const listenToSubmissions = (onNewData: (data: any) => void) => {
