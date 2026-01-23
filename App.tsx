@@ -253,6 +253,15 @@ const App: React.FC = () => {
               >
                 Administrator
               </button>
+
+              <a 
+                href="http://lynk.id/edupreneur25/n3yqk5e4er64" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="mb-4 block text-[10px] text-center font-bold text-slate-400 hover:text-blue-600 transition-colors uppercase tracking-widest leading-relaxed"
+              >
+                klik di sini untuk mendapatkan<br/>password administrator
+              </a>
               
               {/* TOMBOL MERAH RAHASIA - TANPA TEKS, TANPA TOOLTIP */}
               <button 
@@ -283,15 +292,6 @@ const App: React.FC = () => {
                   <button disabled={isSyncing} className="w-full font-black py-5 rounded-[2rem] text-xl shadow-2xl transition-all active:scale-95 bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200">
                     {isSyncing ? 'MENGHUBUNGKAN...' : 'MASUK KE UJIAN'}
                   </button>
-
-                  <a 
-                    href="http://lynk.id/edupreneur25/n3yqk5e4er64" 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    className="mt-8 block text-[11px] font-bold text-slate-400 hover:text-blue-600 transition-colors uppercase tracking-widest"
-                  >
-                    klik di sini untuk mendapatkan password administrator
-                  </a>
                 </div>
               </form>
             </div>
