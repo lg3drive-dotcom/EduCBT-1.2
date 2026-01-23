@@ -220,7 +220,6 @@ const App: React.FC = () => {
                 onUpdateSettings={setSettings} 
                 onImportQuestions={(newQs) => setQuestions(newQs)} 
                 onReset={() => setQuestions([])} 
-                onUpdatePassword={setAdminPassword}
               />
             </div>
           </div>

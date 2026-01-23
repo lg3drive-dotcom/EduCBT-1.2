@@ -8,7 +8,6 @@ interface AdminSettingsProps {
   onUpdateSettings: (newSettings: AppSettings) => void;
   onImportQuestions: (newQuestions: Question[], mode: 'replace' | 'append') => void;
   onReset: () => void;
-  onUpdatePassword: (newPass: string) => void;
 }
 
 const AdminSettings: React.FC<AdminSettingsProps> = ({ 
@@ -16,11 +15,9 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
   questions, 
   onUpdateSettings, 
   onImportQuestions, 
-  onReset,
-  onUpdatePassword
+  onReset
 }) => {
   const [timer, setTimer] = useState(settings.timerMinutes.toString());
-  const [newPass, setNewPass] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSave = () => {
@@ -29,18 +26,6 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
       timerMinutes: parseInt(timer) || 60
     });
     alert('Pengaturan waktu berhasil disimpan!');
-  };
-
-  const handlePasswordUpdate = () => {
-    if (newPass.trim().length < 4) {
-      alert("Password terlalu pendek! Minimal 4 karakter.");
-      return;
-    }
-    if (confirm("Apakah Anda yakin ingin mengubah password administrator?")) {
-      onUpdatePassword(newPass.trim());
-      setNewPass('');
-      alert("Password administrator berhasil diperbarui!");
-    }
   };
 
   const handleBackup = () => {
@@ -94,31 +79,6 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
           }} />
           
           <button onClick={() => fileInputRef.current?.click()} className="w-full bg-white text-blue-600 font-bold py-3 rounded-2xl border border-blue-200 hover:bg-blue-50 transition-all uppercase text-[10px] tracking-widest">Upload File .JSON</button>
-        </div>
-      </div>
-
-      <div className="bg-white p-6 rounded-3xl shadow-sm border border-red-100">
-        <h2 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M2.166 4.9L10 .303 17.834 4.9a1 1 0 01.5 1.075l-1.334 8a1 1 0 01-.504.743l-6 3.5a1 1 0 01-.992 0l-6-3.5a1 1 0 01-.504-.743l-1.334-8a1 1 0 01.5-1.075zm2.131 2.22l.774 4.648L10 14.12l4.929-2.353.774-4.648L10 9.303 4.297 7.12z" clipRule="evenodd" /></svg>
-          Keamanan
-        </h2>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Password Admin Baru</label>
-            <input 
-              type="text" 
-              value={newPass} 
-              onChange={(e) => setNewPass(e.target.value)} 
-              placeholder="Min. 4 Karakter"
-              className="w-full px-4 py-3 bg-red-50/30 border border-red-100 rounded-2xl font-black outline-none focus:border-red-500 transition-all" 
-            />
-          </div>
-          <button 
-            onClick={handlePasswordUpdate}
-            className="w-full bg-red-600 text-white font-black py-3 rounded-2xl shadow-lg hover:bg-red-700 transition-all uppercase text-[10px] tracking-widest"
-          >
-            Update Password
-          </button>
         </div>
       </div>
       
