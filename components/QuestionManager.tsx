@@ -19,7 +19,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   questions, activeToken, onAdd, onUpdate, onSoftDelete, onPermanentDelete, onRestore 
 }) => {
   const [activeTab, setActiveTab] = useState<'active' | 'trash'>('active');
-  const [subjectFilter, setSubjectFilter] = useState<Subject | 'ALL'>('ALL');
+  const [subjectFilter, setSubjectFilter] = useState<string>('ALL');
   const [tokenFilter, setTokenFilter] = useState<string>('');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -35,7 +35,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     options: string[];
     optionImages: (string | undefined)[];
     correctAnswer: any;
-    subject: Subject;
+    subject: string;
     order: number;
     quizToken: string;
   }>({
@@ -143,7 +143,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   };
 
   const handleExport = () => {
-    generateQuestionBankPDF(processedQuestions, 'lengkap', subjectFilter !== 'ALL' ? subjectFilter as Subject : undefined);
+    generateQuestionBankPDF(processedQuestions, 'lengkap', subjectFilter !== 'ALL' ? subjectFilter as any : undefined);
   };
 
   const handleAddOption = () => {
@@ -177,6 +177,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   const handleSave = () => {
     if (!formData.text) return alert("Pertanyaan tidak boleh kosong.");
     if (!formData.quizToken) return alert("Token wajib diisi agar soal dapat ditemukan siswa.");
+    if (!formData.subject) return alert("Mata pelajaran wajib diisi.");
     
     const finalData = {
       ...formData,
@@ -205,7 +206,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
             <>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mapel:</span>
-                <select value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value as any)} className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold outline-none text-slate-700">
+                <select value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value)} className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold outline-none text-slate-700">
                   <option value="ALL">Semua Mapel</option>
                   {SUBJECT_LIST.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
@@ -299,9 +300,17 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                        </div>
                        <div className="space-y-1">
                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mata Pelajaran</label>
-                          <select value={formData.subject} onChange={e => setFormData({...formData, subject: e.target.value as Subject})} className="w-full p-4 border rounded-xl font-bold outline-none focus:border-blue-500 bg-slate-50 text-sm">
-                              {SUBJECT_LIST.map(s => <option key={s} value={s}>{s}</option>)}
-                          </select>
+                          <input 
+                            type="text"
+                            list="subject-options"
+                            value={formData.subject} 
+                            onChange={e => setFormData({...formData, subject: e.target.value})} 
+                            placeholder="Ketik Mapel..."
+                            className="w-full p-4 border rounded-xl font-bold outline-none focus:border-blue-500 bg-slate-50 text-sm"
+                          />
+                          <datalist id="subject-options">
+                            {SUBJECT_LIST.map(s => <option key={s} value={s} />)}
+                          </datalist>
                        </div>
                        <div className="space-y-1">
                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Level Kognitif</label>

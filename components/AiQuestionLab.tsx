@@ -13,7 +13,7 @@ const AiQuestionLab: React.FC<AiQuestionLabProps> = ({ onBack }) => {
   const [generatedQuestions, setGeneratedQuestions] = useState<Question[]>([]);
   
   // AI Config States
-  const [subject, setSubject] = useState(Subject.PANCASILA);
+  const [subject, setSubject] = useState<string>(Subject.PANCASILA);
   const [material, setMaterial] = useState('');
   const [customPrompt, setCustomPrompt] = useState('');
   const [count, setCount] = useState(5);
@@ -36,11 +36,12 @@ const AiQuestionLab: React.FC<AiQuestionLabProps> = ({ onBack }) => {
 
   const handleGenerate = async () => {
     if (!material && !file) return alert("Berikan materi atau upload file acuan.");
+    if (!subject) return alert("Pilih atau ketik mata pelajaran.");
     
     setIsGenerating(true);
     try {
       const result = await generateBatchAIQuestions(
-        subject, material, count, type, level,
+        subject as any, material, count, type, level,
         file ? { data: file.data, mimeType: file.type } : undefined,
         customPrompt
       );
@@ -126,9 +127,17 @@ const AiQuestionLab: React.FC<AiQuestionLabProps> = ({ onBack }) => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Mapel</label>
-                   <select value={subject} onChange={e => setSubject(e.target.value as Subject)} className="w-full bg-slate-950 border border-slate-800 p-3 rounded-xl text-xs font-bold outline-none">
-                     {SUBJECT_LIST.map(s => <option key={s} value={s}>{s}</option>)}
-                   </select>
+                   <input 
+                      type="text"
+                      list="ai-subject-options"
+                      value={subject} 
+                      onChange={e => setSubject(e.target.value)} 
+                      placeholder="Ketik Mapel..."
+                      className="w-full bg-slate-950 border border-slate-800 p-3 rounded-xl text-xs font-bold outline-none text-white"
+                   />
+                   <datalist id="ai-subject-options">
+                     {SUBJECT_LIST.map(s => <option key={s} value={s} />)}
+                   </datalist>
                 </div>
                 <div>
                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Jumlah Soal</label>

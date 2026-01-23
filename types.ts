@@ -6,9 +6,7 @@ export enum Subject {
   IPAS = 'IPAS',
   SENI = 'Seni Budaya',
   SUNDA = 'Bahasa Sunda',
-  INGGRIS = 'Bahasa Inggris',
-  TKA_INDONESIA = 'TKA Bahasa Indonesia',
-  TKA_MATEMATIKA = 'TKA Matematika'
+  INGGRIS = 'Bahasa Inggris'
 }
 
 export enum QuestionType {
@@ -30,7 +28,7 @@ export interface Question {
   id: string;
   type: QuestionType;
   level: CognitiveLevel;
-  subject: Subject;
+  subject: string; // Diubah ke string untuk mendukung custom subjects
   material: string; 
   text: string;
   explanation: string;
@@ -65,6 +63,5 @@ export interface QuizResult {
 
 export interface AppSettings {
   timerMinutes: number;
-  // activeSubject is used to display the currently active exam subject name
   activeSubject?: string;
 }
