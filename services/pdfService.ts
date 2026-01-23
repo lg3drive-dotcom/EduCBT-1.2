@@ -61,7 +61,7 @@ const checkCorrectness = (q: Question, studentAnswer: any): boolean => {
   return false;
 };
 
-const drawKisiKisiSection = (doc: jsPDF, questions: Question[], subject?: Subject, startY: number = 25): number => {
+const drawKisiKisiSection = (doc: jsPDF, questions: Question[], subject?: Subject, startY: number = 25, token?: string): number => {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 10;
@@ -70,12 +70,20 @@ const drawKisiKisiSection = (doc: jsPDF, questions: Question[], subject?: Subjec
   doc.setFontSize(14);
   doc.setTextColor(0, 0, 0);
   doc.setFont("helvetica", "bold");
-  doc.text(subject ? `KISI-KISI SOAL - ${subject.toUpperCase()}` : 'KISI-KISI SOAL CBT', pageWidth / 2, startY - 10, { align: 'center' });
+  
+  const title = subject ? `KISI-KISI SOAL - ${subject.toUpperCase()}` : 'KISI-KISI SOAL CBT';
+  doc.text(title, pageWidth / 2, startY - 10, { align: 'center' });
+  
+  if (token) {
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`TOKEN: ${token.toUpperCase()}`, pageWidth / 2, startY - 5, { align: 'center' });
+  }
   
   doc.setLineWidth(0.3);
-  doc.line(margin, startY - 5, pageWidth - margin, startY - 5);
+  doc.line(margin, startY, pageWidth - margin, startY);
 
-  let yPos = startY;
+  let yPos = startY + 5;
   
   const columns = [
     { header: 'NO', width: 10 },
@@ -105,7 +113,6 @@ const drawKisiKisiSection = (doc: jsPDF, questions: Question[], subject?: Subjec
   yPos += 10;
 
   questions.forEach((q, idx) => {
-    // Gunakan isKey=true untuk kisi-kisi
     const fullKeyText = getFullAnswerText(q, undefined, true);
     doc.setFontSize(7);
     const materiLines = doc.splitTextToSize(q.material || "-", columns[2].width - 4);
@@ -141,7 +148,7 @@ const drawKisiKisiSection = (doc: jsPDF, questions: Question[], subject?: Subjec
   return yPos;
 };
 
-const drawSoalSection = (doc: jsPDF, questions: Question[], subject?: Subject, startY: number = 25): number => {
+const drawSoalSection = (doc: jsPDF, questions: Question[], subject?: Subject, startY: number = 25, token?: string): number => {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 10;
@@ -149,10 +156,18 @@ const drawSoalSection = (doc: jsPDF, questions: Question[], subject?: Subject, s
 
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
-  doc.text(subject ? `DAFTAR BUTIR SOAL - ${subject.toUpperCase()}` : 'DAFTAR BUTIR SOAL CBT', pageWidth / 2, startY - 10, { align: 'center' });
-  doc.line(margin, startY - 5, pageWidth - margin, startY - 5);
+  const title = subject ? `DAFTAR BUTIR SOAL - ${subject.toUpperCase()}` : 'DAFTAR BUTIR SOAL CBT';
+  doc.text(title, pageWidth / 2, startY - 10, { align: 'center' });
+  
+  if (token) {
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`TOKEN: ${token.toUpperCase()}`, pageWidth / 2, startY - 5, { align: 'center' });
+  }
 
-  let yPos = startY;
+  doc.line(margin, startY, pageWidth - margin, startY);
+
+  let yPos = startY + 5;
   
   const columns = [
     { header: 'NO', width: 10 },
@@ -187,7 +202,6 @@ const drawSoalSection = (doc: jsPDF, questions: Question[], subject?: Subject, s
       });
     }
 
-    // Gunakan isKey=true untuk kunci jawaban
     const keyAndEx = `KUNCI: ${getFullAnswerText(q, undefined, true)}\n\nKET: ${q.explanation || '-'}`;
 
     doc.setFontSize(8);
@@ -258,9 +272,7 @@ export const generateResultPDF = (result: QuizResult, questions: Question[]) => 
     const studentAns = answers[q.id];
     const isCorrect = checkCorrectness(q, studentAns);
     
-    // Perbaikan: studentAns dilempar ke answerValue, isKey=false (default)
     const fullStudentAns = getFullAnswerText(q, studentAns, false);
-    // Perbaikan: Untuk kunci jawaban gunakan isKey=true
     const fullKeyText = getFullAnswerText(q, undefined, true);
     
     doc.setFontSize(9);
@@ -324,10 +336,12 @@ export const generateResultPDF = (result: QuizResult, questions: Question[]) => 
   doc.save(`LJK_${identity.name}.pdf`);
 };
 
-export const generateQuestionBankPDF = (questions: Question[], mode: 'kisi' | 'soal' | 'lengkap', subject?: Subject) => {
+export const generateQuestionBankPDF = (questions: Question[], mode: 'kisi' | 'soal' | 'lengkap', subject?: Subject, token?: string) => {
   const doc = new jsPDF('p', 'mm', 'a4');
-  drawKisiKisiSection(doc, questions, subject);
+  drawKisiKisiSection(doc, questions, subject, 25, token);
   doc.addPage();
-  drawSoalSection(doc, questions, subject);
-  doc.save(`BankSoal_${subject || 'Semua'}.pdf`);
+  drawSoalSection(doc, questions, subject, 25, token);
+  
+  const fileName = token ? `BankSoal_${token.toUpperCase()}.pdf` : `BankSoal_${subject || 'Semua'}.pdf`;
+  doc.save(fileName);
 };
