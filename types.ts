@@ -30,8 +30,9 @@ export enum CognitiveLevel {
 export interface Question {
   id: string;
   type: QuestionType;
-  level: string; // Diubah menjadi string untuk fleksibilitas antar mode
+  level: string; 
   subject: string; 
+  phase?: string; // Field baru untuk Fase Kurikulum Merdeka
   material: string; 
   text: string;
   explanation: string;

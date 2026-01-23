@@ -7,6 +7,7 @@ export const INITIAL_QUESTIONS: Question[] = [
     type: QuestionType.SINGLE,
     level: CognitiveLevel.C1,
     subject: Subject.PANCASILA,
+    phase: 'Fase C',
     material: 'Disediakan soal tentang sila Pancasila, murid dapat menjawab sesuai lambangnya.',
     text: 'Sila pertama Pancasila dilambangkan dengan...',
     explanation: 'Sila pertama "Ketuhanan Yang Maha Esa" dilambangkan dengan Bintang Emas.',
@@ -22,6 +23,7 @@ export const INITIAL_QUESTIONS: Question[] = [
     type: QuestionType.SINGLE,
     level: CognitiveLevel.C3,
     subject: Subject.MATEMATIKA,
+    phase: 'Fase C',
     material: 'Menghitung hasil operasi perkalian dalam konteks soal cerita sederhana.',
     text: 'Berapakah hasil dari 12 dikali 5?',
     explanation: 'Operasi perkalian 12 x 5 = 60.',
@@ -35,6 +37,16 @@ export const INITIAL_QUESTIONS: Question[] = [
 ];
 
 export const SUBJECT_LIST = Object.values(Subject);
+
+export const KURIKULUM_PHASES = [
+  'Fase Fondasi',
+  'Fase A',
+  'Fase B',
+  'Fase C',
+  'Fase D',
+  'Fase E',
+  'Fase F'
+];
 
 export const BLOOM_LEVELS = [
   CognitiveLevel.C1,

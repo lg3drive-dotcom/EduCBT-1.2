@@ -2,7 +2,7 @@
 // Import React to provide namespace for React.FC and React.ChangeEvent
 import React, { useState, useRef, useMemo } from 'react';
 import { Question, Subject, QuestionType, CognitiveLevel } from '../types.ts';
-import { SUBJECT_LIST, BLOOM_LEVELS, PUSPENDIK_LEVELS } from '../constants.ts';
+import { SUBJECT_LIST, BLOOM_LEVELS, PUSPENDIK_LEVELS, KURIKULUM_PHASES } from '../constants.ts';
 import { generateQuestionBankPDF } from '../services/pdfService.ts';
 
 interface QuestionManagerProps {
@@ -37,6 +37,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     optionImages: (string | undefined)[];
     correctAnswer: any;
     subject: string;
+    phase: string;
     order: number;
     quizToken: string;
   }>({
@@ -49,6 +50,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     optionImages: [undefined, undefined, undefined, undefined],
     correctAnswer: 0,
     subject: Subject.PANCASILA,
+    phase: 'Fase C',
     order: 1,
     quizToken: activeToken
   });
@@ -62,7 +64,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
       text: '', material: '', explanation: '', type: QuestionType.SINGLE, 
       level: CognitiveLevel.C1, options: ['', '', '', ''], 
       optionImages: [undefined, undefined, undefined, undefined], 
-      correctAnswer: 0, subject: Subject.PANCASILA, order: 1,
+      correctAnswer: 0, subject: Subject.PANCASILA, phase: 'Fase C', order: 1,
       quizToken: activeToken
     });
   };
@@ -83,13 +85,13 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
       optionImages: q.optionImages || (q.options ? q.options.map(() => undefined) : [undefined, undefined, undefined, undefined]),
       correctAnswer: q.correctAnswer,
       subject: q.subject,
+      phase: q.phase || 'Fase C',
       order: q.order || 1,
       quizToken: q.quizToken || activeToken
     });
     setShowForm(true);
   };
 
-  // Fixed React namespace usage by importing React
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, index?: number) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -110,7 +112,6 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   const processedQuestions = useMemo(() => {
     let filtered = questions.filter(q => activeTab === 'active' ? !q.isDeleted : (activeTab === 'trash' ? q.isDeleted : false));
     if (activeTab === 'active') {
-      // Pencarian mata pelajaran manual
       if (subjectFilter.trim() !== '') {
         filtered = filtered.filter(q => 
           q.subject.toLowerCase().includes(subjectFilter.toLowerCase())
@@ -260,6 +261,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                       <div className="flex flex-wrap gap-1 lg:gap-2">
                         <span className="text-[8px] lg:text-[10px] bg-blue-600 text-white px-2 py-0.5 rounded font-black uppercase shadow-sm">TOKEN: {q.quizToken || 'NA'}</span>
                         <span className="text-[8px] lg:text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-black uppercase truncate max-w-[150px]">{q.subject}</span>
+                        {q.phase && <span className="text-[8px] lg:text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-100 px-2 py-0.5 rounded font-black uppercase">{q.phase}</span>}
                         <span className="text-[8px] lg:text-[10px] bg-purple-50 text-purple-700 px-2 py-0.5 rounded font-black uppercase">{q.level.split(' ')[0]}</span>
                       </div>
                       <div className="flex gap-4 sm:opacity-0 group-hover:opacity-100 transition-opacity w-full sm:w-auto border-t sm:border-t-0 pt-2 sm:pt-0 mt-1 sm:mt-0">
@@ -325,19 +327,31 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                        </div>
                    </div>
 
-                   <div className="bg-slate-50 p-4 lg:p-6 rounded-2xl lg:rounded-3xl border border-slate-200 space-y-4">
-                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Level Kognitif</label>
-                         <div className="flex bg-white p-1 rounded-xl border border-slate-200 shadow-sm w-full sm:w-auto">
-                            <button onClick={() => setLevelMode('bloom')} className={`flex-1 sm:flex-none px-3 py-2 rounded-lg text-[8px] lg:text-[9px] font-black transition-all ${levelMode === 'bloom' ? 'bg-purple-600 text-white' : 'text-slate-400'}`}>BLOOM</button>
-                            <button onClick={() => setLevelMode('puspendik')} className={`flex-1 sm:flex-none px-3 py-2 rounded-lg text-[8px] lg:text-[9px] font-black transition-all ${levelMode === 'puspendik' ? 'bg-orange-600 text-white' : 'text-slate-400'}`}>PUSPENDIK</button>
-                         </div>
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest ml-1">Fase Kurikulum</label>
+                        <select 
+                          value={formData.phase} 
+                          onChange={e => setFormData({...formData, phase: e.target.value})}
+                          className="w-full p-3 lg:p-4 border rounded-xl font-black outline-none bg-emerald-50 text-emerald-700 text-xs"
+                        >
+                          {KURIKULUM_PHASES.map(p => <option key={p} value={p}>{p}</option>)}
+                        </select>
                       </div>
-                      <select value={formData.level} onChange={e => setFormData({...formData, level: e.target.value})} className="w-full p-3 lg:p-4 border rounded-xl font-black outline-none bg-white text-xs">
-                          {(levelMode === 'bloom' ? BLOOM_LEVELS : PUSPENDIK_LEVELS).map(l => (
-                            <option key={l} value={l}>{l}</option>
-                          ))}
-                      </select>
+                      <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200">
+                        <div className="flex justify-between items-center mb-1">
+                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sistem Level</label>
+                           <div className="flex bg-white p-0.5 rounded-lg border border-slate-200">
+                              <button onClick={() => setLevelMode('bloom')} className={`px-2 py-1 rounded-md text-[7px] font-black transition-all ${levelMode === 'bloom' ? 'bg-purple-600 text-white' : 'text-slate-400'}`}>BLOOM</button>
+                              <button onClick={() => setLevelMode('puspendik')} className={`px-2 py-1 rounded-md text-[7px] font-black transition-all ${levelMode === 'puspendik' ? 'bg-orange-600 text-white' : 'text-slate-400'}`}>PUSPENDIK</button>
+                           </div>
+                        </div>
+                        <select value={formData.level} onChange={e => setFormData({...formData, level: e.target.value})} className="w-full p-2 border rounded-lg font-black outline-none bg-white text-[10px]">
+                            {(levelMode === 'bloom' ? BLOOM_LEVELS : PUSPENDIK_LEVELS).map(l => (
+                              <option key={l} value={l}>{l}</option>
+                            ))}
+                        </select>
+                      </div>
                    </div>
 
                    <div className="space-y-1">
