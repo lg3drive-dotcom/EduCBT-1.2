@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useMemo } from 'react';
 import { Question, Subject, QuestionType, CognitiveLevel } from '../types.ts';
-import { SUBJECT_LIST, COGNITIVE_LEVELS } from '../constants.ts';
+import { SUBJECT_LIST, BLOOM_LEVELS, PUSPENDIK_LEVELS } from '../constants.ts';
 import { generateQuestionBankPDF } from '../services/pdfService.ts';
 
 interface QuestionManagerProps {
@@ -22,6 +22,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   const [tokenFilter, setTokenFilter] = useState<string>('');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [levelMode, setLevelMode] = useState<'bloom' | 'puspendik'>('bloom');
   
   const [formData, setFormData] = useState<{
     text: string;
@@ -29,7 +30,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     explanation: string;
     questionImage?: string;
     type: QuestionType;
-    level: CognitiveLevel;
+    level: string;
     options: string[];
     optionImages: (string | undefined)[];
     correctAnswer: any;
@@ -66,6 +67,10 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
 
   const handleEdit = (q: Question) => {
     setEditingId(q.id);
+    // Auto detect mode
+    const isPuspendik = PUSPENDIK_LEVELS.includes(q.level as CognitiveLevel);
+    setLevelMode(isPuspendik ? 'puspendik' : 'bloom');
+    
     setFormData({
       text: q.text,
       material: q.material,
@@ -224,7 +229,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                       <div className="flex flex-wrap gap-2">
                         <span className="text-[10px] bg-blue-600 text-white px-2 py-1 rounded font-black uppercase shadow-sm">TOKEN: {q.quizToken || 'TIDAK ADA'}</span>
                         <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-1 rounded font-black uppercase">{q.subject}</span>
-                        <span className="text-[10px] bg-purple-50 text-purple-700 px-2 py-1 rounded font-black uppercase">{q.level.split(' ')[0]}</span>
+                        <span className="text-[10px] bg-purple-50 text-purple-700 px-2 py-1 rounded font-black uppercase tracking-tighter">{q.level.length > 20 ? q.level.substring(0, 15) + '...' : q.level.split(' ')[0]}</span>
                       </div>
                       <div className="flex gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
                         {activeTab === 'active' ? (
@@ -262,7 +267,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
              
              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
                 <div className="lg:col-span-7 space-y-6">
-                   <div className="grid grid-cols-3 gap-4">
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                        <div className="space-y-1">
                           <label className="text-[10px] font-black text-blue-600 uppercase tracking-widest ml-1">Token Akses Soal</label>
                           <input 
@@ -287,12 +292,44 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                             {SUBJECT_LIST.map(s => <option key={s} value={s} />)}
                           </datalist>
                        </div>
-                       <div className="space-y-1">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Level Kognitif</label>
-                          <select value={formData.level} onChange={e => setFormData({...formData, level: e.target.value as CognitiveLevel})} className="w-full p-4 border rounded-xl font-bold outline-none focus:border-blue-500 bg-slate-50 text-sm">
-                              {COGNITIVE_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
-                          </select>
-                       </div>
+                   </div>
+
+                   <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200 space-y-4">
+                      <div className="flex justify-between items-center">
+                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sistem Level Kognitif</label>
+                         <div className="flex bg-white p-1 rounded-xl border border-slate-200 shadow-sm">
+                            <button 
+                              onClick={() => {
+                                setLevelMode('bloom');
+                                setFormData({...formData, level: BLOOM_LEVELS[0]});
+                              }} 
+                              className={`px-4 py-2 rounded-lg text-[9px] font-black transition-all ${levelMode === 'bloom' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                              TAKSONOMI BLOOM (C1-C6)
+                            </button>
+                            <button 
+                              onClick={() => {
+                                setLevelMode('puspendik');
+                                setFormData({...formData, level: PUSPENDIK_LEVELS[0]});
+                              }} 
+                              className={`px-4 py-2 rounded-lg text-[9px] font-black transition-all ${levelMode === 'puspendik' ? 'bg-orange-600 text-white' : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                              PUSPENDIK (LEVEL 1-3)
+                            </button>
+                         </div>
+                      </div>
+                      <div className="space-y-1">
+                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Pilih Level</label>
+                         <select 
+                           value={formData.level} 
+                           onChange={e => setFormData({...formData, level: e.target.value})} 
+                           className={`w-full p-4 border rounded-xl font-black outline-none focus:border-blue-500 bg-white text-sm ${levelMode === 'bloom' ? 'text-purple-700' : 'text-orange-700'}`}
+                         >
+                            {(levelMode === 'bloom' ? BLOOM_LEVELS : PUSPENDIK_LEVELS).map(l => (
+                              <option key={l} value={l}>{l}</option>
+                            ))}
+                         </select>
+                      </div>
                    </div>
 
                    <div className="space-y-1">

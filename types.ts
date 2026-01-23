@@ -21,14 +21,17 @@ export enum CognitiveLevel {
   C3 = 'C3 Menerapkan',
   C4 = 'C4 Menganalisis',
   C5 = 'C5 Mengevaluasi',
-  C6 = 'C6 Mencipta'
+  C6 = 'C6 Mencipta',
+  L1 = 'Level 1 (Pengetahuan & Pemahaman)',
+  L2 = 'Level 2 (Aplikasi)',
+  L3 = 'Level 3 (Penalaran)'
 }
 
 export interface Question {
   id: string;
   type: QuestionType;
-  level: CognitiveLevel;
-  subject: string; // Diubah ke string untuk mendukung custom subjects
+  level: string; // Diubah menjadi string untuk fleksibilitas antar mode
+  subject: string; 
   material: string; 
   text: string;
   explanation: string;

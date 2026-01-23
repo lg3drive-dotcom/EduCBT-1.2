@@ -127,7 +127,6 @@ const App: React.FC = () => {
           </div>
           <nav className="space-y-2 flex-1">
             <button className="w-full text-left p-4 bg-white/10 rounded-xl font-bold border-l-4 border-blue-500 uppercase text-[10px] tracking-widest">Bank Soal</button>
-            {/* Panel Monitoring telah dihapus sesuai permintaan */}
           </nav>
           <div className="mt-auto space-y-4">
             <div className="p-4 bg-white/5 border border-white/10 rounded-2xl">
@@ -174,7 +173,7 @@ const App: React.FC = () => {
                 <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-black text-xl shadow-lg">C</div>
                 <div className="font-black text-2xl tracking-tighter">EduCBT Pro</div>
               </div>
-              <h1 className="text-4xl font-black mb-6 leading-tight">Mulai Ujian Anda.</h1>
+              <h1 className="text-4xl font-black mb-6 leading-tight">Computer Based Test</h1>
               <div className="bg-white/5 p-5 rounded-3xl border border-white/10 backdrop-blur-sm">
                 <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em] mb-2">Sistem</p>
                 <p className="text-xl font-black text-white italic">Full Dynamic Partitioning</p>

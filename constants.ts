@@ -35,4 +35,20 @@ export const INITIAL_QUESTIONS: Question[] = [
 ];
 
 export const SUBJECT_LIST = Object.values(Subject);
-export const COGNITIVE_LEVELS = Object.values(CognitiveLevel);
+
+export const BLOOM_LEVELS = [
+  CognitiveLevel.C1,
+  CognitiveLevel.C2,
+  CognitiveLevel.C3,
+  CognitiveLevel.C4,
+  CognitiveLevel.C5,
+  CognitiveLevel.C6
+];
+
+export const PUSPENDIK_LEVELS = [
+  CognitiveLevel.L1,
+  CognitiveLevel.L2,
+  CognitiveLevel.L3
+];
+
+export const COGNITIVE_LEVELS = [...BLOOM_LEVELS, ...PUSPENDIK_LEVELS];

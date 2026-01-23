@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { Subject, QuestionType, CognitiveLevel, Question } from '../types.ts';
-import { SUBJECT_LIST, COGNITIVE_LEVELS } from '../constants.ts';
+import { SUBJECT_LIST, BLOOM_LEVELS, PUSPENDIK_LEVELS } from '../constants.ts';
 import { generateBatchAIQuestions } from '../services/geminiService.ts';
 
 interface AiQuestionLabProps {
@@ -11,6 +11,7 @@ interface AiQuestionLabProps {
 const AiQuestionLab: React.FC<AiQuestionLabProps> = ({ onBack }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedQuestions, setGeneratedQuestions] = useState<Question[]>([]);
+  const [levelMode, setLevelMode] = useState<'bloom' | 'puspendik'>('bloom');
   
   // AI Config States
   const [subject, setSubject] = useState<string>(Subject.PANCASILA);
@@ -18,7 +19,7 @@ const AiQuestionLab: React.FC<AiQuestionLabProps> = ({ onBack }) => {
   const [customPrompt, setCustomPrompt] = useState('');
   const [count, setCount] = useState(5);
   const [type, setType] = useState<QuestionType | 'RANDOM'>('RANDOM');
-  const [level, setLevel] = useState<CognitiveLevel | 'RANDOM'>('RANDOM');
+  const [level, setLevel] = useState<string>('RANDOM');
   const [file, setFile] = useState<{data: string, name: string, type: string} | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -144,22 +145,33 @@ const AiQuestionLab: React.FC<AiQuestionLabProps> = ({ onBack }) => {
                    <input type="number" min="1" max="50" value={count} onChange={e => setCount(parseInt(e.target.value) || 1)} className="w-full bg-slate-950 border border-slate-800 p-3 rounded-xl text-xs font-black text-center outline-none" />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Tipe Soal</label>
-                   <select value={type} onChange={e => setType(e.target.value as any)} className="w-full bg-slate-950 border border-slate-800 p-3 rounded-xl text-xs font-bold outline-none">
-                     <option value="RANDOM">ACAK</option>
-                     {Object.values(QuestionType).map(t => <option key={t} value={t}>{t}</option>)}
-                   </select>
-                </div>
-                <div>
-                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Level Kognitif</label>
-                   <select value={level} onChange={e => setLevel(e.target.value as any)} className="w-full bg-slate-950 border border-slate-800 p-3 rounded-xl text-xs font-bold outline-none">
-                     <option value="RANDOM">ACAK</option>
-                     {COGNITIVE_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
-                   </select>
+              
+              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-3">
+                 <div className="flex justify-between items-center">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Mode Kognitif AI</label>
+                    <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800">
+                       <button onClick={() => { setLevelMode('bloom'); setLevel('RANDOM'); }} className={`px-2 py-1 rounded-md text-[8px] font-black transition-all ${levelMode === 'bloom' ? 'bg-purple-600 text-white' : 'text-slate-500 hover:text-slate-400'}`}>BLOOM</button>
+                       <button onClick={() => { setLevelMode('puspendik'); setLevel('RANDOM'); }} className={`px-2 py-1 rounded-md text-[8px] font-black transition-all ${levelMode === 'puspendik' ? 'bg-orange-600 text-white' : 'text-slate-500 hover:text-slate-400'}`}>PUSPENDIK</button>
+                    </div>
+                 </div>
+                 <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 block">Tipe Soal</label>
+                    <select value={type} onChange={e => setType(e.target.value as any)} className="w-full bg-slate-900 border border-slate-800 p-2 rounded-lg text-[10px] font-bold outline-none">
+                      <option value="RANDOM">ACAK</option>
+                      {Object.values(QuestionType).map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 block">Level</label>
+                    <select value={level} onChange={e => setLevel(e.target.value as any)} className={`w-full bg-slate-900 border border-slate-800 p-2 rounded-lg text-[10px] font-bold outline-none ${levelMode === 'bloom' ? 'text-purple-400' : 'text-orange-400'}`}>
+                      <option value="RANDOM">ACAK</option>
+                      {(levelMode === 'bloom' ? BLOOM_LEVELS : PUSPENDIK_LEVELS).map(l => <option key={l} value={l}>{l}</option>)}
+                    </select>
+                  </div>
                 </div>
               </div>
+              
               <button onClick={handleGenerate} disabled={isGenerating} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-black py-4 rounded-2xl shadow-xl shadow-purple-900/20 transition-all flex items-center justify-center gap-3 disabled:opacity-50">
                 {isGenerating ? (
                   <>
@@ -199,7 +211,7 @@ const AiQuestionLab: React.FC<AiQuestionLabProps> = ({ onBack }) => {
                        <div className="flex-1 space-y-4">
                           <div className="flex flex-wrap gap-2">
                             <span className="text-[8px] bg-purple-900/50 text-purple-300 px-2 py-0.5 rounded font-black uppercase border border-purple-800/50">{q.subject}</span>
-                            <span className="text-[8px] bg-blue-900/50 text-blue-300 px-2 py-0.5 rounded font-black uppercase border border-blue-800/50">{q.level}</span>
+                            <span className="text-[8px] bg-blue-900/50 text-blue-300 px-2 py-0.5 rounded font-black uppercase border border-blue-800/50">{q.level.split(' ')[0]}</span>
                             <span className="text-[8px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-black uppercase">{q.type}</span>
                           </div>
                           <p className="text-slate-300 font-medium leading-relaxed">{q.text}</p>

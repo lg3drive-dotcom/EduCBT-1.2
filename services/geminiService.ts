@@ -40,7 +40,7 @@ export const generateBatchAIQuestions = async (
   material: string, 
   count: number, 
   specificType: QuestionType | 'RANDOM',
-  specificLevel: CognitiveLevel | 'RANDOM',
+  specificLevel: string | 'RANDOM',
   fileData?: { data: string, mimeType: string },
   customPrompt?: string
 ) => {
@@ -50,9 +50,15 @@ export const generateBatchAIQuestions = async (
 
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
+  // Tentukan apakah menggunakan sistem Bloom atau Puspendik berdasarkan level input
+  const isPuspendikInput = specificLevel.startsWith("Level");
+  const levelContext = isPuspendikInput 
+    ? "Sistem Kognitif: Puspendik Indonesia (Level 1-3)." 
+    : "Sistem Kognitif: Taksonomi Bloom (C1-C6).";
+
   const levelInstruction = specificLevel !== 'RANDOM' 
     ? `Semua soal HARUS memiliki level kognitif: ${specificLevel}.`
-    : `Tentukan level kognitif (C1-C6) yang paling sesuai. Prioritaskan soal HOTS.`;
+    : `Tentukan level kognitif yang paling sesuai (Bloom C1-C6 atau Puspendik Level 1-3). Prioritaskan soal HOTS.`;
 
   let cleanBase64 = "";
   if (fileData) {
@@ -64,6 +70,8 @@ export const generateBatchAIQuestions = async (
   const promptText = `Anda adalah pakar pembuat soal ujian (CBT) di Indonesia.
              Buatkan ${count} butir soal untuk mata pelajaran "${subject}".
              
+             ${levelContext}
+
              KONTEKS MATERI:
              ${material ? `- Ringkasan Materi: "${material}"` : '- Gunakan lampiran file sebagai sumber utama.'}
              ${customPrompt ? `INSTRUKSI TAMBAHAN (SANGAT PENTING): "${customPrompt}"` : ''}
@@ -102,7 +110,7 @@ export const generateBatchAIQuestions = async (
             properties: {
               text: { type: Type.STRING },
               type: { type: Type.STRING, enum: Object.values(QuestionType) },
-              level: { type: Type.STRING, enum: Object.values(CognitiveLevel) },
+              level: { type: Type.STRING },
               material: { type: Type.STRING },
               explanation: { type: Type.STRING },
               options: { type: Type.ARRAY, items: { type: Type.STRING } },
