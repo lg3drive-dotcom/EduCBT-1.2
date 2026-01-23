@@ -80,7 +80,7 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, questions, onUp
       
       <div className="p-5 bg-blue-50 border border-blue-100 rounded-3xl">
         <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-2">Tips Token</p>
-        <p className="text-[11px] text-blue-800 leading-relaxed font-medium">Sistem kini <b>otomatis</b>. Siswa cukup masukkan token yang Anda tulis di edit soal. Pastikan tekan tombol sinkron setiap ada perubahan token soal.</p>
+        <p className="text-[11px] text-blue-800 leading-relaxed font-medium">Sistem kini <b>otomatis</b>. Siswa cukup masukkan token (Misal: <b>XCVBN</b>) yang Anda tulis di edit soal. Pastikan tekan tombol sinkron setiap ada perubahan token soal.</p>
       </div>
     </div>
   );

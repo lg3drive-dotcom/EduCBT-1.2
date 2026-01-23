@@ -3,7 +3,6 @@ import React, { useState, useRef, useMemo } from 'react';
 import { Question, Subject, QuestionType, CognitiveLevel } from '../types.ts';
 import { SUBJECT_LIST, COGNITIVE_LEVELS } from '../constants.ts';
 import { generateQuestionBankPDF } from '../services/pdfService.ts';
-import { generateAIImage } from '../services/geminiService.ts';
 
 interface QuestionManagerProps {
   questions: Question[];
@@ -23,7 +22,6 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   const [tokenFilter, setTokenFilter] = useState<string>('');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [aiLoadingIdx, setAiLoadingIdx] = useState<number | 'main' | null>(null);
   
   const [formData, setFormData] = useState<{
     text: string;
@@ -100,29 +98,6 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
       }
     };
     reader.readAsDataURL(file);
-  };
-
-  const handleAiGenerate = async (index?: number) => {
-    const prompt = index === undefined ? formData.text : formData.options[index];
-    if (!prompt) return alert("Tulis teks pertanyaan/opsi terlebih dahulu sebagai acuan AI.");
-    
-    setAiLoadingIdx(index === undefined ? 'main' : index);
-    try {
-      const imageUrl = await generateAIImage(prompt);
-      if (imageUrl) {
-        if (index === undefined) {
-          setFormData(prev => ({ ...prev, questionImage: imageUrl }));
-        } else {
-          const nextImages = [...formData.optionImages];
-          nextImages[index] = imageUrl;
-          setFormData(prev => ({ ...prev, optionImages: nextImages }));
-        }
-      }
-    } catch (err: any) {
-      alert(`Gagal Generate Gambar: ${err.message}`);
-    } finally {
-      setAiLoadingIdx(null);
-    }
   };
 
   const processedQuestions = useMemo(() => {
@@ -294,8 +269,8 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                             type="text" 
                             value={formData.quizToken} 
                             onChange={e => setFormData({...formData, quizToken: e.target.value.toUpperCase()})}
-                            placeholder="MISAL: IPA01"
-                            className="w-full p-4 border-2 border-blue-100 rounded-xl font-black outline-none focus:border-blue-500 bg-blue-50 text-blue-700 text-sm placeholder:text-blue-200"
+                            placeholder="XCVBN (gunakan kombinasi huruf unik)"
+                            className="w-full p-4 border-2 border-blue-100 rounded-xl font-black outline-none focus:border-blue-500 bg-blue-50 text-blue-700 text-sm placeholder:text-blue-200 placeholder:text-[10px]"
                           />
                        </div>
                        <div className="space-y-1">
@@ -341,10 +316,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                          <div className="flex flex-col gap-2 flex-1">
                             <input type="file" ref={mainFileInputRef} onChange={(e) => handleFileUpload(e)} className="hidden" accept="image/*" />
                             <div className="flex gap-2">
-                               <button onClick={() => mainFileInputRef.current?.click()} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase hover:bg-slate-100 transition-all flex-1">Upload Manual</button>
-                               <button onClick={() => handleAiGenerate()} disabled={aiLoadingIdx === 'main'} className="px-4 py-2 bg-purple-600 text-white rounded-xl text-[10px] font-black uppercase hover:bg-purple-700 transition-all flex-1 disabled:opacity-50">
-                                 {aiLoadingIdx === 'main' ? '⏳ Memproses...' : '✨ Generate AI'}
-                               </button>
+                               <button onClick={() => mainFileInputRef.current?.click()} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase hover:bg-slate-100 transition-all flex-1">Unggah Gambar</button>
                             </div>
                          </div>
                       </div>
@@ -412,10 +384,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                                  </div>
                                  <div className="flex-1 flex gap-1">
                                     <input type="file" onChange={(e) => handleFileUpload(e, idx)} className="hidden" id={`opt-img-${idx}`} accept="image/*" />
-                                    <label htmlFor={`opt-img-${idx}`} className="flex-1 py-1 px-2 bg-slate-50 border text-[8px] font-black uppercase text-slate-500 rounded text-center cursor-pointer hover:bg-slate-100">Upload</label>
-                                    <button onClick={() => handleAiGenerate(idx)} disabled={aiLoadingIdx === idx} className="flex-1 py-1 px-2 bg-purple-50 border border-purple-100 text-[8px] font-black uppercase text-purple-600 rounded disabled:opacity-50">
-                                       {aiLoadingIdx === idx ? '...' : 'AI Image'}
-                                    </button>
+                                    <label htmlFor={`opt-img-${idx}`} className="flex-1 py-1 px-2 bg-slate-50 border text-[8px] font-black uppercase text-slate-500 rounded text-center cursor-pointer hover:bg-slate-100">Unggah Gambar</label>
                                  </div>
                               </div>
                            </div>

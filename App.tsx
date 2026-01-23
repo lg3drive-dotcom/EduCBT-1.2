@@ -6,18 +6,16 @@ import QuizInterface from './components/QuizInterface.tsx';
 import AdminLogin from './components/AdminLogin.tsx';
 import QuestionManager from './components/QuestionManager.tsx';
 import AdminSettings from './components/AdminSettings.tsx';
-import TeacherPanel from './components/TeacherPanel.tsx';
 import ConfirmIdentity from './components/ConfirmIdentity.tsx';
-import { generateResultPDF } from './services/pdfService.ts'; // Tambahan import
+import { generateResultPDF } from './services/pdfService.ts';
 import { 
   pushQuestionsToCloud, 
   updateLiveSettings, 
   getLiveExamData, 
-  submitResultToCloud,
-  listenToSubmissions
+  submitResultToCloud
 } from './services/supabaseService.ts';
 
-type ViewMode = 'login' | 'confirm-data' | 'quiz' | 'result' | 'admin-auth' | 'admin-panel' | 'teacher-auth' | 'teacher-panel';
+type ViewMode = 'login' | 'confirm-data' | 'quiz' | 'result' | 'admin-auth' | 'admin-panel';
 
 const App: React.FC = () => {
   const [view, setView] = useState<ViewMode>('login');
@@ -34,11 +32,6 @@ const App: React.FC = () => {
     return saved ? JSON.parse(saved) : { timerMinutes: 60 };
   });
 
-  const [submissions, setSubmissions] = useState<QuizResult[]>(() => {
-    const saved = localStorage.getItem('cbt_submissions');
-    return saved ? JSON.parse(saved) : [];
-  });
-
   const [identity, setIdentity] = useState<StudentIdentity>({ name: '', className: '', birthDate: '', token: '' });
   const [lastResult, setLastResult] = useState<QuizResult | null>(null);
 
@@ -49,10 +42,6 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('cbt_settings', JSON.stringify(settings));
   }, [settings]);
-
-  useEffect(() => {
-    localStorage.setItem('cbt_submissions', JSON.stringify(submissions));
-  }, [submissions]);
 
   const handleCloudSync = async () => {
     if (questions.length === 0) {
@@ -99,14 +88,12 @@ const App: React.FC = () => {
   };
 
   const handleViolation = (reason: string) => {
-    // Keluar dari fullscreen jika masih aktif
     if (document.fullscreenElement) {
       document.exitFullscreen();
     }
     
     alert(`UJIAN DIBATALKAN!\n\n${reason}\n\nSistem mengeluarkan Anda secara otomatis demi integritas ujian.`);
     setView('login');
-    // Reset data sementara agar tidak bisa lanjut
     setIdentity({ name: '', className: '', birthDate: '', token: '' });
   };
 
@@ -140,7 +127,7 @@ const App: React.FC = () => {
           </div>
           <nav className="space-y-2 flex-1">
             <button className="w-full text-left p-4 bg-white/10 rounded-xl font-bold border-l-4 border-blue-500 uppercase text-[10px] tracking-widest">Bank Soal</button>
-            <button onClick={() => setView('teacher-panel')} className="w-full text-left p-4 text-slate-400 hover:text-white font-bold transition-all uppercase text-[10px] tracking-widest">Monitoring</button>
+            {/* Panel Monitoring telah dihapus sesuai permintaan */}
           </nav>
           <div className="mt-auto space-y-4">
             <div className="p-4 bg-white/5 border border-white/10 rounded-2xl">
@@ -210,7 +197,7 @@ const App: React.FC = () => {
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest ml-1">Token Ujian</label>
-                  <input required type="text" placeholder="Contoh: IPA01" className="w-full p-4 bg-blue-50 border-2 border-blue-200 rounded-2xl font-black text-blue-700 text-center uppercase tracking-[0.3em] outline-none placeholder:opacity-30" value={identity.token} onChange={e => setIdentity({...identity, token: e.target.value})} />
+                  <input required type="text" placeholder="....." className="w-full p-4 bg-blue-50 border-2 border-blue-200 rounded-2xl font-black text-blue-700 text-center uppercase tracking-[0.3em] outline-none placeholder:opacity-30" value={identity.token} onChange={e => setIdentity({...identity, token: e.target.value})} />
                 </div>
                 <div className="pt-4">
                   <button disabled={isSyncing} className="w-full font-black py-5 rounded-[2rem] text-xl shadow-2xl transition-all active:scale-95 bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200">
