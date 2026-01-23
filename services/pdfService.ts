@@ -5,15 +5,31 @@ import { QuizResult, Question, Subject, QuestionType } from '../types';
 const getFullAnswerText = (q: Question, answerValue?: any): string => {
   const targetAnswer = answerValue !== undefined ? answerValue : q.correctAnswer;
   
-  if (targetAnswer === undefined || targetAnswer === null) return "Tidak dijawab";
+  // Jika jawaban benar-benar kosong (null/undefined)
+  if (targetAnswer === undefined || targetAnswer === null) return "-";
 
   if (q.type === QuestionType.COMPLEX_CATEGORY) {
-    return q.options?.map((opt, i) => `[${opt}: ${targetAnswer[i] ? 'Ya' : 'Tidak'}]`).join(", ") || "-";
+    // Cek apakah ini array dan apakah semua isinya null (berarti belum dijawab sama sekali)
+    if (Array.isArray(targetAnswer)) {
+      const allNull = targetAnswer.every(v => v === null || v === undefined);
+      if (allNull) return "-";
+      
+      return q.options?.map((opt, i) => {
+        const val = targetAnswer[i];
+        const textVal = val === true ? 'Ya' : val === false ? 'Tidak' : '-';
+        return `[${opt}: ${textVal}]`;
+      }).join(", ") || "-";
+    }
+    return "-";
   } else if (q.options) {
     if (Array.isArray(targetAnswer)) {
+      // Untuk pilihan jamak (MCMA), jika array kosong berarti tidak dijawab
+      if (targetAnswer.length === 0) return "-";
       return targetAnswer.map(i => q.options?.[i]).join(", ");
     } else {
-      return q.options[targetAnswer] || "-";
+      // Untuk pilihan tunggal
+      const text = q.options[targetAnswer];
+      return text !== undefined ? text : "-";
     }
   }
   return "-";
@@ -24,7 +40,15 @@ const checkCorrectness = (q: Question, studentAnswer: any): boolean => {
 
   if (q.type === QuestionType.SINGLE) return studentAnswer === q.correctAnswer;
   
-  if (Array.isArray(q.correctAnswer) && Array.isArray(studentAnswer)) {
+  if (q.type === QuestionType.MULTIPLE) {
+    if (!Array.isArray(q.correctAnswer) || !Array.isArray(studentAnswer)) return false;
+    const correctSet = new Set(q.correctAnswer);
+    const studentSet = new Set(studentAnswer);
+    return correctSet.size === studentSet.size && [...correctSet].every(x => studentSet.has(x));
+  }
+
+  if (q.type === QuestionType.COMPLEX_CATEGORY) {
+    if (!Array.isArray(q.correctAnswer) || !Array.isArray(studentAnswer)) return false;
     return q.correctAnswer.length === studentAnswer.length && 
            q.correctAnswer.every((v, i) => v === studentAnswer[i]);
   }
@@ -224,6 +248,7 @@ export const generateResultPDF = (result: QuizResult, questions: Question[]) => 
   questions.forEach((q, idx) => {
     const studentAns = answers[q.id];
     const isCorrect = checkCorrectness(q, studentAns);
+    // getFullAnswerText sekarang mengembalikan "-" jika kosong
     const fullStudentAns = getFullAnswerText(q, studentAns);
     const fullKeyText = getFullAnswerText(q);
     
