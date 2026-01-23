@@ -7,6 +7,7 @@ import AdminLogin from './components/AdminLogin.tsx';
 import QuestionManager from './components/QuestionManager.tsx';
 import AdminSettings from './components/AdminSettings.tsx';
 import ConfirmIdentity from './components/ConfirmIdentity.tsx';
+import AdminGuide from './components/AdminGuide.tsx';
 import { generateResultPDF } from './services/pdfService.ts';
 import { 
   pushQuestionsToCloud, 
@@ -22,6 +23,7 @@ const App: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
 
   // Persistence for Admin Password
   const [adminPassword, setAdminPassword] = useState(() => {
@@ -52,6 +54,17 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('cbt_admin_pass', adminPassword);
   }, [adminPassword]);
+
+  // Show guide automatically for new admins entering panel
+  useEffect(() => {
+    if (view === 'admin-panel') {
+      const hasSeenGuide = localStorage.getItem('cbt_has_seen_guide');
+      if (!hasSeenGuide) {
+        setShowGuide(true);
+        localStorage.setItem('cbt_has_seen_guide', 'true');
+      }
+    }
+  }, [view]);
 
   const handleCloudSync = async () => {
     if (questions.length === 0) {
@@ -142,7 +155,9 @@ const App: React.FC = () => {
   
   if (view === 'admin-panel') {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row">
+      <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row relative">
+        {showGuide && <AdminGuide onClose={() => setShowGuide(false)} />}
+
         {/* Mobile Header */}
         <header className="lg:hidden bg-slate-900 text-white p-4 flex justify-between items-center sticky top-0 z-50">
           <div className="font-black text-xl flex items-center gap-2">
@@ -175,6 +190,16 @@ const App: React.FC = () => {
               </svg>
               Generate Soal Otomatis ✨
             </a>
+
+            <button 
+              onClick={() => setShowGuide(true)}
+              className="w-full flex items-center gap-3 p-4 hover:bg-white/5 rounded-xl font-bold uppercase text-[10px] tracking-widest text-emerald-400 border border-transparent hover:border-emerald-500/20 transition-all"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5S19.832 6.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
+              Panduan Penggunaan
+            </button>
           </nav>
 
           <div className="mt-8 lg:mt-auto space-y-4">
