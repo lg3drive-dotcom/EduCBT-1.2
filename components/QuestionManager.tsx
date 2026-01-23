@@ -1,4 +1,5 @@
 
+// Import React to provide namespace for React.FC and React.ChangeEvent
 import React, { useState, useRef, useMemo } from 'react';
 import { Question, Subject, QuestionType, CognitiveLevel } from '../types.ts';
 import { SUBJECT_LIST, BLOOM_LEVELS, PUSPENDIK_LEVELS } from '../constants.ts';
@@ -18,7 +19,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   questions, activeToken, onAdd, onUpdate, onSoftDelete, onPermanentDelete, onRestore 
 }) => {
   const [activeTab, setActiveTab] = useState<'active' | 'trash'>('active');
-  const [subjectFilter, setSubjectFilter] = useState<string>('ALL');
+  const [subjectFilter, setSubjectFilter] = useState<string>('');
   const [tokenFilter, setTokenFilter] = useState<string>('');
   const [downloadToken, setDownloadToken] = useState<string>('');
   const [showForm, setShowForm] = useState(false);
@@ -88,6 +89,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     setShowForm(true);
   };
 
+  // Fixed React namespace usage by importing React
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, index?: number) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -108,8 +110,15 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   const processedQuestions = useMemo(() => {
     let filtered = questions.filter(q => activeTab === 'active' ? !q.isDeleted : (activeTab === 'trash' ? q.isDeleted : false));
     if (activeTab === 'active') {
-      if (subjectFilter !== 'ALL') filtered = filtered.filter(q => q.subject === subjectFilter);
-      if (tokenFilter.trim() !== '') filtered = filtered.filter(q => q.quizToken?.toUpperCase().includes(tokenFilter.toUpperCase()));
+      // Pencarian mata pelajaran manual
+      if (subjectFilter.trim() !== '') {
+        filtered = filtered.filter(q => 
+          q.subject.toLowerCase().includes(subjectFilter.toLowerCase())
+        );
+      }
+      if (tokenFilter.trim() !== '') {
+        filtered = filtered.filter(q => q.quizToken?.toUpperCase().includes(tokenFilter.toUpperCase()));
+      }
     }
     return filtered.sort((a, b) => {
       if (a.subject !== b.subject) return a.subject.localeCompare(b.subject);
@@ -138,9 +147,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
       return;
     }
 
-    // Ambil subjek dari soal pertama (asumsi satu token satu mapel, atau biarkan undefined)
     const exportSubject = filteredForExport[0].subject as any;
-    
     generateQuestionBankPDF(filteredForExport, 'lengkap', exportSubject, downloadToken.trim().toUpperCase());
   };
 
@@ -202,15 +209,18 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
           </div>
           
           <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-            <select value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value)} className="flex-1 sm:flex-none bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-[10px] font-bold outline-none text-slate-700">
-              <option value="ALL">Semua Mapel</option>
-              {SUBJECT_LIST.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
+            <input 
+              type="text" 
+              value={subjectFilter} 
+              onChange={(e) => setSubjectFilter(e.target.value)} 
+              placeholder="Cari Mata Pelajaran..."
+              className="flex-1 sm:w-40 bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-[10px] font-bold outline-none text-slate-700 focus:border-blue-500 transition-colors"
+            />
             <input 
               type="text" 
               value={tokenFilter} 
               onChange={(e) => setTokenFilter(e.target.value)} 
-              placeholder="Filter View..."
+              placeholder="Filter View Token..."
               className="flex-1 sm:w-28 bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-[10px] font-bold outline-none text-slate-700"
             />
           </div>
@@ -237,7 +247,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
         <div className="p-4 lg:p-6 space-y-4">
           {processedQuestions.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 lg:py-32 text-slate-400">
-              <div className="font-medium text-xs lg:text-sm text-center">Tidak ada soal ditemukan {tokenFilter ? `untuk filter view "${tokenFilter}"` : ""}.</div>
+              <div className="font-medium text-xs lg:text-sm text-center">Tidak ada soal ditemukan {subjectFilter || tokenFilter ? `untuk pencarian saat ini.` : ""}.</div>
             </div>
           ) : (
             processedQuestions.map((q, idx) => {
@@ -249,7 +259,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                     <div className="flex flex-col sm:flex-row justify-between items-start mb-2 gap-2">
                       <div className="flex flex-wrap gap-1 lg:gap-2">
                         <span className="text-[8px] lg:text-[10px] bg-blue-600 text-white px-2 py-0.5 rounded font-black uppercase shadow-sm">TOKEN: {q.quizToken || 'NA'}</span>
-                        <span className="text-[8px] lg:text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-black uppercase truncate max-w-[100px]">{q.subject}</span>
+                        <span className="text-[8px] lg:text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-black uppercase truncate max-w-[150px]">{q.subject}</span>
                         <span className="text-[8px] lg:text-[10px] bg-purple-50 text-purple-700 px-2 py-0.5 rounded font-black uppercase">{q.level.split(' ')[0]}</span>
                       </div>
                       <div className="flex gap-4 sm:opacity-0 group-hover:opacity-100 transition-opacity w-full sm:w-auto border-t sm:border-t-0 pt-2 sm:pt-0 mt-1 sm:mt-0">
@@ -309,6 +319,9 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                             placeholder="Ketik Mapel..."
                             className="w-full p-3 lg:p-4 border rounded-xl font-bold outline-none focus:border-blue-500 bg-slate-50 text-xs"
                           />
+                          <datalist id="subject-options">
+                            {SUBJECT_LIST.map(s => <option key={s} value={s} />)}
+                          </datalist>
                        </div>
                    </div>
 
