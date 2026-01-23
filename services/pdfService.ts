@@ -2,14 +2,20 @@
 import { jsPDF } from 'jspdf';
 import { QuizResult, Question, Subject, QuestionType } from '../types';
 
-const getFullAnswerText = (q: Question, answerValue?: any): string => {
-  const targetAnswer = answerValue !== undefined ? answerValue : q.correctAnswer;
+/**
+ * Mendapatkan teks jawaban lengkap.
+ * @param q Objek soal
+ * @param answerValue Nilai jawaban (bisa dari siswa atau kunci)
+ * @param isKey Apakah kita sedang mengambil teks untuk Kunci Jawaban?
+ */
+const getFullAnswerText = (q: Question, answerValue?: any, isKey: boolean = false): string => {
+  // Jika mencari kunci, gunakan correctAnswer. Jika mencari jawaban siswa, gunakan answerValue.
+  const targetAnswer = isKey ? q.correctAnswer : answerValue;
   
-  // Jika jawaban benar-benar kosong (null/undefined)
+  // Jika data tidak ada (tidak dijawab oleh siswa)
   if (targetAnswer === undefined || targetAnswer === null) return "-";
 
   if (q.type === QuestionType.COMPLEX_CATEGORY) {
-    // Cek apakah ini array dan apakah semua isinya null (berarti belum dijawab sama sekali)
     if (Array.isArray(targetAnswer)) {
       const allNull = targetAnswer.every(v => v === null || v === undefined);
       if (allNull) return "-";
@@ -23,11 +29,10 @@ const getFullAnswerText = (q: Question, answerValue?: any): string => {
     return "-";
   } else if (q.options) {
     if (Array.isArray(targetAnswer)) {
-      // Untuk pilihan jamak (MCMA), jika array kosong berarti tidak dijawab
       if (targetAnswer.length === 0) return "-";
       return targetAnswer.map(i => q.options?.[i]).join(", ");
     } else {
-      // Untuk pilihan tunggal
+      // Pastikan index valid
       const text = q.options[targetAnswer];
       return text !== undefined ? text : "-";
     }
@@ -100,7 +105,8 @@ const drawKisiKisiSection = (doc: jsPDF, questions: Question[], subject?: Subjec
   yPos += 10;
 
   questions.forEach((q, idx) => {
-    const fullKeyText = getFullAnswerText(q);
+    // Gunakan isKey=true untuk kisi-kisi
+    const fullKeyText = getFullAnswerText(q, undefined, true);
     doc.setFontSize(7);
     const materiLines = doc.splitTextToSize(q.material || "-", columns[2].width - 4);
     const keyLines = doc.splitTextToSize(fullKeyText, columns[5].width - 4);
@@ -181,7 +187,8 @@ const drawSoalSection = (doc: jsPDF, questions: Question[], subject?: Subject, s
       });
     }
 
-    const keyAndEx = `KUNCI: ${getFullAnswerText(q)}\n\nKET: ${q.explanation || '-'}`;
+    // Gunakan isKey=true untuk kunci jawaban
+    const keyAndEx = `KUNCI: ${getFullAnswerText(q, undefined, true)}\n\nKET: ${q.explanation || '-'}`;
 
     doc.setFontSize(8);
     const qLines = doc.splitTextToSize(questionAndOptions, columns[1].width - 4);
@@ -221,6 +228,7 @@ export const generateResultPDF = (result: QuizResult, questions: Question[]) => 
   const margin = 15;
   const contentWidth = pageWidth - (margin * 2);
 
+  // Header Background
   doc.setFillColor(30, 41, 59); 
   doc.rect(0, 0, pageWidth, 45, 'F');
   
@@ -234,6 +242,7 @@ export const generateResultPDF = (result: QuizResult, questions: Question[]) => 
   doc.text(`Identitas: ${identity.name} (${identity.className})`, margin, 32);
   doc.text(`Waktu: ${new Date(timestamp).toLocaleString('id-ID')}`, margin, 37);
   
+  // Skor Badge
   doc.setFillColor(37, 99, 235); 
   doc.roundedRect(pageWidth - 55, 12, 40, 22, 3, 3, 'F');
   doc.setFontSize(8);
@@ -248,9 +257,11 @@ export const generateResultPDF = (result: QuizResult, questions: Question[]) => 
   questions.forEach((q, idx) => {
     const studentAns = answers[q.id];
     const isCorrect = checkCorrectness(q, studentAns);
-    // getFullAnswerText sekarang mengembalikan "-" jika kosong
-    const fullStudentAns = getFullAnswerText(q, studentAns);
-    const fullKeyText = getFullAnswerText(q);
+    
+    // Perbaikan: studentAns dilempar ke answerValue, isKey=false (default)
+    const fullStudentAns = getFullAnswerText(q, studentAns, false);
+    // Perbaikan: Untuk kunci jawaban gunakan isKey=true
+    const fullKeyText = getFullAnswerText(q, undefined, true);
     
     doc.setFontSize(9);
     const qLines = doc.splitTextToSize(`${idx + 1}. ${q.text}`, contentWidth - 40);
@@ -268,6 +279,7 @@ export const generateResultPDF = (result: QuizResult, questions: Question[]) => 
     doc.setDrawColor(226, 232, 240); 
     doc.rect(margin, yPos, contentWidth, itemHeight);
     
+    // Label Status
     if (isCorrect) {
       doc.setFillColor(220, 252, 231); 
       doc.rect(pageWidth - margin - 25, yPos + 5, 20, 8, 'F');

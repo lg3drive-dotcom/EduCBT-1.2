@@ -21,6 +21,7 @@ const App: React.FC = () => {
   const [view, setView] = useState<ViewMode>('login');
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const [questions, setQuestions] = useState<Question[]>(() => {
     const saved = localStorage.getItem('cbt_questions');
@@ -119,16 +120,30 @@ const App: React.FC = () => {
   
   if (view === 'admin-panel') {
     return (
-      <div className="min-h-screen bg-slate-50 flex">
-        <aside className="w-72 bg-slate-900 text-white flex flex-col p-6 sticky top-0 h-screen">
-          <div className="font-black text-2xl mb-12 flex items-center gap-2">
+      <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row">
+        {/* Mobile Header */}
+        <header className="lg:hidden bg-slate-900 text-white p-4 flex justify-between items-center sticky top-0 z-50">
+          <div className="font-black text-xl flex items-center gap-2">
+            <div className="w-6 h-6 bg-blue-600 rounded"></div>
+            CBT SERVER
+          </div>
+          <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 bg-white/10 rounded-lg">
+            {isMobileMenuOpen ? 'Tutup' : 'Menu'}
+          </button>
+        </header>
+
+        {/* Adaptive Sidebar */}
+        <aside className={`${isMobileMenuOpen ? 'flex' : 'hidden'} lg:flex w-full lg:w-72 bg-slate-900 text-white flex-col p-6 lg:sticky top-0 lg:h-screen z-40 transition-all`}>
+          <div className="hidden lg:flex font-black text-2xl mb-12 items-center gap-2">
             <div className="w-8 h-8 bg-blue-600 rounded-lg"></div>
             CBT SERVER
           </div>
+          
           <nav className="space-y-2 flex-1">
             <button className="w-full text-left p-4 bg-white/10 rounded-xl font-bold border-l-4 border-blue-500 uppercase text-[10px] tracking-widest">Bank Soal</button>
           </nav>
-          <div className="mt-auto space-y-4">
+
+          <div className="mt-8 lg:mt-auto space-y-4">
             <div className="p-4 bg-white/5 border border-white/10 rounded-2xl">
                <div className="flex items-center justify-between mb-3">
                   <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Status Cloud</span>
@@ -141,20 +156,37 @@ const App: React.FC = () => {
                  {syncStatus === 'loading' ? 'Sedang Sync...' : syncStatus === 'success' ? 'BERHASIL DISYNC' : 'SINKRONISASI CLOUD'}
                </button>
             </div>
-            <button onClick={() => setView('login')} className="w-full p-4 text-red-400 font-bold hover:bg-red-500/10 rounded-xl transition-all text-left uppercase text-[10px] tracking-widest">Keluar</button>
+            <button onClick={() => { setView('login'); setIsMobileMenuOpen(false); }} className="w-full p-4 text-red-400 font-bold hover:bg-red-500/10 rounded-xl transition-all text-left uppercase text-[10px] tracking-widest">Keluar</button>
           </div>
         </aside>
-        <main className="flex-1 p-8 overflow-y-auto custom-scrollbar">
+
+        {/* Main Panel */}
+        <main className="flex-1 p-4 lg:p-8 overflow-y-auto custom-scrollbar">
           <div className="flex flex-col lg:flex-row gap-8">
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <div className="mb-8">
-                <h1 className="text-3xl font-black text-slate-800">Bank Soal Dinamis</h1>
-                <p className="text-slate-400 font-medium text-sm italic">Mode Anti-Cheat Fullscreen otomatis aktif untuk setiap siswa yang login.</p>
+                <h1 className="text-2xl lg:text-3xl font-black text-slate-800">Bank Soal Dinamis</h1>
+                <p className="text-slate-400 font-medium text-xs lg:text-sm italic">Mode Anti-Cheat Fullscreen otomatis aktif untuk setiap siswa yang login.</p>
               </div>
-              <QuestionManager questions={questions} activeToken="" onAdd={(q) => setQuestions(prev => [...prev, { ...q, id: Date.now().toString()+Math.random(), createdAt: Date.now(), isDeleted: false, order: q.order || (prev.length + 1) }])} onUpdate={(updated) => setQuestions(prev => prev.map(q => q.id === updated.id ? updated : q))} onSoftDelete={(id) => setQuestions(prev => prev.map(item => item.id === id ? { ...item, isDeleted: true } : item))} onPermanentDelete={(id) => setQuestions(prev => prev.filter(item => item.id !== id))} onRestore={(id) => setQuestions(prev => prev.map(item => item.id === id ? { ...item, isDeleted: false } : item))} />
+              <QuestionManager 
+                questions={questions} 
+                activeToken="" 
+                onAdd={(q) => setQuestions(prev => [...prev, { ...q, id: Date.now().toString()+Math.random(), createdAt: Date.now(), isDeleted: false, order: q.order || (prev.length + 1) }])} 
+                onUpdate={(updated) => setQuestions(prev => prev.map(q => q.id === updated.id ? updated : q))} 
+                onSoftDelete={(id) => setQuestions(prev => prev.map(item => item.id === id ? { ...item, isDeleted: true } : item))} 
+                onPermanentDelete={(id) => setQuestions(prev => prev.filter(item => item.id !== id))} 
+                onRestore={(id) => setQuestions(prev => prev.map(item => item.id === id ? { ...item, isDeleted: false } : item))} 
+              />
             </div>
-            <div className="lg:w-80">
-              <AdminSettings settings={settings} questions={questions} onUpdateSettings={setSettings} onImportQuestions={(newQs) => setQuestions(newQs)} onReset={() => setQuestions([])} />
+            
+            <div className="w-full lg:w-80">
+              <AdminSettings 
+                settings={settings} 
+                questions={questions} 
+                onUpdateSettings={setSettings} 
+                onImportQuestions={(newQs) => setQuestions(newQs)} 
+                onReset={() => setQuestions([])} 
+              />
             </div>
           </div>
         </main>
