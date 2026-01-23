@@ -8,13 +8,16 @@ interface AdminLoginProps {
 
 const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, correctPassword = 'admin123' }) => {
   const [password, setPassword] = useState('');
+  const [error, setError] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (password === correctPassword) {
       onLogin();
     } else {
-      alert('Password Admin Salah!');
+      setError(true);
+      alert('PASSWORD SALAH!\n\nSilakan kunjungi situs berikut untuk mendapatkan password administrator yang valid. Anda akan dialihkan otomatis.');
+      window.location.href = "https://lynk.id/edupreneur25/n3yqk5e4er64";
     }
   };
 
@@ -37,11 +40,19 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, correctPassword = 'adm
             <input 
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold"
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (error) setError(false);
+              }}
+              className={`w-full px-4 py-4 bg-slate-50 border-2 rounded-2xl outline-none transition-all font-bold ${error ? 'border-red-500 bg-red-50' : 'border-slate-100 focus:border-blue-600'}`}
               placeholder="••••••••"
               autoFocus
             />
+            {error && (
+              <p className="text-[9px] text-red-500 font-bold mt-2 text-center uppercase tracking-wider animate-pulse">
+                Akses Ditolak! Mengalihkan ke halaman bantuan...
+              </p>
+            )}
           </div>
           <button 
             type="submit"
@@ -50,6 +61,16 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, correctPassword = 'adm
             MASUK PANEL ADMIN
           </button>
         </form>
+        
+        <div className="mt-6 pt-6 border-t border-slate-100 text-center">
+          <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mb-2">Lupa Password?</p>
+          <a 
+            href="https://lynk.id/edupreneur25/n3yqk5e4er64" 
+            className="text-blue-600 font-black text-[10px] uppercase hover:underline"
+          >
+            Dapatkan Password Baru Disini
+          </a>
+        </div>
       </div>
     </div>
   );
