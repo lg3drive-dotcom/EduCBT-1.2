@@ -8,6 +8,7 @@ import QuestionManager from './components/QuestionManager.tsx';
 import AdminSettings from './components/AdminSettings.tsx';
 import TeacherPanel from './components/TeacherPanel.tsx';
 import ConfirmIdentity from './components/ConfirmIdentity.tsx';
+import { generateResultPDF } from './services/pdfService.ts'; // Tambahan import
 import { 
   pushQuestionsToCloud, 
   updateLiveSettings, 
@@ -121,6 +122,12 @@ const App: React.FC = () => {
     setIsSyncing(false);
   };
 
+  const handleDownloadStudentPDF = () => {
+    if (lastResult) {
+      generateResultPDF(lastResult, questions.filter(q => !q.isDeleted));
+    }
+  };
+
   if (view === 'admin-auth') return <AdminLogin onLogin={() => setView('admin-panel')} />;
   
   if (view === 'admin-panel') {
@@ -232,7 +239,18 @@ const App: React.FC = () => {
               <p className="text-[10px] font-black text-blue-200 uppercase tracking-[0.2em] mb-2">Skor Anda</p>
               <p className="text-7xl font-black text-white">{lastResult.score.toFixed(1)}</p>
            </div>
-           <button onClick={() => window.location.reload()} className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl transition-all hover:bg-black">KEMBALI KE LOGIN</button>
+           
+           <div className="space-y-4">
+              <button 
+                onClick={handleDownloadStudentPDF}
+                className="w-full bg-blue-50 text-blue-600 font-black py-4 rounded-2xl border-2 border-blue-200 hover:bg-blue-100 transition-all flex items-center justify-center gap-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v3.586l-1.293-1.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V8z" clipRule="evenodd" /></svg>
+                DOWNLOAD HASIL PDF
+              </button>
+              
+              <button onClick={() => window.location.reload()} className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl transition-all hover:bg-black uppercase tracking-widest text-xs">KEMBALI KE LOGIN</button>
+           </div>
         </div>
       </div>
     );

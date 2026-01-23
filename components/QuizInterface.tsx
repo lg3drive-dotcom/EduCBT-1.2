@@ -9,7 +9,7 @@ interface QuizInterfaceProps {
   timeLimitMinutes: number;
   subjectName: string;
   onFinish: (result: QuizResult) => void;
-  onViolation: (reason: string) => void; // Tambahan prop untuk menangani pelanggaran
+  onViolation: (reason: string) => void; 
 }
 
 const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, timeLimitMinutes, subjectName, onFinish, onViolation }) => {
@@ -20,19 +20,22 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
   const [fontSize, setFontSize] = useState(18);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const startTime = useRef(Date.now());
+  const isSubmitting = useRef(false); // Flag untuk mematikan proteksi saat selesai
 
   // 1. Deteksi Focus (Anti-Tab Switching)
   useEffect(() => {
     const handleVisibilityChange = () => {
+      if (isSubmitting.current) return;
       if (document.visibilityState === 'hidden') {
         onViolation("Anda terdeteksi meninggalkan halaman ujian (pindah tab/aplikasi).");
       }
     };
 
     const handleBlur = () => {
+      if (isSubmitting.current) return;
       // Delay sedikit untuk menghindari false positive pada dialog sistem browser
       setTimeout(() => {
-        if (!document.hasFocus() && isFullscreen) {
+        if (!document.hasFocus() && isFullscreen && !isSubmitting.current) {
            onViolation("Koneksi jendela ujian terputus karena fokus berpindah.");
         }
       }, 500);
@@ -40,6 +43,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
 
     // 2. Deteksi Exit Fullscreen
     const handleFullscreenChange = () => {
+      if (isSubmitting.current) return;
       if (!document.fullscreenElement) {
         setIsFullscreen(false);
         onViolation("Anda dilarang keluar dari Mode Layar Penuh selama ujian berlangsung.");
@@ -73,6 +77,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
     }, 1000);
     
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isSubmitting.current) return;
       e.preventDefault();
       e.returnValue = '';
     };
@@ -94,6 +99,9 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
   };
 
   const handleSubmit = () => {
+    if (isSubmitting.current) return;
+    isSubmitting.current = true; // Kunci agar event listener fullscreen/blur tidak mentrigger onViolation
+
     let score = 0;
     const weight = 100 / (questions.length || 1);
     
