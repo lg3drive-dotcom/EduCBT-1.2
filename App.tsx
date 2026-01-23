@@ -55,14 +55,10 @@ const App: React.FC = () => {
     localStorage.setItem('cbt_admin_pass', adminPassword);
   }, [adminPassword]);
 
-  // Show guide automatically for new admins entering panel
+  // Show guide automatically as a welcome message every time entering admin panel
   useEffect(() => {
     if (view === 'admin-panel') {
-      const hasSeenGuide = localStorage.getItem('cbt_has_seen_guide');
-      if (!hasSeenGuide) {
-        setShowGuide(true);
-        localStorage.setItem('cbt_has_seen_guide', 'true');
-      }
+      setShowGuide(true);
     }
   }, [view]);
 
