@@ -23,6 +23,11 @@ const App: React.FC = () => {
   const [syncStatus, setSyncStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // Persistence for Admin Password
+  const [adminPassword, setAdminPassword] = useState(() => {
+    return localStorage.getItem('cbt_admin_pass') || 'admin123';
+  });
+
   const [questions, setQuestions] = useState<Question[]>(() => {
     const saved = localStorage.getItem('cbt_questions');
     return saved ? JSON.parse(saved) : INITIAL_QUESTIONS;
@@ -43,6 +48,10 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('cbt_settings', JSON.stringify(settings));
   }, [settings]);
+
+  useEffect(() => {
+    localStorage.setItem('cbt_admin_pass', adminPassword);
+  }, [adminPassword]);
 
   const handleCloudSync = async () => {
     if (questions.length === 0) {
@@ -116,7 +125,20 @@ const App: React.FC = () => {
     }
   };
 
-  if (view === 'admin-auth') return <AdminLogin onLogin={() => setView('admin-panel')} />;
+  const handleChangeAdminPass = () => {
+    const accessCode = prompt("Masukkan KODE AKSES PUSAT:");
+    if (accessCode === "Indme&781l") {
+      const newPass = prompt("PENGATURAN ULANG: Masukkan Password Admin Baru:", adminPassword);
+      if (newPass && newPass.trim() !== "") {
+        setAdminPassword(newPass.trim());
+        alert("SISTEM: Password administrator berhasil diperbarui.");
+      }
+    } else if (accessCode !== null) {
+      alert("KODE AKSES PUSAT SALAH!");
+    }
+  };
+
+  if (view === 'admin-auth') return <AdminLogin onLogin={() => setView('admin-panel')} correctPassword={adminPassword} />;
   
   if (view === 'admin-panel') {
     return (
@@ -198,6 +220,7 @@ const App: React.FC = () => {
                 onUpdateSettings={setSettings} 
                 onImportQuestions={(newQs) => setQuestions(newQs)} 
                 onReset={() => setQuestions([])} 
+                onUpdatePassword={setAdminPassword}
               />
             </div>
           </div>
@@ -212,10 +235,10 @@ const App: React.FC = () => {
         <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col md:flex-row border border-slate-200">
           <div className="md:w-5/12 bg-slate-900 p-12 text-white flex flex-col justify-between relative overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600 rounded-full -mr-32 -mt-32 blur-3xl opacity-20"></div>
-            <div className="relative z-10">
-              <div className="flex items-center gap-3 mb-12">
+            <div className="relative z-10 text-center md:text-left">
+              <div className="flex items-center justify-center md:justify-start gap-3 mb-12">
                 <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-black text-xl shadow-lg">C</div>
-                <div className="font-black text-2xl tracking-tighter">EduCBT Pro</div>
+                <div className="font-black text-2xl tracking-tighter text-white">EduCBT Pro</div>
               </div>
               <h1 className="text-4xl font-black mb-6 leading-tight">Computer Based Test</h1>
               <div className="bg-white/5 p-5 rounded-3xl border border-white/10 backdrop-blur-sm">
@@ -223,22 +246,37 @@ const App: React.FC = () => {
                 <p className="text-xl font-black text-white italic">Full Dynamic Partitioning</p>
               </div>
             </div>
-            <button onClick={() => setView('admin-auth')} className="mt-auto bg-white/5 hover:bg-white/10 p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/5 transition-all">Administrator</button>
+            
+            <div className="mt-auto flex flex-col items-center">
+              <button 
+                onClick={() => setView('admin-auth')} 
+                className="w-full bg-white/5 hover:bg-white/10 p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/5 transition-all mb-4"
+              >
+                Administrator
+              </button>
+              
+              {/* TOMBOL MERAH RAHASIA - TANPA TEKS, TANPA TOOLTIP */}
+              <button 
+                onClick={handleChangeAdminPass}
+                className="w-1.5 h-1.5 bg-red-600 rounded-full opacity-30 hover:opacity-100 transition-opacity cursor-pointer mb-2"
+                aria-hidden="true"
+              ></button>
+            </div>
           </div>
           <div className="md:w-7/12 p-12 bg-white">
-            <div className="max-w-md mx-auto">
+            <div className="max-w-md mx-auto text-center md:text-left">
               <h2 className="text-3xl font-black text-slate-800 mb-2">Login Peserta</h2>
               <p className="text-slate-400 font-medium mb-10 italic">Masukkan identitas dan token ujian dari Guru.</p>
               <form onSubmit={handleStartQuiz} className="space-y-5">
-                <div className="space-y-1">
+                <div className="space-y-1 text-left">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nama Lengkap</label>
-                  <input required type="text" placeholder="Nama Lengkap Anda" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold" value={identity.name} onChange={e => setIdentity({...identity, name: e.target.value})} />
+                  <input required type="text" placeholder="Nama Lengkap Anda" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold text-slate-800" value={identity.name} onChange={e => setIdentity({...identity, name: e.target.value})} />
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-1 text-left">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kelas</label>
-                  <input required type="text" placeholder="Contoh: 6A" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold" value={identity.className} onChange={e => setIdentity({...identity, className: e.target.value})} />
+                  <input required type="text" placeholder="Contoh: 6A" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold text-slate-800" value={identity.className} onChange={e => setIdentity({...identity, className: e.target.value})} />
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-1 text-left">
                   <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest ml-1">Token Ujian</label>
                   <input required type="text" placeholder="....." className="w-full p-4 bg-blue-50 border-2 border-blue-200 rounded-2xl font-black text-blue-700 text-center uppercase tracking-[0.3em] outline-none placeholder:opacity-30" value={identity.token} onChange={e => setIdentity({...identity, token: e.target.value})} />
                 </div>
@@ -246,6 +284,15 @@ const App: React.FC = () => {
                   <button disabled={isSyncing} className="w-full font-black py-5 rounded-[2rem] text-xl shadow-2xl transition-all active:scale-95 bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200">
                     {isSyncing ? 'MENGHUBUNGKAN...' : 'MASUK KE UJIAN'}
                   </button>
+
+                  <a 
+                    href="http://lynk.id/edupreneur25/n3yqk5e4er64" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="mt-8 block text-[11px] font-bold text-slate-400 hover:text-blue-600 transition-colors uppercase tracking-widest"
+                  >
+                    klik di sini untuk mendapatkan password administrator
+                  </a>
                 </div>
               </form>
             </div>
