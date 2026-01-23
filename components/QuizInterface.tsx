@@ -1,4 +1,5 @@
 
+// Import React to ensure React namespace is available for React.FC
 import React, { useState, useEffect, useRef } from 'react';
 import { Question, StudentIdentity, QuizResult, QuestionType } from '../types';
 
@@ -8,16 +9,57 @@ interface QuizInterfaceProps {
   timeLimitMinutes: number;
   subjectName: string;
   onFinish: (result: QuizResult) => void;
+  onViolation: (reason: string) => void; // Tambahan prop untuk menangani pelanggaran
 }
 
-const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, timeLimitMinutes, subjectName, onFinish }) => {
+const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, timeLimitMinutes, subjectName, onFinish, onViolation }) => {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState<{ [key: string]: any }>({});
   const [doubtfuls, setDoubtfuls] = useState<{ [key: string]: boolean }>({});
   const [timeLeft, setTimeLeft] = useState(timeLimitMinutes * 60);
-  const [fontSize, setFontSize] = useState(18); 
+  const [fontSize, setFontSize] = useState(18);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const startTime = useRef(Date.now());
 
+  // 1. Deteksi Focus (Anti-Tab Switching)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        onViolation("Anda terdeteksi meninggalkan halaman ujian (pindah tab/aplikasi).");
+      }
+    };
+
+    const handleBlur = () => {
+      // Delay sedikit untuk menghindari false positive pada dialog sistem browser
+      setTimeout(() => {
+        if (!document.hasFocus() && isFullscreen) {
+           onViolation("Koneksi jendela ujian terputus karena fokus berpindah.");
+        }
+      }, 500);
+    };
+
+    // 2. Deteksi Exit Fullscreen
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        setIsFullscreen(false);
+        onViolation("Anda dilarang keluar dari Mode Layar Penuh selama ujian berlangsung.");
+      }
+    };
+
+    if (isFullscreen) {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      window.addEventListener('blur', handleBlur);
+      document.addEventListener('fullscreenchange', handleFullscreenChange);
+    }
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleBlur);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, [isFullscreen, onViolation]);
+
+  // 3. Timer & Anti-Reload
   useEffect(() => {
     const timer = setInterval(() => {
       setTimeLeft(prev => {
@@ -42,6 +84,15 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
     };
   }, []);
 
+  const requestFullscreen = () => {
+    const elem = document.documentElement;
+    if (elem.requestFullscreen) {
+      elem.requestFullscreen().then(() => setIsFullscreen(true)).catch(err => {
+        alert("Gagal mengaktifkan mode fullscreen. Pastikan browser Anda mendukung.");
+      });
+    }
+  };
+
   const handleSubmit = () => {
     let score = 0;
     const weight = 100 / (questions.length || 1);
@@ -65,6 +116,11 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
       if (isCorrect) score += weight;
     });
 
+    // Keluar dari fullscreen saat selesai secara normal
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    }
+
     onFinish({ 
       id: Date.now().toString(), 
       identity, 
@@ -78,6 +134,31 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
     });
   };
 
+  // Layar Pre-Quiz (Paksa Fullscreen)
+  if (!isFullscreen) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 text-center">
+        <div className="bg-white rounded-[3rem] p-12 max-w-lg w-full shadow-2xl">
+          <div className="w-24 h-24 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-8">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
+          </div>
+          <h2 className="text-3xl font-black text-slate-800 mb-4">Mode Ujian Terkunci</h2>
+          <p className="text-slate-500 font-medium mb-8 leading-relaxed">
+            Untuk menjaga integritas ujian, sistem mewajibkan penggunaan <b>Mode Layar Penuh (Fullscreen)</b>. 
+            Anda tidak diperbolehkan membuka tab lain atau meminimalkan browser hingga ujian selesai.
+          </p>
+          <button 
+            onClick={requestFullscreen}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-5 rounded-[2rem] text-xl shadow-2xl transition-all active:scale-95 uppercase tracking-widest"
+          >
+            AKTIFKAN MODE UJIAN
+          </button>
+          <p className="mt-6 text-[10px] font-black text-red-500 uppercase tracking-widest">Peringatan: Berpindah halaman akan membatalkan ujian!</p>
+        </div>
+      </div>
+    );
+  }
+
   const q = questions[currentIdx];
   const currentAnswer = answers[q.id];
   const isDoubtful = doubtfuls[q.id] || false;
@@ -86,7 +167,6 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
     const qId = questions[idx].id;
     const hasAnswer = answers[qId] !== undefined && (Array.isArray(answers[qId]) ? answers[qId].length > 0 : true);
     const doubtful = doubtfuls[qId];
-    
     if (doubtful) return 'doubtful';
     if (hasAnswer) return 'answered';
     return 'unanswered';
@@ -108,7 +188,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                   {String.fromCharCode(65+idx)}
                 </span>
                 <div className="flex flex-col gap-2 flex-1">
-                   {q.optionImages?.[idx] && <img src={q.optionImages[idx]} className="max-w-xs h-auto max-h-40 object-contain rounded-lg mb-2 border bg-white" alt={`Opsi ${idx+1}`} />}
+                   {q.optionImages?.[idx] && <img src={q.optionImages[idx]} className="max-w-xs h-auto max-h-40 object-contain rounded-lg mb-2 border bg-white pointer-events-none" alt={`Opsi ${idx+1}`} />}
                    <span className="font-bold text-slate-700" style={{ fontSize: `${fontSize - 2}px` }}>{opt}</span>
                 </div>
               </button>
@@ -130,7 +210,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                     {selected && <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
                   </div>
                   <div className="flex flex-col gap-2 flex-1">
-                     {q.optionImages?.[idx] && <img src={q.optionImages[idx]} className="max-w-xs h-auto max-h-40 object-contain rounded-lg border mb-2 bg-white" alt={`Opsi ${idx+1}`} />}
+                     {q.optionImages?.[idx] && <img src={q.optionImages[idx]} className="max-w-xs h-auto max-h-40 object-contain rounded-lg border mb-2 bg-white pointer-events-none" alt={`Opsi ${idx+1}`} />}
                      <span className="font-bold text-slate-700" style={{ fontSize: `${fontSize - 2}px` }}>{opt}</span>
                   </div>
                 </button>
@@ -156,7 +236,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                      <tr key={idx} className="hover:bg-slate-50/50">
                        <td className="p-4">
                           <div className="flex flex-col gap-2">
-                            {q.optionImages?.[idx] && <img src={q.optionImages[idx]} className="w-24 h-auto rounded-lg border mb-1 bg-white" alt="Ilustrasi" />}
+                            {q.optionImages?.[idx] && <img src={q.optionImages[idx]} className="w-24 h-auto rounded-lg border mb-1 bg-white pointer-events-none" alt="Ilustrasi" />}
                             <span className="font-bold text-slate-700" style={{ fontSize: `${fontSize - 4}px` }}>{opt}</span>
                           </div>
                        </td>
@@ -236,7 +316,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
 
                       {q?.questionImage && (
                         <div className="rounded-3xl border-4 border-slate-50 shadow-inner overflow-hidden bg-slate-100 p-2">
-                          <img src={q.questionImage} className="max-w-full h-auto mx-auto rounded-2xl shadow-sm" alt="Ilustrasi Soal" />
+                          <img src={q.questionImage} className="max-w-full h-auto mx-auto rounded-2xl shadow-sm pointer-events-none" alt="Ilustrasi Soal" />
                         </div>
                       )}
 

@@ -61,43 +61,16 @@ const App: React.FC = () => {
 
     setSyncStatus('loading');
     try {
-      // 1. Kirim Soal
       await pushQuestionsToCloud(questions);
-      // 2. Kirim Pengaturan Waktu
       await updateLiveSettings(settings);
-      
       setSyncStatus('success');
       setTimeout(() => setSyncStatus('idle'), 3000);
     } catch (err: any) {
       console.error("Dashboard Sync Error:", err);
       setSyncStatus('error');
-      // Menampilkan pesan error detail agar Admin tahu penyebabnya
-      alert(`GAGAL SINKRONISASI!\n\nPesan: ${err.message}\n\nPastikan koneksi internet stabil dan format data soal benar.`);
+      alert(`GAGAL SINKRONISASI!\n\nPesan: ${err.message}`);
     }
   };
-
-  useEffect(() => {
-    if (view === 'teacher-panel') {
-      const channel = listenToSubmissions((newSub) => {
-        setSubmissions(prev => {
-            if (prev.find(s => s.id === newSub.id)) return prev;
-            const mapped: QuizResult = {
-                id: newSub.id,
-                identity: { name: newSub.student_name, className: newSub.class_name, birthDate: '', token: newSub.subject },
-                score: newSub.score,
-                totalQuestions: 0, 
-                answers: newSub.answers,
-                manualCorrections: {},
-                timestamp: newSub.timestamp,
-                duration: 0,
-                isCorrected: false
-            };
-            return [mapped, ...prev];
-        });
-      });
-      return () => { channel.unsubscribe(); };
-    }
-  }, [view]);
 
   const handleStartQuiz = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,6 +97,18 @@ const App: React.FC = () => {
     }
   };
 
+  const handleViolation = (reason: string) => {
+    // Keluar dari fullscreen jika masih aktif
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    }
+    
+    alert(`UJIAN DIBATALKAN!\n\n${reason}\n\nSistem mengeluarkan Anda secara otomatis demi integritas ujian.`);
+    setView('login');
+    // Reset data sementara agar tidak bisa lanjut
+    setIdentity({ name: '', className: '', birthDate: '', token: '' });
+  };
+
   const handleFinishQuiz = async (result: QuizResult) => {
     setIsSyncing(true);
     const success = await submitResultToCloud(result);
@@ -131,13 +116,13 @@ const App: React.FC = () => {
       setLastResult(result);
       setView('result');
     } else {
-      alert('Jawaban tersimpan di memori browser, tapi gagal terkirim ke server. Jangan tutup halaman ini dan coba tekan Selesai lagi.');
+      alert('Jawaban tersimpan secara lokal, tapi gagal terkirim ke server. Jangan tutup halaman ini dan coba tekan Selesai lagi.');
     }
     setIsSyncing(false);
   };
 
-  // Render logic tetap sama...
   if (view === 'admin-auth') return <AdminLogin onLogin={() => setView('admin-panel')} />;
+  
   if (view === 'admin-panel') {
     return (
       <div className="min-h-screen bg-slate-50 flex">
@@ -146,12 +131,10 @@ const App: React.FC = () => {
             <div className="w-8 h-8 bg-blue-600 rounded-lg"></div>
             CBT SERVER
           </div>
-          
           <nav className="space-y-2 flex-1">
             <button className="w-full text-left p-4 bg-white/10 rounded-xl font-bold border-l-4 border-blue-500 uppercase text-[10px] tracking-widest">Bank Soal</button>
             <button onClick={() => setView('teacher-panel')} className="w-full text-left p-4 text-slate-400 hover:text-white font-bold transition-all uppercase text-[10px] tracking-widest">Monitoring</button>
           </nav>
-
           <div className="mt-auto space-y-4">
             <div className="p-4 bg-white/5 border border-white/10 rounded-2xl">
                <div className="flex items-center justify-between mb-3">
@@ -161,48 +144,24 @@ const App: React.FC = () => {
                     <span className="text-[9px] font-black text-green-500 uppercase">Online</span>
                   </div>
                </div>
-               <button 
-                 onClick={handleCloudSync}
-                 disabled={syncStatus === 'loading'}
-                 className={`w-full py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 shadow-xl ${
-                   syncStatus === 'loading' ? 'bg-slate-700 text-slate-400 cursor-not-allowed' :
-                   syncStatus === 'success' ? 'bg-green-600 text-white' :
-                   syncStatus === 'error' ? 'bg-red-600 text-white' :
-                   'bg-blue-600 hover:bg-blue-700 text-white'
-                 }`}
-               >
+               <button onClick={handleCloudSync} disabled={syncStatus === 'loading'} className={`w-full py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 shadow-xl ${syncStatus === 'loading' ? 'bg-slate-700 text-slate-400 cursor-not-allowed' : syncStatus === 'success' ? 'bg-green-600 text-white' : syncStatus === 'error' ? 'bg-red-600 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}>
                  {syncStatus === 'loading' ? 'Sedang Sync...' : syncStatus === 'success' ? 'BERHASIL DISYNC' : 'SINKRONISASI CLOUD'}
                </button>
             </div>
             <button onClick={() => setView('login')} className="w-full p-4 text-red-400 font-bold hover:bg-red-500/10 rounded-xl transition-all text-left uppercase text-[10px] tracking-widest">Keluar</button>
           </div>
         </aside>
-
         <main className="flex-1 p-8 overflow-y-auto custom-scrollbar">
           <div className="flex flex-col lg:flex-row gap-8">
             <div className="flex-1">
               <div className="mb-8">
                 <h1 className="text-3xl font-black text-slate-800">Bank Soal Dinamis</h1>
-                <p className="text-slate-400 font-medium text-sm italic">Isi kolom "Token" pada tiap soal agar siswa dapat mengakses paket soal tersebut.</p>
+                <p className="text-slate-400 font-medium text-sm italic">Mode Anti-Cheat Fullscreen otomatis aktif untuk setiap siswa yang login.</p>
               </div>
-              <QuestionManager 
-                questions={questions}
-                activeToken="" 
-                onAdd={(q) => setQuestions(prev => [...prev, { ...q, id: Date.now().toString()+Math.random(), createdAt: Date.now(), isDeleted: false, order: q.order || (prev.length + 1) }])}
-                onUpdate={(updated) => setQuestions(prev => prev.map(q => q.id === updated.id ? updated : q))}
-                onSoftDelete={(id) => setQuestions(prev => prev.map(item => item.id === id ? { ...item, isDeleted: true } : item))}
-                onPermanentDelete={(id) => setQuestions(prev => prev.filter(item => item.id !== id))}
-                onRestore={(id) => setQuestions(prev => prev.map(item => item.id === id ? { ...item, isDeleted: false } : item))}
-              />
+              <QuestionManager questions={questions} activeToken="" onAdd={(q) => setQuestions(prev => [...prev, { ...q, id: Date.now().toString()+Math.random(), createdAt: Date.now(), isDeleted: false, order: q.order || (prev.length + 1) }])} onUpdate={(updated) => setQuestions(prev => prev.map(q => q.id === updated.id ? updated : q))} onSoftDelete={(id) => setQuestions(prev => prev.map(item => item.id === id ? { ...item, isDeleted: true } : item))} onPermanentDelete={(id) => setQuestions(prev => prev.filter(item => item.id !== id))} onRestore={(id) => setQuestions(prev => prev.map(item => item.id === id ? { ...item, isDeleted: false } : item))} />
             </div>
             <div className="lg:w-80">
-              <AdminSettings 
-                settings={settings} 
-                questions={questions}
-                onUpdateSettings={setSettings} 
-                onImportQuestions={(newQs) => setQuestions(newQs)}
-                onReset={() => setQuestions([])} 
-              />
+              <AdminSettings settings={settings} questions={questions} onUpdateSettings={setSettings} onImportQuestions={(newQs) => setQuestions(newQs)} onReset={() => setQuestions([])} />
             </div>
           </div>
         </main>
@@ -210,7 +169,6 @@ const App: React.FC = () => {
     );
   }
 
-  // View lain seperti login, quiz, result tetap sama strukturnya...
   if (view === 'login') {
     return (
       <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4 font-inter">
@@ -234,19 +192,18 @@ const App: React.FC = () => {
             <div className="max-w-md mx-auto">
               <h2 className="text-3xl font-black text-slate-800 mb-2">Login Peserta</h2>
               <p className="text-slate-400 font-medium mb-10 italic">Masukkan identitas dan token ujian dari Guru.</p>
-              
               <form onSubmit={handleStartQuiz} className="space-y-5">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nama Lengkap</label>
-                  <input required type="text" placeholder="Nama Lengkap Anda" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold" onChange={e => setIdentity({...identity, name: e.target.value})} />
+                  <input required type="text" placeholder="Nama Lengkap Anda" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold" value={identity.name} onChange={e => setIdentity({...identity, name: e.target.value})} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kelas</label>
-                  <input required type="text" placeholder="Contoh: 6A" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold" onChange={e => setIdentity({...identity, className: e.target.value})} />
+                  <input required type="text" placeholder="Contoh: 6A" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold" value={identity.className} onChange={e => setIdentity({...identity, className: e.target.value})} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest ml-1">Token Ujian</label>
-                  <input required type="text" placeholder="Contoh: IPA01" className="w-full p-4 bg-blue-50 border-2 border-blue-200 rounded-2xl font-black text-blue-700 text-center uppercase tracking-[0.3em] outline-none placeholder:opacity-30" onChange={e => setIdentity({...identity, token: e.target.value})} />
+                  <input required type="text" placeholder="Contoh: IPA01" className="w-full p-4 bg-blue-50 border-2 border-blue-200 rounded-2xl font-black text-blue-700 text-center uppercase tracking-[0.3em] outline-none placeholder:opacity-30" value={identity.token} onChange={e => setIdentity({...identity, token: e.target.value})} />
                 </div>
                 <div className="pt-4">
                   <button disabled={isSyncing} className="w-full font-black py-5 rounded-[2rem] text-xl shadow-2xl transition-all active:scale-95 bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200">
@@ -262,7 +219,7 @@ const App: React.FC = () => {
   }
 
   if (view === 'confirm-data') return <ConfirmIdentity identity={identity} settings={settings} onConfirm={() => setView('quiz')} onCancel={() => setView('login')} />;
-  if (view === 'quiz') return <QuizInterface questions={questions.filter(q => !q.isDeleted)} identity={identity} timeLimitMinutes={settings.timerMinutes} subjectName={settings.activeSubject || 'Ujian Digital'} onFinish={handleFinishQuiz} />;
+  if (view === 'quiz') return <QuizInterface questions={questions.filter(q => !q.isDeleted)} identity={identity} timeLimitMinutes={settings.timerMinutes} subjectName={settings.activeSubject || 'Ujian Digital'} onFinish={handleFinishQuiz} onViolation={handleViolation} />;
   
   if (view === 'result' && lastResult) {
     return (
@@ -280,7 +237,6 @@ const App: React.FC = () => {
       </div>
     );
   }
-
   return null;
 };
 
