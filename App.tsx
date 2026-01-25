@@ -92,8 +92,9 @@ const App: React.FC = () => {
 
   const handleCloudSync = async () => {
     if (questions.length === 0) {
-      alert("Bank soal kosong!");
-      return;
+      // Izinkan sinkronisasi kosong jika admin ingin mengosongkan cloud dari perangkat ini
+      const confirmClear = confirm("Bank soal lokal kosong. Kirim data kosong ke Cloud (Akan menghapus semua soal di server)?");
+      if (!confirmClear) return;
     }
 
     setSyncStatus('loading');
@@ -112,12 +113,14 @@ const App: React.FC = () => {
     setPullStatus('loading');
     try {
       const cloudQs = await fetchAllQuestions();
-      if (cloudQs.length > 0) {
-        setQuestions(cloudQs);
-        setPullStatus('success');
-      } else {
-        setPullStatus('idle');
+      // Perbaikan Utama: Selalu perbarui state questions, bahkan jika cloudQs kosong []
+      setQuestions(cloudQs);
+      setPullStatus('success');
+      
+      if (cloudQs.length === 0) {
+        console.log("Sinkronisasi berhasil: Server dalam keadaan kosong.");
       }
+      
       setTimeout(() => setPullStatus('idle'), 3000);
     } catch (err: any) {
       console.error("Gagal menarik data:", err);
