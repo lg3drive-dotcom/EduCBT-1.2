@@ -1,7 +1,7 @@
-// Import React to provide namespace for React.FC and React.ChangeEvent
+
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { Question, Subject, QuestionType, CognitiveLevel } from '../types.ts';
-import { SUBJECT_LIST, BLOOM_LEVELS, PUSPENDIK_LEVELS, KURIKULUM_PHASES } from '../constants.ts';
+import { SUBJECT_LIST, BLOOM_LEVELS, PUSPENDIK_LEVELS } from '../constants.ts';
 import { generateQuestionBankPDF } from '../services/pdfService.ts';
 
 interface QuestionManagerProps {
@@ -23,7 +23,6 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   const [downloadToken, setDownloadToken] = useState<string>('');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [levelMode, setLevelMode] = useState<'bloom' | 'puspendik'>('bloom');
   
   const [formData, setFormData] = useState<{
     text: string;
@@ -56,8 +55,6 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     tfLabels: { true: 'Benar', false: 'Salah' }
   });
 
-  const mainFileInputRef = useRef<HTMLInputElement>(null);
-
   useEffect(() => {
     if (!editingId && formData.quizToken) {
       const sameToken = questions.filter(q => q.quizToken === formData.quizToken.toUpperCase() && !q.isDeleted);
@@ -81,9 +78,6 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
 
   const handleEdit = (q: Question) => {
     setEditingId(q.id);
-    const isPuspendik = PUSPENDIK_LEVELS.includes(q.level as CognitiveLevel);
-    setLevelMode(isPuspendik ? 'puspendik' : 'bloom');
-    
     setFormData({
       text: q.text,
       material: q.material,
@@ -103,102 +97,25 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     setShowForm(true);
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, index?: number) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64 = event.target?.result as string;
-      if (index === undefined) {
-        setFormData(prev => ({ ...prev, questionImage: base64 }));
-      } else {
-        const nextImages = [...formData.optionImages];
-        nextImages[index] = base64;
-        setFormData(prev => ({ ...prev, optionImages: nextImages }));
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-
   const processedQuestions = useMemo(() => {
     let filtered = questions.filter(q => activeTab === 'active' ? !q.isDeleted : (activeTab === 'trash' ? q.isDeleted : false));
     if (activeTab === 'active') {
       if (subjectFilter.trim() !== '') {
-        filtered = filtered.filter(q => 
-          q.subject.toLowerCase().includes(subjectFilter.toLowerCase())
-        );
+        filtered = filtered.filter(q => q.subject.toLowerCase().includes(subjectFilter.toLowerCase()));
       }
       if (tokenFilter.trim() !== '') {
         filtered = filtered.filter(q => q.quizToken?.toUpperCase().includes(tokenFilter.toUpperCase()));
       }
     }
+    
+    // SORTING LOGIC: Group by Token, then Sort by Order
     return filtered.sort((a, b) => {
-      if ((a.quizToken || '') !== (b.quizToken || '')) return (a.quizToken || '').localeCompare(b.quizToken || '');
-      if (a.subject !== b.subject) return a.subject.localeCompare(b.subject);
+      const tokenA = (a.quizToken || '').toUpperCase();
+      const tokenB = (b.quizToken || '').toUpperCase();
+      if (tokenA !== tokenB) return tokenA.localeCompare(tokenB);
       return (a.order || 0) - (b.order || 0);
     });
   }, [questions, activeTab, subjectFilter, tokenFilter]);
-
-  const handleExport = () => {
-    if (!downloadToken.trim()) {
-      alert("Masukkan TOKEN SOAL terlebih dahulu!");
-      return;
-    }
-    const filteredForExport = questions
-      .filter(q => !q.isDeleted && q.quizToken?.toUpperCase() === downloadToken.trim().toUpperCase())
-      .sort((a, b) => (a.order || 0) - (b.order || 0));
-
-    if (filteredForExport.length === 0) {
-      alert(`Tidak ada soal ditemukan dengan token "${downloadToken.toUpperCase()}".`);
-      return;
-    }
-    const exportSubject = filteredForExport[0].subject as any;
-    generateQuestionBankPDF(filteredForExport, 'lengkap', exportSubject, downloadToken.trim().toUpperCase());
-  };
-
-  const handleDownloadJson = () => {
-    if (!downloadToken.trim()) {
-      alert("Masukkan TOKEN SOAL terlebih dahulu!");
-      return;
-    }
-    const filteredForExport = questions
-      .filter(q => !q.isDeleted && q.quizToken?.toUpperCase() === downloadToken.trim().toUpperCase())
-      .sort((a, b) => (a.order || 0) - (b.order || 0));
-
-    if (filteredForExport.length === 0) {
-      alert(`Tidak ada soal ditemukan dengan token "${downloadToken.toUpperCase()}".`);
-      return;
-    }
-    const blob = new Blob([JSON.stringify(filteredForExport, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `EduCBT_Package_${downloadToken.trim().toUpperCase()}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleAddOption = () => {
-    setFormData(prev => ({
-      ...prev,
-      options: [...prev.options, ''],
-      optionImages: [...prev.optionImages, undefined],
-      correctAnswer: (prev.type === QuestionType.COMPLEX_CATEGORY || prev.type === QuestionType.TRUE_FALSE_COMPLEX) 
-        ? [...(prev.correctAnswer || []), false] 
-        : prev.correctAnswer
-    }));
-  };
-
-  const handleRemoveOption = (idx: number) => {
-    setFormData(prev => {
-      const nextOptions = prev.options.filter((_, i) => i !== idx);
-      const nextImages = prev.optionImages.filter((_, i) => i !== idx);
-      let nextCorrect = prev.correctAnswer;
-      if (prev.type === QuestionType.SINGLE && prev.correctAnswer === idx) nextCorrect = 0;
-      if (Array.isArray(prev.correctAnswer)) nextCorrect = prev.correctAnswer.filter((_, i) => i !== idx);
-      return { ...prev, options: nextOptions, optionImages: nextImages, correctAnswer: nextCorrect };
-    });
-  };
 
   const handleTypeChange = (newType: QuestionType) => {
     setFormData(prev => {
@@ -238,8 +155,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
         <div className="flex gap-2">
            <div className="flex bg-white border rounded-xl overflow-hidden shadow-sm">
              <input type="text" value={downloadToken} onChange={(e) => setDownloadToken(e.target.value)} placeholder="Token" className="w-20 px-3 py-1.5 text-[10px] font-bold outline-none uppercase" />
-             <button onClick={handleExport} className="bg-slate-100 px-3 py-1.5 text-[10px] font-bold border-l">PDF</button>
-             <button onClick={handleDownloadJson} className="bg-slate-100 px-3 py-1.5 text-[10px] font-bold border-l">JSON</button>
+             <button onClick={() => generateQuestionBankPDF(questions.filter(q => q.quizToken?.toUpperCase() === downloadToken.toUpperCase() && !q.isDeleted), 'lengkap', undefined, downloadToken)} className="bg-slate-100 px-3 py-1.5 text-[10px] font-bold border-l">PDF</button>
            </div>
            <button onClick={() => { closeForm(); setShowForm(true); }} className="bg-slate-900 text-white px-5 py-2 rounded-xl text-[10px] font-black">TAMBAH</button>
         </div>
@@ -282,7 +198,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                          <input type="text" value={formData.quizToken} onChange={e => setFormData({...formData, quizToken: e.target.value.toUpperCase()})} className="w-full p-3 border-2 border-blue-50 bg-blue-50 rounded-xl font-black text-blue-700 outline-none focus:border-blue-500" />
                       </div>
                       <div className="space-y-1">
-                         <label className="text-[10px] font-black text-slate-400 uppercase">Mata Pelajaran</label>
+                         <label className="text-[10px] font-black text-slate-400 uppercase">Mapel</label>
                          <input type="text" list="subject-list" value={formData.subject} onChange={e => setFormData({...formData, subject: e.target.value})} className="w-full p-3 border bg-slate-50 rounded-xl font-bold outline-none" />
                          <datalist id="subject-list">{SUBJECT_LIST.map(s => <option key={s} value={s} />)}</datalist>
                       </div>
@@ -298,12 +214,12 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                    {formData.type === QuestionType.TRUE_FALSE_COMPLEX && (
                       <div className="grid grid-cols-2 gap-4 p-4 bg-orange-50 border border-orange-100 rounded-2xl">
                          <div className="space-y-1">
-                            <label className="text-[9px] font-black text-orange-600 uppercase">Label Tombol Positif</label>
-                            <input type="text" value={formData.tfLabels.true} onChange={e => setFormData({...formData, tfLabels: {...formData.tfLabels, true: e.target.value}})} className="w-full p-2 border bg-white rounded-lg font-bold text-xs" placeholder="Contoh: Benar, Sesuai, Fakta" />
+                            <label className="text-[9px] font-black text-orange-600 uppercase">Pilihan Positif</label>
+                            <input type="text" value={formData.tfLabels.true} onChange={e => setFormData({...formData, tfLabels: {...formData.tfLabels, true: e.target.value}})} className="w-full p-2 border bg-white rounded-lg font-bold text-xs" placeholder="Misal: Benar, Sesuai, Fakta" />
                          </div>
                          <div className="space-y-1">
-                            <label className="text-[9px] font-black text-orange-600 uppercase">Label Tombol Negatif</label>
-                            <input type="text" value={formData.tfLabels.false} onChange={e => setFormData({...formData, tfLabels: {...formData.tfLabels, false: e.target.value}})} className="w-full p-2 border bg-white rounded-lg font-bold text-xs" placeholder="Contoh: Salah, Tidak Sesuai, Opini" />
+                            <label className="text-[9px] font-black text-orange-600 uppercase">Pilihan Negatif</label>
+                            <input type="text" value={formData.tfLabels.false} onChange={e => setFormData({...formData, tfLabels: {...formData.tfLabels, false: e.target.value}})} className="w-full p-2 border bg-white rounded-lg font-bold text-xs" placeholder="Misal: Salah, Tidak Sesuai, Opini" />
                          </div>
                       </div>
                    )}
@@ -312,46 +228,49 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                       <label className="text-[10px] font-black text-slate-400 uppercase">Butir Pertanyaan</label>
                       <textarea value={formData.text} onChange={e => setFormData({...formData, text: e.target.value})} className="w-full p-4 border bg-slate-50 rounded-xl h-32 font-medium text-sm outline-none" />
                    </div>
-
-                   <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-400 uppercase">Materi & Indikator</label>
-                      <input type="text" value={formData.material} onChange={e => setFormData({...formData, material: e.target.value})} className="w-full p-3 border bg-slate-50 rounded-xl text-xs font-bold" />
-                   </div>
                 </div>
 
                 <div className="lg:col-span-5 space-y-4">
                    <div className="space-y-3">
-                      <label className="text-[10px] font-black text-slate-400 uppercase">Opsi Jawaban & Kunci</label>
+                      <label className="text-[10px] font-black text-slate-400 uppercase">Pernyataan & Kunci</label>
                       <div className="max-h-[40vh] overflow-y-auto space-y-3 pr-2 custom-scrollbar">
                          {formData.options.map((opt, idx) => (
                            <div key={idx} className="p-3 bg-slate-50 border rounded-xl flex gap-3 items-start">
-                              {formData.type === QuestionType.SINGLE ? (
-                                <input type="radio" checked={formData.correctAnswer === idx} onChange={() => setFormData({...formData, correctAnswer: idx})} />
-                              ) : formData.type === QuestionType.MULTIPLE ? (
-                                <input type="checkbox" checked={(formData.correctAnswer || []).includes(idx)} onChange={(e) => {
-                                  const current = formData.correctAnswer || [];
-                                  const next = e.target.checked ? [...current, idx] : current.filter((i:any) => i !== idx);
-                                  setFormData({...formData, correctAnswer: next});
-                                }} />
-                              ) : (
-                                <button onClick={() => {
-                                  const next = [...(formData.correctAnswer || formData.options.map(() => false))];
-                                  next[idx] = !next[idx];
-                                  // Fix: Change setAnswers to setFormData
-                                  setFormData({...formData, correctAnswer: next});
-                                }} className={`w-8 h-4 rounded-full mt-1 transition-all ${formData.correctAnswer?.[idx] ? 'bg-blue-600' : 'bg-slate-300'}`}>
-                                  <div className={`w-2 h-2 bg-white rounded-full mx-1 transition-all ${formData.correctAnswer?.[idx] ? 'translate-x-4' : ''}`}></div>
-                                </button>
-                              )}
+                              <div className="flex flex-col gap-1 items-center">
+                                {formData.type === QuestionType.TRUE_FALSE_COMPLEX || formData.type === QuestionType.COMPLEX_CATEGORY ? (
+                                   <button 
+                                      onClick={() => {
+                                        const next = [...(formData.correctAnswer || formData.options.map(() => false))];
+                                        next[idx] = !next[idx];
+                                        setFormData({...formData, correctAnswer: next});
+                                      }}
+                                      className={`w-6 h-6 rounded-md flex items-center justify-center font-black text-[10px] ${formData.correctAnswer?.[idx] ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}
+                                   >
+                                     {formData.correctAnswer?.[idx] ? 'T' : 'F'}
+                                   </button>
+                                ) : (
+                                  <input 
+                                    type={formData.type === QuestionType.SINGLE ? 'radio' : 'checkbox'} 
+                                    checked={formData.type === QuestionType.SINGLE ? formData.correctAnswer === idx : (formData.correctAnswer || []).includes(idx)} 
+                                    onChange={() => {
+                                      if(formData.type === QuestionType.SINGLE) setFormData({...formData, correctAnswer: idx});
+                                      else {
+                                        const cur = formData.correctAnswer || [];
+                                        const next = cur.includes(idx) ? cur.filter((i:any) => i !== idx) : [...cur, idx];
+                                        setFormData({...formData, correctAnswer: next});
+                                      }
+                                    }}
+                                  />
+                                )}
+                              </div>
                               <textarea value={opt} onChange={e => {
                                  const next = [...formData.options]; next[idx] = e.target.value;
                                  setFormData({...formData, options: next});
                               }} className="flex-1 p-2 bg-white border rounded-lg text-[11px] font-bold h-12" />
-                              <button onClick={() => handleRemoveOption(idx)} className="text-red-400 font-black">×</button>
                            </div>
                          ))}
                       </div>
-                      <button onClick={handleAddOption} className="w-full py-2 border-2 border-dashed border-slate-200 text-slate-400 text-[10px] font-black uppercase rounded-xl">+ Tambah Pernyataan</button>
+                      <button onClick={() => setFormData(prev => ({ ...prev, options: [...prev.options, ''], correctAnswer: Array.isArray(prev.correctAnswer) ? [...prev.correctAnswer, false] : prev.correctAnswer }))} className="w-full py-2 border-2 border-dashed border-slate-200 text-slate-400 text-[10px] font-black uppercase rounded-xl">+ Tambah Pernyataan</button>
                    </div>
                 </div>
              </div>

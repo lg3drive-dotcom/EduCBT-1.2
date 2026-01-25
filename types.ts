@@ -45,7 +45,6 @@ export interface Question {
   createdAt: number;
   order: number;
   quizToken?: string; 
-  // Baru: Label kustom untuk tipe Benar-Salah
   tfLabels?: {
     true: string;
     false: string;

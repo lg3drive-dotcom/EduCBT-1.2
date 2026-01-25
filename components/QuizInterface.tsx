@@ -1,5 +1,4 @@
 
-// Import React to ensure React namespace is available for React.FC
 import React, { useState, useEffect, useRef } from 'react';
 import { Question, StudentIdentity, QuizResult, QuestionType } from '../types';
 

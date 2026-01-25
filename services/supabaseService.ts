@@ -18,7 +18,8 @@ export const fetchAllQuestions = async (): Promise<Question[]> => {
     .from('questions')
     .select('*')
     .eq('is_deleted', false)
-    .order('created_at', { ascending: false });
+    .order('quiz_token', { ascending: true }) // Sort by Token first
+    .order('order', { ascending: true });      // Then by Order
 
   if (error) throw error;
   
@@ -39,7 +40,7 @@ export const fetchAllQuestions = async (): Promise<Question[]> => {
     createdAt: q.created_at,
     order: q.order,
     quizToken: q.quiz_token,
-    tfLabels: q.tf_labels // Map dari DB ke Frontend
+    tfLabels: q.tf_labels
   }));
 };
 
@@ -63,136 +64,62 @@ export const pushQuestionsToCloud = async (questions: Question[]) => {
     created_at: q.createdAt || Date.now(),
     order: Number(q.order) || 0,
     quiz_token: (q.quizToken || 'UJI01').trim().toUpperCase(),
-    tf_labels: q.tfLabels || { true: 'Benar', false: 'Salah' } // Map dari Frontend ke DB
+    tf_labels: q.tfLabels || { true: 'Benar', false: 'Salah' }
   }));
 
   const cleanPayload = sanitizeData(payload);
-
-  const { error } = await supabase
-    .from('questions')
-    .upsert(cleanPayload, { onConflict: 'id' });
-  
-  if (error) {
-    throw new Error(`Gagal Sinkron Soal: ${error.message}`);
-  }
+  const { error } = await supabase.from('questions').upsert(cleanPayload, { onConflict: 'id' });
+  if (error) throw new Error(`Gagal Sinkron Soal: ${error.message}`);
 };
 
 export const updateLiveSettings = async (settings: AppSettings) => {
-  const payload: any = {
-    id: 1, 
-    timer_minutes: Number(settings.timerMinutes) || 60
-  };
-
-  if (settings.adminPassword) {
-    payload.admin_password = settings.adminPassword;
-  }
-
-  const cleanSettings = sanitizeData(payload);
-
-  const { error } = await supabase
-    .from('active_settings')
-    .upsert(cleanSettings, { onConflict: 'id' });
-
-  if (error) {
-    throw new Error(`Gagal Update Settings: ${error.message}`);
-  }
+  const payload: any = { id: 1, timer_minutes: Number(settings.timerMinutes) || 60 };
+  if (settings.adminPassword) payload.admin_password = settings.adminPassword;
+  const { error } = await supabase.from('active_settings').upsert(sanitizeData(payload), { onConflict: 'id' });
+  if (error) throw new Error(`Gagal Update Settings: ${error.message}`);
 };
 
 export const getGlobalSettings = async () => {
-  const { data, error } = await supabase
-    .from('active_settings')
-    .select('*')
-    .eq('id', 1)
-    .maybeSingle();
-
+  const { data, error } = await supabase.from('active_settings').select('*').eq('id', 1).maybeSingle();
   if (error) return null;
-
-  return data ? {
-    timerMinutes: data.timer_minutes,
-    adminPassword: data.admin_password
-  } : null;
+  return data ? { timerMinutes: data.timer_minutes, adminPassword: data.admin_password } : null;
 };
 
 export const getLiveExamData = async (studentToken: string) => {
   try {
     const cleanToken = studentToken.trim().toUpperCase();
-    const { data: questions, error: questionsError } = await supabase
+    const { data: questions, error: qErr } = await supabase
       .from('questions')
       .select('*')
       .eq('quiz_token', cleanToken)
       .eq('is_deleted', false)
       .order('order', { ascending: true });
 
-    if (questionsError) throw questionsError;
+    if (qErr) throw qErr;
     if (!questions || questions.length === 0) return null;
 
-    const { data: settings } = await supabase
-      .from('active_settings')
-      .select('*')
-      .eq('id', 1)
-      .maybeSingle();
+    const { data: set } = await supabase.from('active_settings').select('*').eq('id', 1).maybeSingle();
 
     return {
-      settings: {
-        timerMinutes: settings?.timer_minutes || 60,
-        activeSubject: questions[0].subject || 'Ujian Digital'
-      },
+      settings: { timerMinutes: set?.timer_minutes || 60, activeSubject: questions[0].subject || 'Ujian Digital' },
       questions: questions.map(q => ({
-        id: q.id,
-        type: q.type,
-        level: q.level,
-        subject: q.subject,
-        phase: q.phase || 'Fase C',
-        material: q.material,
-        text: q.text,
-        explanation: q.explanation,
-        questionImage: q.question_image,
-        options: q.options,
-        optionImages: q.option_images,
-        correctAnswer: q.correct_answer,
-        isDeleted: q.is_deleted,
-        createdAt: q.created_at,
-        order: q.order,
-        quizToken: q.quiz_token,
-        tfLabels: q.tf_labels // Sangat penting agar tombol di sisi siswa berubah sesuai label
+        id: q.id, type: q.type, level: q.level, subject: q.subject, material: q.material, text: q.text,
+        explanation: q.explanation, questionImage: q.question_image, options: q.options,
+        correctAnswer: q.correct_answer, isDeleted: q.is_deleted, order: q.order,
+        quizToken: q.quiz_token, tfLabels: q.tf_labels
       }))
     };
-  } catch (err: any) {
-    throw new Error(err.message || "Gagal mengambil data");
-  }
+  } catch (err: any) { throw new Error(err.message); }
 };
 
 export const submitResultToCloud = async (result: QuizResult): Promise<{success: boolean, error?: string}> => {
   try {
     const payload = sanitizeData({
-      id: result.id,
-      student_name: result.identity.name,
-      class_name: result.identity.className,
-      school_origin: result.identity.schoolOrigin || '-',
-      birth_date: result.identity.birthDate || '-',
-      score: Number(result.score) || 0,
-      answers: result.answers || {},
-      timestamp: result.timestamp || Date.now(),
-      subject: result.identity.token.toUpperCase() 
+      id: result.id, student_name: result.identity.name, class_name: result.identity.className,
+      school_origin: result.identity.schoolOrigin || '-', score: Number(result.score) || 0,
+      answers: result.answers || {}, timestamp: result.timestamp || Date.now(), subject: result.identity.token.toUpperCase() 
     });
-
     const { error } = await supabase.from('submissions').insert([payload]);
-    if (error) {
-      console.error("Supabase Database Error:", error);
-      return { success: false, error: error.message };
-    }
-    return { success: true };
-  } catch (err: any) {
-    console.error("Submission Exception:", err);
-    return { success: false, error: err.message };
-  }
-};
-
-export const listenToSubmissions = (onNewData: (data: any) => void) => {
-  return supabase
-    .channel('realtime_submissions')
-    .on('postgres_changes' as any, { event: 'INSERT', schema: 'public', table: 'submissions' }, (payload: any) => {
-      onNewData(payload.new);
-    })
-    .subscribe();
+    return error ? { success: false, error: error.message } : { success: true };
+  } catch (err: any) { return { success: false, error: err.message }; }
 };
