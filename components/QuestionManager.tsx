@@ -144,10 +144,13 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
       return;
     }
 
-    const filteredForExport = questions.filter(q => 
-      !q.isDeleted && 
-      q.quizToken?.toUpperCase() === downloadToken.trim().toUpperCase()
-    );
+    // MEMPERBAIKI URUTAN: Melakukan filtering DAN penyortiran berdasarkan order
+    const filteredForExport = questions
+      .filter(q => 
+        !q.isDeleted && 
+        q.quizToken?.toUpperCase() === downloadToken.trim().toUpperCase()
+      )
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
 
     if (filteredForExport.length === 0) {
       alert(`Tidak ada soal ditemukan dengan token "${downloadToken.toUpperCase()}".`);
@@ -280,6 +283,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                         ) : (
                           <>
                             <button onClick={() => onRestore(q.id)} className="text-green-600 text-[9px] lg:text-[10px] font-black uppercase tracking-widest hover:underline">Pulihkan</button>
+                            {/* Fixed: changed 'id' to 'q.id' to correctly reference the current question object */}
                             <button onClick={() => onPermanentDelete(q.id)} className="text-red-600 text-[9px] lg:text-[10px] font-black uppercase tracking-widest hover:underline">Hapus</button>
                           </>
                         )}
