@@ -378,6 +378,17 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                       </div>
                    </div>
 
+                   {/* KOLOM BARU: MATERI / INDIKATOR */}
+                   <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Materi / Indikator (Untuk Kisi-Kisi PDF)</label>
+                      <textarea 
+                        value={formData.material} 
+                        onChange={e => setFormData({...formData, material: e.target.value})} 
+                        className="w-full p-3 lg:p-4 bg-slate-50 border border-slate-200 rounded-xl h-20 outline-none font-bold text-slate-800 text-xs" 
+                        placeholder="Contoh: Menentukan ide pokok dalam teks narasi..." 
+                      />
+                   </div>
+
                    <div className="space-y-1">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Butir Pertanyaan</label>
                       <textarea value={formData.text} onChange={e => setFormData({...formData, text: e.target.value})} className="w-full p-4 lg:p-5 bg-slate-50 border border-slate-200 rounded-xl h-32 outline-none font-bold text-slate-800 text-xs lg:text-sm" placeholder="Tulis butir soal..." />
