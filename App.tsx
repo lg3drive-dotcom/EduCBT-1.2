@@ -251,7 +251,27 @@ const App: React.FC = () => {
                     <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100 uppercase tracking-widest">{questions.length} TOTAL SOAL</span>
                   </div>
                 </div>
-                <QuestionManager questions={questions} activeToken="" onAdd={(q) => setQuestions(prev => [...prev, { ...q, id: Date.now().toString()+Math.random(), createdAt: Date.now(), isDeleted: false, order: q.order || (prev.length + 1) }])} onUpdate={(updated) => setQuestions(prev => prev.map(q => q.id === updated.id ? updated : q))} onSoftDelete={(id) => setQuestions(prev => prev.map(item => item.id === id ? { ...item, isDeleted: true } : item))} onPermanentDelete={(id) => setQuestions(prev => prev.filter(item => item.id !== id))} onRestore={(id) => setQuestions(prev => prev.map(item => item.id === id ? { ...item, isDeleted: false } : item))} />
+                <QuestionManager 
+                  questions={questions} 
+                  activeToken="" 
+                  onAdd={(q) => {
+                    // Logic: Jika order tidak diset manual, gunakan nomor terakhir untuk token tersebut
+                    const sameToken = questions.filter(item => item.quizToken === q.quizToken && !item.isDeleted);
+                    const nextOrder = q.order || (sameToken.length > 0 ? Math.max(...sameToken.map(i => i.order)) + 1 : 1);
+                    
+                    setQuestions(prev => [...prev, { 
+                      ...q, 
+                      id: Date.now().toString()+Math.random(), 
+                      createdAt: Date.now(), 
+                      isDeleted: false, 
+                      order: nextOrder 
+                    }]);
+                  }} 
+                  onUpdate={(updated) => setQuestions(prev => prev.map(q => q.id === updated.id ? updated : q))} 
+                  onSoftDelete={(id) => setQuestions(prev => prev.map(item => item.id === id ? { ...item, isDeleted: true } : item))} 
+                  onPermanentDelete={(id) => setQuestions(prev => prev.filter(item => item.id !== id))} 
+                  onRestore={(id) => setQuestions(prev => prev.map(item => item.id === id ? { ...item, isDeleted: false } : item))} 
+                />
               </div>
               <div className="w-full lg:w-80">
                 <AdminSettings 
@@ -260,11 +280,23 @@ const App: React.FC = () => {
                   onUpdateSettings={(newSettings) => { setSettings(newSettings); updateLiveSettings({ ...newSettings, adminPassword }).catch(() => {}); }} 
                   onImportQuestions={(newQs, mode) => {
                     if (mode === 'append') {
-                      // Pastikan ID baru unik agar tidak menimpa yang lama
-                      const sanitized = newQs.map(q => ({
-                        ...q,
-                        id: q.id.includes('import') ? q.id : `import_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`
-                      }));
+                      // Logic Append: Hitung order baru untuk setiap soal berdasarkan tokennya
+                      const currentQuestions = [...questions];
+                      const sanitized = newQs.map(q => {
+                        const token = (q.quizToken || 'UMUM').toUpperCase();
+                        const sameToken = currentQuestions.filter(item => item.quizToken === token && !item.isDeleted);
+                        const nextOrder = sameToken.length > 0 ? Math.max(...sameToken.map(i => i.order)) + 1 : 1;
+                        
+                        const newQ = {
+                          ...q,
+                          id: `import_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                          quizToken: token,
+                          order: q.order || nextOrder
+                        };
+                        
+                        currentQuestions.push(newQ); // Simulasikan penambahan untuk soal berikutnya dalam loop
+                        return newQ;
+                      });
                       setQuestions(prev => [...prev, ...sanitized]);
                     } else {
                       setQuestions(newQs);

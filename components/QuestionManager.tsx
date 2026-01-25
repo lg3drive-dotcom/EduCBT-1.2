@@ -1,6 +1,6 @@
 
 // Import React to provide namespace for React.FC and React.ChangeEvent
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { Question, Subject, QuestionType, CognitiveLevel } from '../types.ts';
 import { SUBJECT_LIST, BLOOM_LEVELS, PUSPENDIK_LEVELS, KURIKULUM_PHASES } from '../constants.ts';
 import { generateQuestionBankPDF } from '../services/pdfService.ts';
@@ -56,6 +56,15 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   });
 
   const mainFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Efek untuk menyarankan nomor urut soal berikutnya saat Token berubah
+  useEffect(() => {
+    if (!editingId && formData.quizToken) {
+      const sameToken = questions.filter(q => q.quizToken === formData.quizToken.toUpperCase() && !q.isDeleted);
+      const nextOrder = sameToken.length > 0 ? Math.max(...sameToken.map(i => i.order)) + 1 : 1;
+      setFormData(prev => ({ ...prev, order: nextOrder }));
+    }
+  }, [formData.quizToken, editingId, questions]);
 
   const closeForm = () => {
     setShowForm(false);
@@ -121,16 +130,13 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
         filtered = filtered.filter(q => q.quizToken?.toUpperCase().includes(tokenFilter.toUpperCase()));
       }
     }
+    // Pengurutan Utama: Berdasarkan Token kemudian Nomor Urut
     return filtered.sort((a, b) => {
+      if ((a.quizToken || '') !== (b.quizToken || '')) return (a.quizToken || '').localeCompare(b.quizToken || '');
       if (a.subject !== b.subject) return a.subject.localeCompare(b.subject);
       return (a.order || 0) - (b.order || 0);
     });
   }, [questions, activeTab, subjectFilter, tokenFilter]);
-
-  const getDisplayNumber = (q: Question) => {
-    const sameTokenSubject = processedQuestions.filter(item => item.quizToken === q.quizToken && item.subject === q.subject);
-    return sameTokenSubject.findIndex(item => item.id === q.id) + 1;
-  };
 
   const handleExport = () => {
     if (!downloadToken.trim()) {
@@ -184,18 +190,20 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     if (!formData.text) return alert("Pertanyaan tidak boleh kosong.");
     if (!formData.quizToken) return alert("Token wajib diisi agar soal dapat ditemukan siswa.");
     if (!formData.subject) return alert("Mata pelajaran wajib diisi.");
+    if (isNaN(formData.order) || formData.order < 1) return alert("Nomor urut soal harus angka positif.");
     
     const finalData = {
       ...formData,
       quizToken: formData.quizToken.toUpperCase(),
       isDeleted: false,
       createdAt: Date.now(),
+      order: Number(formData.order)
     };
 
     if (editingId) {
       onUpdate({ ...finalData, id: editingId } as Question);
     } else {
-      onAdd({ ...finalData, id: Math.random().toString(36).substr(2, 9) + Date.now() });
+      onAdd(finalData);
     }
     closeForm();
   };
@@ -251,11 +259,10 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
               <div className="font-medium text-xs lg:text-sm text-center">Tidak ada soal ditemukan {subjectFilter || tokenFilter ? `untuk pencarian saat ini.` : ""}.</div>
             </div>
           ) : (
-            processedQuestions.map((q, idx) => {
-              const dispNum = getDisplayNumber(q);
+            processedQuestions.map((q) => {
               return (
                 <div key={q.id} className="bg-white p-4 lg:p-5 border border-slate-200 rounded-2xl group flex flex-col sm:flex-row gap-4 lg:gap-5 items-start hover:shadow-md transition-all">
-                  <div className="w-8 h-8 lg:w-10 lg:h-10 flex items-center justify-center bg-blue-50 text-blue-700 rounded-lg lg:rounded-xl font-black text-xs lg:text-sm shrink-0 border border-blue-100">{dispNum}</div>
+                  <div className="w-8 h-8 lg:w-10 lg:h-10 flex items-center justify-center bg-blue-50 text-blue-700 rounded-lg lg:rounded-xl font-black text-xs lg:text-sm shrink-0 border border-blue-100">{q.order}</div>
                   <div className="flex-1 min-w-0 w-full">
                     <div className="flex flex-col sm:flex-row justify-between items-start mb-2 gap-2">
                       <div className="flex flex-wrap gap-1 lg:gap-2">
@@ -328,6 +335,20 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                    </div>
 
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* FITUR BARU: Edit Nomor Urut Soal */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-orange-600 uppercase tracking-widest ml-1">Nomor Urut Soal</label>
+                        <input 
+                          type="number" 
+                          min="1"
+                          value={formData.order} 
+                          onChange={e => setFormData({...formData, order: parseInt(e.target.value) || 1})}
+                          placeholder="Nomor Soal"
+                          className="w-full p-3 lg:p-4 border-2 border-orange-100 rounded-xl font-black outline-none focus:border-orange-500 bg-orange-50 text-orange-700 text-xs"
+                        />
+                        <p className="text-[8px] text-orange-400 font-bold ml-1 uppercase">Sistem otomatis menyarankan nomor berikutnya</p>
+                      </div>
+                      
                       <div className="space-y-1">
                         <label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest ml-1">Fase Kurikulum</label>
                         <select 
@@ -338,7 +359,10 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                           {KURIKULUM_PHASES.map(p => <option key={p} value={p}>{p}</option>)}
                         </select>
                       </div>
-                      <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200">
+                   </div>
+
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 col-span-2">
                         <div className="flex justify-between items-center mb-1">
                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sistem Level</label>
                            <div className="flex bg-white p-0.5 rounded-lg border border-slate-200">
