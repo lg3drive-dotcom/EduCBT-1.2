@@ -92,7 +92,6 @@ const App: React.FC = () => {
 
   const handleCloudSync = async () => {
     if (questions.length === 0) {
-      // Izinkan sinkronisasi kosong jika admin ingin mengosongkan cloud dari perangkat ini
       const confirmClear = confirm("Bank soal lokal kosong. Kirim data kosong ke Cloud (Akan menghapus semua soal di server)?");
       if (!confirmClear) return;
     }
@@ -113,14 +112,8 @@ const App: React.FC = () => {
     setPullStatus('loading');
     try {
       const cloudQs = await fetchAllQuestions();
-      // Perbaikan Utama: Selalu perbarui state questions, bahkan jika cloudQs kosong []
       setQuestions(cloudQs);
       setPullStatus('success');
-      
-      if (cloudQs.length === 0) {
-        console.log("Sinkronisasi berhasil: Server dalam keadaan kosong.");
-      }
-      
       setTimeout(() => setPullStatus('idle'), 3000);
     } catch (err: any) {
       console.error("Gagal menarik data:", err);
@@ -196,158 +189,172 @@ const App: React.FC = () => {
     }
   };
 
-  if (view === 'admin-auth') return <AdminLogin onLogin={() => setView('admin-panel')} correctPassword={adminPassword} />;
-  
-  if (view === 'admin-panel') {
-    return (
-      <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row relative">
-        {showGuide && <AdminGuide onClose={() => setShowGuide(false)} />}
-        <header className="lg:hidden bg-slate-900 text-white p-4 flex justify-between items-center sticky top-0 z-50">
-          <div className="font-black text-xl flex items-center gap-2">
-            <div className="w-6 h-6 bg-blue-600 rounded"></div>
-            CBT SERVER
-          </div>
-          <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 bg-white/10 rounded-lg">
-            {isMobileMenuOpen ? 'Tutup' : 'Menu'}
-          </button>
-        </header>
-        <aside className={`${isMobileMenuOpen ? 'flex' : 'hidden'} lg:flex w-full lg:w-72 bg-slate-900 text-white flex-col p-6 lg:sticky top-0 lg:h-screen z-40 transition-all`}>
-          <div className="hidden lg:flex font-black text-2xl mb-12 items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg"></div>
-            CBT SERVER
-          </div>
-          <nav className="space-y-2 flex-1">
-            <button className="w-full text-left p-4 bg-white/10 rounded-xl font-bold border-l-4 border-blue-500 uppercase text-[10px] tracking-widest">Bank Soal</button>
-            <a href="https://ai.studio/apps/drive/13CnHs1wO_wbrWZYjpbUDvJ0ZKsTA1z0E?fullscreenApplet=true" target="_blank" rel="noopener noreferrer" className="w-full flex items-center gap-3 p-4 hover:bg-white/5 rounded-xl font-bold uppercase text-[10px] tracking-widest text-purple-400 border border-transparent hover:border-purple-500/20 transition-all group">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 group-hover:animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-              Generate Soal Otomatis ✨
-            </a>
-            <button onClick={() => setShowGuide(true)} className="w-full flex items-center gap-3 p-4 hover:bg-white/5 rounded-xl font-bold uppercase text-[10px] tracking-widest text-emerald-400 border border-transparent hover:border-emerald-500/20 transition-all">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5S19.832 6.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
-              Panduan Penggunaan
+  return (
+    <div className="min-h-screen bg-slate-50">
+      {view === 'admin-auth' && <AdminLogin onLogin={() => setView('admin-panel')} correctPassword={adminPassword} />}
+      
+      {view === 'admin-panel' && (
+        <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row relative">
+          {showGuide && <AdminGuide onClose={() => setShowGuide(false)} />}
+          <header className="lg:hidden bg-slate-900 text-white p-4 flex justify-between items-center sticky top-0 z-50">
+            <div className="font-black text-xl flex items-center gap-2">
+              <div className="w-6 h-6 bg-blue-600 rounded"></div>
+              CBT SERVER
+            </div>
+            <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 bg-white/10 rounded-lg">
+              {isMobileMenuOpen ? 'Tutup' : 'Menu'}
             </button>
-          </nav>
-          <div className="mt-8 lg:mt-auto space-y-4">
-            <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-3">
-               <div className="flex items-center justify-between mb-1">
-                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Koneksi Server</span>
-                  <div className="flex items-center gap-1.5"><div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div><span className="text-[9px] font-black text-green-500 uppercase">Live</span></div>
-               </div>
-               
-               <button onClick={handleCloudPull} disabled={pullStatus === 'loading'} className={`w-full py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 border border-white/10 ${pullStatus === 'loading' ? 'bg-slate-700 text-slate-400' : pullStatus === 'success' ? 'bg-emerald-600 text-white' : 'bg-white/5 hover:bg-white/10 text-white'}`}>
-                 {pullStatus === 'loading' ? 'Tarik Data...' : pullStatus === 'success' ? 'DATA TERUPDATE' : 'TARIK DATA SERVER'}
-               </button>
-
-               <button onClick={handleCloudSync} disabled={syncStatus === 'loading'} className={`w-full py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 shadow-xl ${syncStatus === 'loading' ? 'bg-slate-700 text-slate-400 cursor-not-allowed' : syncStatus === 'success' ? 'bg-green-600 text-white' : syncStatus === 'error' ? 'bg-red-600 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}>
-                 {syncStatus === 'loading' ? 'Kirim...' : syncStatus === 'success' ? 'TERSIMPAN' : 'KIRIM KE CLOUD'}
-               </button>
+          </header>
+          <aside className={`${isMobileMenuOpen ? 'flex' : 'hidden'} lg:flex w-full lg:w-72 bg-slate-900 text-white flex-col p-6 lg:sticky top-0 lg:h-screen z-40 transition-all`}>
+            <div className="hidden lg:flex font-black text-2xl mb-12 items-center gap-2">
+              <div className="w-8 h-8 bg-blue-600 rounded-lg"></div>
+              CBT SERVER
             </div>
-            <button onClick={() => { setView('login'); setIsMobileMenuOpen(false); }} className="w-full p-4 text-red-400 font-bold hover:bg-red-500/10 rounded-xl transition-all text-left uppercase text-[10px] tracking-widest">Keluar</button>
-          </div>
-        </aside>
-        <main className="flex-1 p-4 lg:p-8 overflow-y-auto custom-scrollbar">
-          <div className="flex flex-col lg:flex-row gap-8">
-            <div className="flex-1 min-w-0">
-              <div className="mb-8 flex justify-between items-end">
-                <div>
-                  <h1 className="text-2xl lg:text-3xl font-black text-slate-800">Bank Soal Dinamis</h1>
-                  <p className="text-slate-400 font-medium text-xs lg:text-sm italic">Soal tersinkronisasi antar perangkat melalui Cloud.</p>
-                </div>
-                <div className="text-right">
-                  <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100 uppercase tracking-widest">{questions.length} TOTAL SOAL</span>
-                </div>
+            <nav className="space-y-2 flex-1">
+              <button className="w-full text-left p-4 bg-white/10 rounded-xl font-bold border-l-4 border-blue-500 uppercase text-[10px] tracking-widest">Bank Soal</button>
+              <a href="https://ai.studio/apps/drive/13CnHs1wO_wbrWZYjpbUDvJ0ZKsTA1z0E?fullscreenApplet=true" target="_blank" rel="noopener noreferrer" className="w-full flex items-center gap-3 p-4 hover:bg-white/5 rounded-xl font-bold uppercase text-[10px] tracking-widest text-purple-400 border border-transparent hover:border-purple-500/20 transition-all group">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 group-hover:animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                Generate Soal Otomatis ✨
+              </a>
+              <button onClick={() => setShowGuide(true)} className="w-full flex items-center gap-3 p-4 hover:bg-white/5 rounded-xl font-bold uppercase text-[10px] tracking-widest text-emerald-400 border border-transparent hover:border-emerald-500/20 transition-all">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5S19.832 6.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+                Panduan Penggunaan
+              </button>
+            </nav>
+            <div className="mt-8 lg:mt-auto space-y-4">
+              <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-3">
+                 <div className="flex items-center justify-between mb-1">
+                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Koneksi Server</span>
+                    <div className="flex items-center gap-1.5"><div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div><span className="text-[9px] font-black text-green-500 uppercase">Live</span></div>
+                 </div>
+                 
+                 <button onClick={handleCloudPull} disabled={pullStatus === 'loading'} className={`w-full py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 border border-white/10 ${pullStatus === 'loading' ? 'bg-slate-700 text-slate-400' : pullStatus === 'success' ? 'bg-emerald-600 text-white' : 'bg-white/5 hover:bg-white/10 text-white'}`}>
+                   {pullStatus === 'loading' ? 'Tarik Data...' : pullStatus === 'success' ? 'DATA TERUPDATE' : 'TARIK DATA SERVER'}
+                 </button>
+
+                 <button onClick={handleCloudSync} disabled={syncStatus === 'loading'} className={`w-full py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 shadow-xl ${syncStatus === 'loading' ? 'bg-slate-700 text-slate-400 cursor-not-allowed' : syncStatus === 'success' ? 'bg-green-600 text-white' : syncStatus === 'error' ? 'bg-red-600 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}>
+                   {syncStatus === 'loading' ? 'Kirim...' : syncStatus === 'success' ? 'TERSIMPAN' : 'KIRIM KE CLOUD'}
+                 </button>
               </div>
-              <QuestionManager questions={questions} activeToken="" onAdd={(q) => setQuestions(prev => [...prev, { ...q, id: Date.now().toString()+Math.random(), createdAt: Date.now(), isDeleted: false, order: q.order || (prev.length + 1) }])} onUpdate={(updated) => setQuestions(prev => prev.map(q => q.id === updated.id ? updated : q))} onSoftDelete={(id) => setQuestions(prev => prev.map(item => item.id === id ? { ...item, isDeleted: true } : item))} onPermanentDelete={(id) => setQuestions(prev => prev.filter(item => item.id !== id))} onRestore={(id) => setQuestions(prev => prev.map(item => item.id === id ? { ...item, isDeleted: false } : item))} />
+              <button onClick={() => { setView('login'); setIsMobileMenuOpen(false); }} className="w-full p-4 text-red-400 font-bold hover:bg-red-500/10 rounded-xl transition-all text-left uppercase text-[10px] tracking-widest">Keluar</button>
             </div>
-            <div className="w-full lg:w-80">
-              <AdminSettings settings={settings} questions={questions} onUpdateSettings={(newSettings) => { setSettings(newSettings); updateLiveSettings({ ...newSettings, adminPassword }).catch(() => {}); }} onImportQuestions={(newQs) => setQuestions(newQs)} onReset={() => setQuestions([])} />
-            </div>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
-  if (view === 'login') {
-    return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4 font-inter">
-        <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col md:flex-row border border-slate-200">
-          <div className="md:w-5/12 bg-slate-900 p-12 text-white flex flex-col justify-between relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600 rounded-full -mr-32 -mt-32 blur-3xl opacity-20"></div>
-            <div className="relative z-10 text-center md:text-left">
-              <div className="flex items-center justify-center md:justify-start gap-3 mb-12"><div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-black text-xl shadow-lg">C</div><div className="font-black text-2xl tracking-tighter text-white">EduCBT Pro</div></div>
-              <h1 className="text-4xl font-black mb-6 leading-tight">Computer Based Test</h1>
-              <div className="bg-white/5 p-5 rounded-3xl border border-white/10 backdrop-blur-sm"><p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em] mb-2">Sistem</p><p className="text-xl font-black text-white italic">Full Dynamic Partitioning</p></div>
-            </div>
-            <div className="mt-auto flex flex-col items-center">
-              <button onClick={() => setView('admin-auth')} className="w-full bg-white/5 hover:bg-white/10 p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/5 transition-all mb-4">Administrator</button>
-              <a href="http://lynk.id/edupreneur25/n3yqk5e4er64" target="_blank" rel="noopener noreferrer" className="mb-4 block text-[10px] text-center font-bold text-slate-400 hover:text-blue-600 transition-colors uppercase tracking-widest leading-relaxed">klik di sini untuk mendapatkan<br/>password administrator</a>
-              <button onClick={handleChangeAdminPass} className="w-1.5 h-1.5 bg-red-600 rounded-full opacity-30 hover:opacity-100 transition-opacity cursor-pointer mb-2" aria-hidden="true"></button>
-            </div>
-          </div>
-          <div className="md:w-7/12 p-12 bg-white max-h-[90vh] overflow-y-auto custom-scrollbar">
-            <div className="max-w-md mx-auto text-center md:text-left">
-              <h2 className="text-3xl font-black text-slate-800 mb-2">Login Peserta</h2>
-              <p className="text-slate-400 font-medium mb-10 italic">Lengkapi identitas untuk memulai pengerjaan.</p>
-              <form onSubmit={handleStartQuiz} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1 text-left">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nama Lengkap</label>
-                    <input required type="text" placeholder="Nama Peserta" className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold text-slate-800 text-sm" value={identity.name} onChange={e => setIdentity({...identity, name: e.target.value})} />
+          </aside>
+          <main className="flex-1 p-4 lg:p-8 overflow-y-auto custom-scrollbar">
+            <div className="flex flex-col lg:flex-row gap-8">
+              <div className="flex-1 min-w-0">
+                <div className="mb-8 flex justify-between items-end">
+                  <div>
+                    <h1 className="text-2xl lg:text-3xl font-black text-slate-800">Bank Soal Dinamis</h1>
+                    <p className="text-slate-400 font-medium text-xs lg:text-sm italic">Soal tersinkronisasi antar perangkat melalui Cloud.</p>
                   </div>
-                  <div className="space-y-1 text-left">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kelas</label>
-                    <input required type="text" placeholder="Contoh: 6A" className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold text-slate-800 text-sm" value={identity.className} onChange={e => setIdentity({...identity, className: e.target.value})} />
+                  <div className="text-right">
+                    <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100 uppercase tracking-widest">{questions.length} TOTAL SOAL</span>
                   </div>
                 </div>
-                
-                <div className="space-y-1 text-left">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Asal Sekolah</label>
-                  <input required type="text" placeholder="Nama Sekolah / Institusi" className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold text-slate-800 text-sm" value={identity.schoolOrigin} onChange={e => setIdentity({...identity, schoolOrigin: e.target.value})} />
-                </div>
-                
-                <div className="space-y-1 text-left">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tanggal Lahir</label>
-                  <input required type="date" className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold text-slate-800 text-sm" value={identity.birthDate} onChange={e => setIdentity({...identity, birthDate: e.target.value})} />
-                </div>
+                <QuestionManager questions={questions} activeToken="" onAdd={(q) => setQuestions(prev => [...prev, { ...q, id: Date.now().toString()+Math.random(), createdAt: Date.now(), isDeleted: false, order: q.order || (prev.length + 1) }])} onUpdate={(updated) => setQuestions(prev => prev.map(q => q.id === updated.id ? updated : q))} onSoftDelete={(id) => setQuestions(prev => prev.map(item => item.id === id ? { ...item, isDeleted: true } : item))} onPermanentDelete={(id) => setQuestions(prev => prev.filter(item => item.id !== id))} onRestore={(id) => setQuestions(prev => prev.map(item => item.id === id ? { ...item, isDeleted: false } : item))} />
+              </div>
+              <div className="w-full lg:w-80">
+                <AdminSettings 
+                  settings={settings} 
+                  questions={questions} 
+                  onUpdateSettings={(newSettings) => { setSettings(newSettings); updateLiveSettings({ ...newSettings, adminPassword }).catch(() => {}); }} 
+                  onImportQuestions={(newQs, mode) => {
+                    if (mode === 'append') {
+                      // Pastikan ID baru unik agar tidak menimpa yang lama
+                      const sanitized = newQs.map(q => ({
+                        ...q,
+                        id: q.id.includes('import') ? q.id : `import_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`
+                      }));
+                      setQuestions(prev => [...prev, ...sanitized]);
+                    } else {
+                      setQuestions(newQs);
+                    }
+                  }} 
+                  onReset={() => setQuestions([])} 
+                />
+              </div>
+            </div>
+          </main>
+        </div>
+      )}
 
-                <div className="space-y-1 text-left">
-                  <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest ml-1 text-center block">Token Ujian</label>
-                  <input required type="text" placeholder="KODE TOKEN" className="w-full p-4 bg-blue-50 border-2 border-blue-200 rounded-2xl font-black text-blue-700 text-center uppercase tracking-[0.3em] outline-none placeholder:opacity-30" value={identity.token} onChange={e => setIdentity({...identity, token: e.target.value})} />
-                </div>
+      {view === 'login' && (
+        <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4 font-inter">
+          <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col md:flex-row border border-slate-200">
+            <div className="md:w-5/12 bg-slate-900 p-12 text-white flex flex-col justify-between relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600 rounded-full -mr-32 -mt-32 blur-3xl opacity-20"></div>
+              <div className="relative z-10 text-center md:text-left">
+                <div className="flex items-center justify-center md:justify-start gap-3 mb-12"><div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-black text-xl shadow-lg">C</div><div className="font-black text-2xl tracking-tighter text-white">EduCBT Pro</div></div>
+                <h1 className="text-4xl font-black mb-6 leading-tight">Computer Based Test</h1>
+                <div className="bg-white/5 p-5 rounded-3xl border border-white/10 backdrop-blur-sm"><p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em] mb-2">Sistem</p><p className="text-xl font-black text-white italic">Full Dynamic Partitioning</p></div>
+              </div>
+              <div className="mt-auto flex flex-col items-center">
+                <button onClick={() => setView('admin-auth')} className="w-full bg-white/5 hover:bg-white/10 p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/5 transition-all mb-4">Administrator</button>
+                <a href="http://lynk.id/edupreneur25/n3yqk5e4er64" target="_blank" rel="noopener noreferrer" className="mb-4 block text-[10px] text-center font-bold text-slate-400 hover:text-blue-600 transition-colors uppercase tracking-widest leading-relaxed">klik di sini untuk mendapatkan<br/>password administrator</a>
+                <button onClick={handleChangeAdminPass} className="w-1.5 h-1.5 bg-red-600 rounded-full opacity-30 hover:opacity-100 transition-opacity cursor-pointer mb-2" aria-hidden="true"></button>
+              </div>
+            </div>
+            <div className="md:w-7/12 p-12 bg-white max-h-[90vh] overflow-y-auto custom-scrollbar">
+              <div className="max-w-md mx-auto text-center md:text-left">
+                <h2 className="text-3xl font-black text-slate-800 mb-2">Login Peserta</h2>
+                <p className="text-slate-400 font-medium mb-10 italic">Lengkapi identitas untuk memulai pengerjaan.</p>
+                <form onSubmit={handleStartQuiz} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1 text-left">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nama Lengkap</label>
+                      <input required type="text" placeholder="Nama Peserta" className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold text-slate-800 text-sm" value={identity.name} onChange={e => setIdentity({...identity, name: e.target.value})} />
+                    </div>
+                    <div className="space-y-1 text-left">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kelas</label>
+                      <input required type="text" placeholder="Contoh: 6A" className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold text-slate-800 text-sm" value={identity.className} onChange={e => setIdentity({...identity, className: e.target.value})} />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-1 text-left">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Asal Sekolah</label>
+                    <input required type="text" placeholder="Nama Sekolah / Institusi" className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold text-slate-800 text-sm" value={identity.schoolOrigin} onChange={e => setIdentity({...identity, schoolOrigin: e.target.value})} />
+                  </div>
+                  
+                  <div className="space-y-1 text-left">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tanggal Lahir</label>
+                    <input required type="date" className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold text-slate-800 text-sm" value={identity.birthDate} onChange={e => setIdentity({...identity, birthDate: e.target.value})} />
+                  </div>
 
-                <div className="pt-2">
-                  <button disabled={isSyncing} className="w-full font-black py-4 rounded-[2rem] text-lg shadow-2xl transition-all active:scale-95 bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200">
-                    {isSyncing ? 'MENGHUBUNGKAN...' : 'MASUK KE UJIAN'}
-                  </button>
-                </div>
-              </form>
+                  <div className="space-y-1 text-left">
+                    <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest ml-1 text-center block">Token Ujian</label>
+                    <input required type="text" placeholder="KODE TOKEN" className="w-full p-4 bg-blue-50 border-2 border-blue-200 rounded-2xl font-black text-blue-700 text-center uppercase tracking-[0.3em] outline-none placeholder:opacity-30" value={identity.token} onChange={e => setIdentity({...identity, token: e.target.value})} />
+                  </div>
+
+                  <div className="pt-2">
+                    <button disabled={isSyncing} className="w-full font-black py-4 rounded-[2rem] text-lg shadow-2xl transition-all active:scale-95 bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200">
+                      {isSyncing ? 'MENGHUBUNGKAN...' : 'MASUK KE UJIAN'}
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    );
-  }
+      )}
 
-  if (view === 'confirm-data') return <ConfirmIdentity identity={identity} settings={settings} onConfirm={() => setView('quiz')} onCancel={() => setView('login')} />;
-  if (view === 'quiz') return <QuizInterface questions={questions.filter(q => !q.isDeleted)} identity={identity} timeLimitMinutes={settings.timerMinutes} subjectName={settings.activeSubject || 'Ujian Digital'} onFinish={handleFinishQuiz} onViolation={handleViolation} />;
-  
-  if (view === 'result' && lastResult) {
-    return (
-      <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-4 text-center">
-        <div className="bg-white p-12 rounded-[3.5rem] shadow-2xl max-w-md w-full border border-slate-200">
-           <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6 text-white text-3xl font-black">✓</div>
-           <h2 className="text-3xl font-black mb-2 text-slate-800">Berhasil Dikirim</h2>
-           <div className="bg-blue-600 p-8 rounded-[2.5rem] mb-8 shadow-2xl shadow-blue-100"><p className="text-[10px] font-black text-blue-200 uppercase tracking-[0.2em] mb-2">Skor Anda</p><p className="text-7xl font-black text-white">{lastResult.score.toFixed(1)}</p></div>
-           <div className="space-y-4">
-              <button onClick={handleDownloadStudentPDF} className="w-full bg-blue-50 text-blue-600 font-black py-4 rounded-2xl border-2 border-blue-200 hover:bg-blue-100 transition-all flex items-center justify-center gap-2">DOWNLOAD HASIL PDF</button>
-              <button onClick={() => window.location.reload()} className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl transition-all hover:bg-black uppercase tracking-widest text-xs">KEMBALI KE LOGIN</button>
-           </div>
+      {view === 'confirm-data' && <ConfirmIdentity identity={identity} settings={settings} onConfirm={() => setView('quiz')} onCancel={() => setView('login')} />}
+      {view === 'quiz' && <QuizInterface questions={questions.filter(q => !q.isDeleted)} identity={identity} timeLimitMinutes={settings.timerMinutes} subjectName={settings.activeSubject || 'Ujian Digital'} onFinish={handleFinishQuiz} onViolation={handleViolation} />}
+      
+      {view === 'result' && lastResult && (
+        <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-4 text-center">
+          <div className="bg-white p-12 rounded-[3.5rem] shadow-2xl max-w-md w-full border border-slate-200">
+             <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6 text-white text-3xl font-black">✓</div>
+             <h2 className="text-3xl font-black mb-2 text-slate-800">Berhasil Dikirim</h2>
+             <div className="bg-blue-600 p-8 rounded-[2.5rem] mb-8 shadow-2xl shadow-blue-100"><p className="text-[10px] font-black text-blue-200 uppercase tracking-[0.2em] mb-2">Skor Anda</p><p className="text-7xl font-black text-white">{lastResult.score.toFixed(1)}</p></div>
+             <div className="space-y-4">
+                <button onClick={handleDownloadStudentPDF} className="w-full bg-blue-50 text-blue-600 font-black py-4 rounded-2xl border-2 border-blue-200 hover:bg-blue-100 transition-all flex items-center justify-center gap-2">DOWNLOAD HASIL PDF</button>
+                <button onClick={() => window.location.reload()} className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl transition-all hover:bg-black uppercase tracking-widest text-xs">KEMBALI KE LOGIN</button>
+             </div>
+          </div>
         </div>
-      </div>
-    );
-  }
-  return null;
+      )}
+    </div>
+  );
 };
 
 export default App;

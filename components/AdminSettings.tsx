@@ -38,6 +38,50 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
     URL.revokeObjectURL(url);
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const imported = JSON.parse(event.target?.result as string);
+        if (!Array.isArray(imported)) {
+          alert("Format file tidak valid. File harus berisi array soal.");
+          return;
+        }
+
+        // Tampilkan pilihan mode import
+        const userChoice = confirm(
+          `Ditemukan ${imported.length} soal baru.\n\n` +
+          `PILIH TINDAKAN:\n` +
+          `OK = TAMBAH (Gabungkan soal baru dengan yang sudah ada)\n` +
+          `BATAL = GANTI (Hapus semua soal lama dan ganti dengan yang baru)`
+        );
+
+        if (userChoice) {
+          // Mode: Append (Gabungkan)
+          onImportQuestions(imported, 'append');
+          alert(`BERHASIL: ${imported.length} soal baru telah ditambahkan ke bank soal.`);
+        } else {
+          // Mode: Replace (Ganti)
+          const confirmReplace = confirm("PERINGATAN: Semua soal lama akan DIHAPUS. Lanjutkan?");
+          if (confirmReplace) {
+            onImportQuestions(imported, 'replace');
+            alert(`BERHASIL: Bank soal telah diganti dengan ${imported.length} soal baru.`);
+          }
+        }
+        
+        // Reset input file agar bisa memilih file yang sama lagi jika perlu
+        if (fileInputRef.current) fileInputRef.current.value = '';
+
+      } catch(e) { 
+        alert("Gagal membaca file. Pastikan file dalam format .json yang benar."); 
+      }
+    };
+    reader.readAsText(file);
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
@@ -64,19 +108,13 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
         <div className="space-y-3">
           <button onClick={handleBackup} className="w-full bg-slate-100 text-slate-700 font-bold py-3 rounded-2xl border border-slate-200 hover:bg-slate-200 transition-all uppercase text-[10px] tracking-widest">Download Bank Soal</button>
           
-          <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (event) => {
-              try {
-                const imported = JSON.parse(event.target?.result as string);
-                onImportQuestions(imported, 'replace');
-                alert("Import berhasil! Tekan Sinkronisasi Cloud untuk memperbarui server.");
-              } catch(e) { alert("Format file tidak valid."); }
-            };
-            reader.readAsText(file);
-          }} />
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            className="hidden" 
+            accept=".json" 
+            onChange={handleFileChange} 
+          />
           
           <button onClick={() => fileInputRef.current?.click()} className="w-full bg-white text-blue-600 font-bold py-3 rounded-2xl border border-blue-200 hover:bg-blue-50 transition-all uppercase text-[10px] tracking-widest">Upload File .JSON</button>
         </div>
