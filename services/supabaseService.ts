@@ -92,9 +92,6 @@ export const updateLiveSettings = async (settings: AppSettings) => {
     .upsert(cleanSettings, { onConflict: 'id' });
 
   if (error) {
-    if (error.message.includes('column "admin_password" of relation "active_settings" does not exist') || error.code === '42703') {
-      throw new Error("DATABASE_OUTDATED: Kolom 'admin_password' belum ada di tabel 'active_settings'.");
-    }
     throw new Error(`Gagal Update Settings: ${error.message}`);
   }
 };
@@ -162,21 +159,30 @@ export const getLiveExamData = async (studentToken: string) => {
   }
 };
 
-export const submitResultToCloud = async (result: QuizResult) => {
-  const payload = sanitizeData({
-    id: result.id,
-    student_name: result.identity.name,
-    class_name: result.identity.className,
-    school_origin: result.identity.schoolOrigin, // Data tambahan
-    birth_date: result.identity.birthDate,     // Data tambahan
-    score: result.score,
-    answers: result.answers,
-    timestamp: result.timestamp,
-    subject: result.identity.token.toUpperCase() 
-  });
+export const submitResultToCloud = async (result: QuizResult): Promise<{success: boolean, error?: string}> => {
+  try {
+    const payload = sanitizeData({
+      id: result.id,
+      student_name: result.identity.name,
+      class_name: result.identity.className,
+      school_origin: result.identity.schoolOrigin || '-',
+      birth_date: result.identity.birthDate || '-',
+      score: Number(result.score) || 0,
+      answers: result.answers || {},
+      timestamp: result.timestamp || Date.now(),
+      subject: result.identity.token.toUpperCase() 
+    });
 
-  const { error } = await supabase.from('submissions').insert([payload]);
-  return !error;
+    const { error } = await supabase.from('submissions').insert([payload]);
+    if (error) {
+      console.error("Supabase Database Error:", error);
+      return { success: false, error: error.message };
+    }
+    return { success: true };
+  } catch (err: any) {
+    console.error("Submission Exception:", err);
+    return { success: false, error: err.message };
+  }
 };
 
 export const listenToSubmissions = (onNewData: (data: any) => void) => {

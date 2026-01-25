@@ -156,12 +156,18 @@ const App: React.FC = () => {
 
   const handleFinishQuiz = async (result: QuizResult) => {
     setIsSyncing(true);
-    const success = await submitResultToCloud(result);
-    if (success) {
+    const response = await submitResultToCloud(result);
+    
+    if (response.success) {
       setLastResult(result);
       setView('result');
     } else {
-      alert('Gagal mengirim ke server. Coba tekan Selesai lagi.');
+      // Menampilkan pesan error detail agar admin bisa memperbaiki struktur tabel Supabase
+      alert(
+        `GAGAL MENGIRIM KE SERVER!\n\n` +
+        `Pesan Error: ${response.error}\n\n` +
+        `Saran: Pastikan tabel 'submissions' di Supabase Anda sudah memiliki kolom 'school_origin' dan 'birth_date' (Tipe: text).`
+      );
     }
     setIsSyncing(false);
   };
@@ -255,7 +261,6 @@ const App: React.FC = () => {
                   questions={questions} 
                   activeToken="" 
                   onAdd={(q) => {
-                    // Logic: Jika order tidak diset manual, gunakan nomor terakhir untuk token tersebut
                     const sameToken = questions.filter(item => item.quizToken === q.quizToken && !item.isDeleted);
                     const nextOrder = q.order || (sameToken.length > 0 ? Math.max(...sameToken.map(i => i.order)) + 1 : 1);
                     
@@ -280,7 +285,6 @@ const App: React.FC = () => {
                   onUpdateSettings={(newSettings) => { setSettings(newSettings); updateLiveSettings({ ...newSettings, adminPassword }).catch(() => {}); }} 
                   onImportQuestions={(newQs, mode) => {
                     if (mode === 'append') {
-                      // Logic Append: Hitung order baru untuk setiap soal berdasarkan tokennya
                       const currentQuestions = [...questions];
                       const sanitized = newQs.map(q => {
                         const token = (q.quizToken || 'UMUM').toUpperCase();
@@ -294,7 +298,7 @@ const App: React.FC = () => {
                           order: q.order || nextOrder
                         };
                         
-                        currentQuestions.push(newQ); // Simulasikan penambahan untuk soal berikutnya dalam loop
+                        currentQuestions.push(newQ);
                         return newQ;
                       });
                       setQuestions(prev => [...prev, ...sanitized]);
