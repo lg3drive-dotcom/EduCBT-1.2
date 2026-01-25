@@ -311,7 +311,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                    </div>
 
                    <div className="space-y-6 lg:space-y-8">
-                      <div className="leading-relaxed text-slate-800 font-medium" style={{ fontSize: `${fontSize}px` }}>
+                      <div className="leading-relaxed text-slate-800 font-medium" style={{ fontSize: `${fontSize}px`, whiteSpace: 'pre-wrap' }}>
                         {q?.text}
                       </div>
 

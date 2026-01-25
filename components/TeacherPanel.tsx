@@ -103,13 +103,12 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ results, questions, onUpdat
                            <img src={q.questionImage} className="w-48 h-auto rounded-2xl border mb-6 shadow-sm" alt="Ilustrasi Soal" />
                         )}
                         
-                        <p className="text-lg font-bold text-slate-800 leading-relaxed mb-6">{q.text}</p>
+                        <p className="text-lg font-bold text-slate-800 leading-relaxed mb-6" style={{ whiteSpace: 'pre-wrap' }}>{q.text}</p>
                         
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                           <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
                             <p className="text-[10px] text-slate-400 font-black uppercase mb-2 tracking-widest">Jawaban Peserta</p>
                             <div className="flex flex-col gap-2">
-                              {/* FIX: Handle COMPLEX_CATEGORY and other types correctly for participant answer display */}
                               <p className="font-black text-slate-700">
                                 {q.type === QuestionType.COMPLEX_CATEGORY 
                                   ? (Array.isArray(answer) ? answer.map((v, i) => `[${q.options?.[i]}: ${v ? 'Sesuai' : 'Tidak'}]`).join(", ") : "Tidak dijawab")
@@ -123,7 +122,6 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ results, questions, onUpdat
                           <div className="p-5 bg-green-50 rounded-2xl border border-green-100">
                             <p className="text-[10px] text-green-600 font-black uppercase mb-2 tracking-widest">Kunci Jawaban</p>
                             <p className="font-black text-green-800">
-                               {/* FIX: Remove reference to non-existent QuestionType.BOOLEAN/MATCH and handle all types correctly */}
                                {q.type === QuestionType.COMPLEX_CATEGORY 
                                  ? q.options?.map((opt, i) => `[${opt}: ${q.correctAnswer[i] ? 'Sesuai' : 'Tidak'}]`).join(", ")
                                  : q.options 
@@ -136,7 +134,7 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ results, questions, onUpdat
 
                         <div className="p-5 bg-blue-50/50 rounded-2xl border border-blue-100 italic">
                            <p className="text-[10px] text-blue-600 font-black uppercase mb-2 tracking-widest">Pembahasan:</p>
-                           <p className="text-sm text-blue-800 leading-relaxed">{q.explanation || "Tidak ada pembahasan tersedia."}</p>
+                           <p className="text-sm text-blue-800 leading-relaxed" style={{ whiteSpace: 'pre-wrap' }}>{q.explanation || "Tidak ada pembahasan tersedia."}</p>
                         </div>
                       </div>
 

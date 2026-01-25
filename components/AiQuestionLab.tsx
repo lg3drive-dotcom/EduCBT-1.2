@@ -214,7 +214,7 @@ const AiQuestionLab: React.FC<AiQuestionLabProps> = ({ onBack }) => {
                             <span className="text-[8px] bg-blue-900/50 text-blue-300 px-2 py-0.5 rounded font-black uppercase border border-blue-800/50">{q.level.split(' ')[0]}</span>
                             <span className="text-[8px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-black uppercase">{q.type}</span>
                           </div>
-                          <p className="text-slate-300 font-medium leading-relaxed">{q.text}</p>
+                          <p className="text-slate-300 font-medium leading-relaxed" style={{ whiteSpace: 'pre-wrap' }}>{q.text}</p>
                           <div className="pt-2 border-t border-slate-800/50 flex justify-between items-center">
                              <div className="text-[9px] font-black text-green-500 uppercase tracking-widest flex items-center gap-2">
                                Kunci: {Array.isArray(q.correctAnswer) ? q.correctAnswer.join(',') : q.correctAnswer}
