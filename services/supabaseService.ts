@@ -38,7 +38,8 @@ export const fetchAllQuestions = async (): Promise<Question[]> => {
     isDeleted: q.is_deleted,
     createdAt: q.created_at,
     order: q.order,
-    quizToken: q.quiz_token
+    quizToken: q.quiz_token,
+    tfLabels: q.tf_labels // Map dari DB ke Frontend
   }));
 };
 
@@ -61,7 +62,8 @@ export const pushQuestionsToCloud = async (questions: Question[]) => {
     is_deleted: q.isDeleted || false,
     created_at: q.createdAt || Date.now(),
     order: Number(q.order) || 0,
-    quiz_token: (q.quizToken || 'UJI01').trim().toUpperCase() 
+    quiz_token: (q.quizToken || 'UJI01').trim().toUpperCase(),
+    tf_labels: q.tfLabels || { true: 'Benar', false: 'Salah' } // Map dari Frontend ke DB
   }));
 
   const cleanPayload = sanitizeData(payload);
@@ -151,7 +153,8 @@ export const getLiveExamData = async (studentToken: string) => {
         isDeleted: q.is_deleted,
         createdAt: q.created_at,
         order: q.order,
-        quizToken: q.quiz_token
+        quizToken: q.quiz_token,
+        tfLabels: q.tf_labels // Sangat penting agar tombol di sisi siswa berubah sesuai label
       }))
     };
   } catch (err: any) {
