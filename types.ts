@@ -12,7 +12,8 @@ export enum Subject {
 export enum QuestionType {
   SINGLE = 'Pilihan Ganda',
   MULTIPLE = 'Pilihan Jamak (MCMA)',
-  COMPLEX_CATEGORY = 'Pilihan Ganda Kompleks'
+  COMPLEX_CATEGORY = 'Pilihan Ganda Kompleks',
+  TRUE_FALSE_COMPLEX = 'Pilihan Ganda Kompleks (B/S)'
 }
 
 export enum CognitiveLevel {
@@ -32,7 +33,7 @@ export interface Question {
   type: QuestionType;
   level: string; 
   subject: string; 
-  phase?: string; // Field baru untuk Fase Kurikulum Merdeka
+  phase?: string;
   material: string; 
   text: string;
   explanation: string;
@@ -44,13 +45,18 @@ export interface Question {
   createdAt: number;
   order: number;
   quizToken?: string; 
+  // Baru: Label kustom untuk tipe Benar-Salah
+  tfLabels?: {
+    true: string;
+    false: string;
+  };
 }
 
 export interface StudentIdentity {
   name: string;
   className: string;
-  schoolOrigin: string; // Tambahan Baru
-  birthDate: string;   // Tambahan Baru
+  schoolOrigin: string;
+  birthDate: string;
   token: string;
 }
 
