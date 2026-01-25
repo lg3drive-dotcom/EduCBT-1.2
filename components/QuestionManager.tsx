@@ -144,7 +144,6 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
       return;
     }
 
-    // MEMPERBAIKI URUTAN: Melakukan filtering DAN penyortiran berdasarkan order
     const filteredForExport = questions
       .filter(q => 
         !q.isDeleted && 
@@ -159,6 +158,33 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
 
     const exportSubject = filteredForExport[0].subject as any;
     generateQuestionBankPDF(filteredForExport, 'lengkap', exportSubject, downloadToken.trim().toUpperCase());
+  };
+
+  const handleDownloadJson = () => {
+    if (!downloadToken.trim()) {
+      alert("Masukkan TOKEN SOAL terlebih dahulu untuk mengunduh JSON!");
+      return;
+    }
+
+    const filteredForExport = questions
+      .filter(q => 
+        !q.isDeleted && 
+        q.quizToken?.toUpperCase() === downloadToken.trim().toUpperCase()
+      )
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+    if (filteredForExport.length === 0) {
+      alert(`Tidak ada soal ditemukan dengan token "${downloadToken.toUpperCase()}".`);
+      return;
+    }
+
+    const blob = new Blob([JSON.stringify(filteredForExport, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `EduCBT_Package_${downloadToken.trim().toUpperCase()}_${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleAddOption = () => {
@@ -250,6 +276,9 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
              <button onClick={handleExport} className="bg-slate-100 text-slate-700 px-3 py-1.5 text-[10px] font-bold hover:bg-blue-50 hover:text-blue-600 flex items-center gap-1 border-l">
                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v3.586l-1.293-1.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V8z" clipRule="evenodd" /></svg> PDF
              </button>
+             <button onClick={handleDownloadJson} className="bg-slate-100 text-slate-700 px-3 py-1.5 text-[10px] font-bold hover:bg-purple-50 hover:text-purple-600 flex items-center gap-1 border-l">
+               <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" /></svg> JSON
+             </button>
            </div>
            <button onClick={() => { closeForm(); setShowForm(true); }} className="flex-1 sm:flex-none bg-slate-900 text-white px-5 py-2 rounded-xl text-[10px] font-black hover:bg-black shadow-lg uppercase tracking-widest transition-all">Tambah</button>
         </div>
@@ -283,7 +312,6 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                         ) : (
                           <>
                             <button onClick={() => onRestore(q.id)} className="text-green-600 text-[9px] lg:text-[10px] font-black uppercase tracking-widest hover:underline">Pulihkan</button>
-                            {/* Fixed: changed 'id' to 'q.id' to correctly reference the current question object */}
                             <button onClick={() => onPermanentDelete(q.id)} className="text-red-600 text-[9px] lg:text-[10px] font-black uppercase tracking-widest hover:underline">Hapus</button>
                           </>
                         )}
