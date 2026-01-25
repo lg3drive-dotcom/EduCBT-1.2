@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Question, Subject, StudentIdentity, QuizResult, AppSettings } from './types.ts';
+import { Question, Subject, StudentIdentity, QuizResult, AppSettings, QuestionType, CognitiveLevel } from './types.ts';
 import { INITIAL_QUESTIONS } from './constants.ts';
 import QuizInterface from './components/QuizInterface.tsx';
 import AdminLogin from './components/AdminLogin.tsx';
@@ -162,7 +162,6 @@ const App: React.FC = () => {
       setLastResult(result);
       setView('result');
     } else {
-      // Menampilkan pesan error detail agar admin bisa memperbaiki struktur tabel Supabase
       alert(
         `GAGAL MENGIRIM KE SERVER!\n\n` +
         `Pesan Error: ${response.error}\n\n` +
@@ -195,6 +194,58 @@ const App: React.FC = () => {
     }
   };
 
+  // FUNGSI NORMALISASI DATA IMPORT
+  const normalizeImportedQuestions = (rawQs: any[]): Question[] => {
+    return rawQs.map(q => {
+      let level = q.level;
+      // Mapping Level Ringkas ke Level Lengkap Aplikasi
+      const levelMap: { [key: string]: string } = {
+        'L1': CognitiveLevel.L1,
+        'L2': CognitiveLevel.L2,
+        'L3': CognitiveLevel.L3,
+        'C1': CognitiveLevel.C1,
+        'C2': CognitiveLevel.C2,
+        'C3': CognitiveLevel.C3,
+        'C4': CognitiveLevel.C4,
+        'C5': CognitiveLevel.C5,
+        'C6': CognitiveLevel.C6,
+      };
+
+      if (levelMap[level]) level = levelMap[level];
+
+      return {
+        ...q,
+        id: q.id || `import_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+        level: level,
+        type: q.type as QuestionType,
+        quizToken: (q.quizToken || 'UMUM').toUpperCase(),
+        isDeleted: q.isDeleted || false,
+        createdAt: q.createdAt || Date.now(),
+        order: Number(q.order) || 1,
+        tfLabels: q.tfLabels || (q.type === QuestionType.TRUE_FALSE_COMPLEX ? { true: 'Benar', false: 'Salah' } : undefined)
+      };
+    });
+  };
+
+  const handleImportQuestions = (newQs: any[], mode: 'replace' | 'append') => {
+    const normalized = normalizeImportedQuestions(newQs);
+    
+    if (mode === 'replace') {
+      setQuestions(normalized);
+    } else {
+      setQuestions(prev => {
+        const merged = [...prev];
+        normalized.forEach(newQ => {
+          // Cek duplikasi ID
+          if (!merged.find(m => m.id === newQ.id)) {
+            merged.push(newQ);
+          }
+        });
+        return merged;
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50">
       {view === 'admin-auth' && <AdminLogin onLogin={() => setView('admin-panel')} correctPassword={adminPassword} />}
@@ -218,9 +269,9 @@ const App: React.FC = () => {
             </div>
             <nav className="space-y-2 flex-1">
               <button className="w-full text-left p-4 bg-white/10 rounded-xl font-bold border-l-4 border-blue-500 uppercase text-[10px] tracking-widest">Bank Soal</button>
-              <a href="https://ai.studio/apps/drive/13CnHs1wO_wbrWZYjpbUDvJ0ZKsTA1z0E?fullscreenApplet=true" target="_blank" rel="noopener noreferrer" className="w-full flex items-center gap-3 p-4 hover:bg-white/5 rounded-xl font-bold uppercase text-[10px] tracking-widest text-purple-400 border border-transparent hover:border-purple-500/20 transition-all group">
+              <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer" className="w-full flex items-center gap-3 p-4 hover:bg-white/5 rounded-xl font-bold uppercase text-[10px] tracking-widest text-purple-400 border border-transparent hover:border-purple-500/20 transition-all group">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 group-hover:animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                Generate Soal Otomatis ✨
+                Google AI Studio ✨
               </a>
               <button onClick={() => setShowGuide(true)} className="w-full flex items-center gap-3 p-4 hover:bg-white/5 rounded-xl font-bold uppercase text-[10px] tracking-widest text-emerald-400 border border-transparent hover:border-emerald-500/20 transition-all">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5S19.832 6.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
@@ -283,29 +334,7 @@ const App: React.FC = () => {
                   settings={settings} 
                   questions={questions} 
                   onUpdateSettings={(newSettings) => { setSettings(newSettings); updateLiveSettings({ ...newSettings, adminPassword }).catch(() => {}); }} 
-                  onImportQuestions={(newQs, mode) => {
-                    if (mode === 'append') {
-                      const currentQuestions = [...questions];
-                      const sanitized = newQs.map(q => {
-                        const token = (q.quizToken || 'UMUM').toUpperCase();
-                        const sameToken = currentQuestions.filter(item => item.quizToken === token && !item.isDeleted);
-                        const nextOrder = sameToken.length > 0 ? Math.max(...sameToken.map(i => i.order)) + 1 : 1;
-                        
-                        const newQ = {
-                          ...q,
-                          id: `import_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
-                          quizToken: token,
-                          order: q.order || nextOrder
-                        };
-                        
-                        currentQuestions.push(newQ);
-                        return newQ;
-                      });
-                      setQuestions(prev => [...prev, ...sanitized]);
-                    } else {
-                      setQuestions(newQs);
-                    }
-                  }} 
+                  onImportQuestions={handleImportQuestions} 
                   onReset={() => setQuestions([])} 
                 />
               </div>
