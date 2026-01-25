@@ -146,16 +146,15 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
           </div>
           <h2 className="text-2xl lg:text-3xl font-black text-slate-800 mb-4">Mode Ujian Terkunci</h2>
           <p className="text-slate-500 font-medium mb-8 leading-relaxed text-sm lg:text-base">
-            Untuk menjaga integritas ujian, sistem mewajibkan penggunaan <b>Mode Layar Penuh (Fullscreen)</b>. 
-            Anda tidak diperbolehkan membuka tab lain atau meminimalkan browser hingga ujian selesai.
+            Sistem mewajibkan penggunaan <b>Mode Layar Penuh</b>. 
+            Anda dilarang membuka tab lain atau meminimalkan browser hingga ujian selesai.
           </p>
           <button 
             onClick={requestFullscreen}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 lg:py-5 rounded-[1.5rem] lg:rounded-[2rem] text-lg lg:text-xl shadow-2xl transition-all active:scale-95 uppercase tracking-widest"
           >
-            AKTIFKAN MODE UJIAN
+            AKTIFKAN UJIAN
           </button>
-          <p className="mt-6 text-[10px] font-black text-red-500 uppercase tracking-widest">Peringatan: Berpindah halaman akan membatalkan ujian!</p>
         </div>
       </div>
     );
@@ -390,27 +389,33 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                 </div>
              </div>
 
-             <div className="bg-slate-900 text-white p-4 lg:p-5 rounded-[1.5rem] lg:rounded-[2rem] shadow-xl">
-                <div className="flex items-center gap-3 mb-4">
-                   <div className="w-8 h-8 lg:w-10 lg:h-10 bg-white/10 rounded-full flex items-center justify-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 lg:h-5 lg:w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" /></svg>
+             <div className="bg-slate-900 text-white p-5 rounded-[2rem] shadow-xl space-y-4">
+                <div className="flex items-center gap-3">
+                   <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" /></svg>
                    </div>
-                   <div>
-                      <p className="text-[8px] lg:text-[10px] font-black text-slate-500 uppercase tracking-widest">Peserta</p>
-                      <p className="font-bold text-xs lg:text-sm truncate w-32 lg:w-40 leading-none">{identity.name}</p>
+                   <div className="flex-1 min-w-0">
+                      <p className="text-[8px] lg:text-[10px] font-black text-slate-500 uppercase tracking-widest">Nama Peserta</p>
+                      <p className="font-bold text-sm truncate leading-none">{identity.name}</p>
                    </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3 lg:gap-4">
-                   <div className="bg-white/5 p-2 lg:p-3 rounded-xl lg:rounded-2xl border border-white/10">
+                
+                <div className="grid grid-cols-2 gap-3">
+                   <div className="bg-white/5 p-3 rounded-2xl border border-white/10">
                       <p className="text-[7px] lg:text-[8px] font-black text-slate-500 uppercase mb-1">Kelas</p>
-                      <p className="font-black text-[10px] lg:text-xs">{identity.className}</p>
+                      <p className="font-black text-[11px] lg:text-xs truncate">{identity.className}</p>
                    </div>
-                   <div className="bg-white/5 p-2 lg:p-3 rounded-xl lg:rounded-2xl border border-white/10 text-center">
-                      <p className="text-[7px] lg:text-[8px] font-black text-slate-500 uppercase mb-1">Dijawab</p>
-                      <p className="font-black text-[10px] lg:text-xs text-blue-400">
-                        {Object.keys(answers).filter(k => answers[k] !== undefined && (Array.isArray(answers[k]) ? answers[k].length > 0 : true)).length} / {questions.length}
+                   <div className="bg-white/5 p-3 rounded-2xl border border-white/10 text-center">
+                      <p className="text-[7px] lg:text-[8px] font-black text-slate-500 uppercase mb-1">Status</p>
+                      <p className="font-black text-[11px] lg:text-xs text-blue-400">
+                        {Object.keys(answers).filter(k => answers[k] !== undefined && (Array.isArray(answers[k]) ? answers[k].length > 0 : true)).length}/{questions.length}
                       </p>
                    </div>
+                </div>
+
+                <div className="bg-white/5 p-3 rounded-2xl border border-white/10">
+                   <p className="text-[7px] lg:text-[8px] font-black text-slate-500 uppercase mb-1">Asal Sekolah</p>
+                   <p className="font-bold text-[10px] truncate">{identity.schoolOrigin || '-'}</p>
                 </div>
              </div>
           </aside>

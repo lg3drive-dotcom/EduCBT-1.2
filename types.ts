@@ -49,7 +49,8 @@ export interface Question {
 export interface StudentIdentity {
   name: string;
   className: string;
-  birthDate: string;
+  schoolOrigin: string; // Tambahan Baru
+  birthDate: string;   // Tambahan Baru
   token: string;
 }
 

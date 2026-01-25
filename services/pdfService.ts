@@ -244,28 +244,36 @@ export const generateResultPDF = (result: QuizResult, questions: Question[]) => 
 
   // Header Background
   doc.setFillColor(30, 41, 59); 
-  doc.rect(0, 0, pageWidth, 45, 'F');
+  doc.rect(0, 0, pageWidth, 55, 'F');
   
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(22);
   doc.setFont("helvetica", "bold");
-  doc.text('LAPORAN HASIL UJIAN', pageWidth / 2, 20, { align: 'center' });
+  doc.text('LAPORAN HASIL UJIAN', pageWidth / 2, 18, { align: 'center' });
   
-  doc.setFontSize(10);
+  doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
-  doc.text(`Identitas: ${identity.name} (${identity.className})`, margin, 32);
-  doc.text(`Waktu: ${new Date(timestamp).toLocaleString('id-ID')}`, margin, 37);
+  doc.text(`Identitas Siswa:`, margin, 28);
+  doc.setFont("helvetica", "bold");
+  doc.text(`${identity.name.toUpperCase()}`, margin, 33);
+  
+  doc.setFont("helvetica", "normal");
+  doc.text(`Kelas: ${identity.className}`, margin, 38);
+  doc.text(`Asal Sekolah: ${identity.schoolOrigin || '-'}`, margin, 43);
+  doc.text(`Tanggal Lahir: ${identity.birthDate || '-'}`, margin, 48);
+  
+  doc.text(`Waktu Ujian: ${new Date(timestamp).toLocaleString('id-ID')}`, margin + 80, 48);
   
   // Skor Badge
   doc.setFillColor(37, 99, 235); 
-  doc.roundedRect(pageWidth - 55, 12, 40, 22, 3, 3, 'F');
+  doc.roundedRect(pageWidth - 55, 15, 40, 22, 3, 3, 'F');
   doc.setFontSize(8);
-  doc.text('SKOR AKHIR', pageWidth - 35, 18, { align: 'center' });
+  doc.text('SKOR AKHIR', pageWidth - 35, 21, { align: 'center' });
   doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
-  doc.text(`${score.toFixed(1)}`, pageWidth - 35, 28, { align: 'center' });
+  doc.text(`${score.toFixed(1)}`, pageWidth - 35, 31, { align: 'center' });
 
-  let yPos = 55;
+  let yPos = 65;
   doc.setTextColor(0, 0, 0);
 
   questions.forEach((q, idx) => {

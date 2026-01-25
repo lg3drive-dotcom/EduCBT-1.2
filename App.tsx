@@ -14,7 +14,8 @@ import {
   updateLiveSettings, 
   getLiveExamData, 
   submitResultToCloud,
-  getGlobalSettings
+  getGlobalSettings,
+  fetchAllQuestions
 } from './services/supabaseService.ts';
 
 type ViewMode = 'login' | 'confirm-data' | 'quiz' | 'result' | 'admin-auth' | 'admin-panel';
@@ -23,6 +24,7 @@ const App: React.FC = () => {
   const [view, setView] = useState<ViewMode>('login');
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [pullStatus, setPullStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
 
@@ -40,7 +42,13 @@ const App: React.FC = () => {
     return saved ? JSON.parse(saved) : { timerMinutes: 60 };
   });
 
-  const [identity, setIdentity] = useState<StudentIdentity>({ name: '', className: '', birthDate: '', token: '' });
+  const [identity, setIdentity] = useState<StudentIdentity>({ 
+    name: '', 
+    className: '', 
+    schoolOrigin: '', 
+    birthDate: '', 
+    token: '' 
+  });
   const [lastResult, setLastResult] = useState<QuizResult | null>(null);
 
   useEffect(() => {
@@ -78,6 +86,7 @@ const App: React.FC = () => {
   useEffect(() => {
     if (view === 'admin-panel') {
       setShowGuide(true);
+      handleCloudPull();
     }
   }, [view]);
 
@@ -94,13 +103,26 @@ const App: React.FC = () => {
       setSyncStatus('success');
       setTimeout(() => setSyncStatus('idle'), 3000);
     } catch (err: any) {
-      console.error("Dashboard Sync Error:", err);
       setSyncStatus('error');
-      if (err.message.includes('DATABASE_OUTDATED')) {
-        alert("PERHATIAN: Struktur database Supabase Anda belum diperbarui.\n\nSilakan jalankan perintah ini di SQL Editor Supabase:\nALTER TABLE active_settings ADD COLUMN admin_password TEXT;");
+      alert(`GAGAL SINKRONISASI!\n\nPesan: ${err.message}`);
+    }
+  };
+
+  const handleCloudPull = async () => {
+    setPullStatus('loading');
+    try {
+      const cloudQs = await fetchAllQuestions();
+      if (cloudQs.length > 0) {
+        setQuestions(cloudQs);
+        setPullStatus('success');
       } else {
-        alert(`GAGAL SINKRONISASI!\n\nPesan: ${err.message}`);
+        setPullStatus('idle');
       }
+      setTimeout(() => setPullStatus('idle'), 3000);
+    } catch (err: any) {
+      console.error("Gagal menarik data:", err);
+      setPullStatus('error');
+      setTimeout(() => setPullStatus('idle'), 3000);
     }
   };
 
@@ -133,7 +155,7 @@ const App: React.FC = () => {
     if (document.fullscreenElement) document.exitFullscreen();
     alert(`UJIAN DIBATALKAN!\n\n${reason}`);
     setView('login');
-    setIdentity({ name: '', className: '', birthDate: '', token: '' });
+    setIdentity({ name: '', className: '', schoolOrigin: '', birthDate: '', token: '' });
   };
 
   const handleFinishQuiz = async (result: QuizResult) => {
@@ -159,16 +181,11 @@ const App: React.FC = () => {
       if (newPass && newPass.trim() !== "") {
         const trimmedPass = newPass.trim();
         setAdminPassword(trimmedPass);
-        
         try {
           await updateLiveSettings({ ...settings, adminPassword: trimmedPass });
           alert("BERHASIL: Password diperbarui di Cloud.");
         } catch (e: any) {
-          if (e.message.includes('DATABASE_OUTDATED')) {
-            alert("PASSWORD DISIMPAN LOKAL SAJA.\nDatabase Supabase Anda belum siap untuk sinkronisasi password. Jalankan perintah ALTER TABLE di Supabase SQL Editor.");
-          } else {
-            alert("Gagal sinkron ke Cloud, hanya tersimpan di perangkat ini.");
-          }
+          alert("Gagal sinkron ke Cloud, hanya tersimpan di perangkat ini.");
         }
       }
     } else if (accessCode !== null) {
@@ -208,13 +225,18 @@ const App: React.FC = () => {
             </button>
           </nav>
           <div className="mt-8 lg:mt-auto space-y-4">
-            <div className="p-4 bg-white/5 border border-white/10 rounded-2xl">
-               <div className="flex items-center justify-between mb-3">
-                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Status Cloud</span>
-                  <div className="flex items-center gap-1.5"><div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div><span className="text-[9px] font-black text-green-500 uppercase">Online</span></div>
+            <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-3">
+               <div className="flex items-center justify-between mb-1">
+                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Koneksi Server</span>
+                  <div className="flex items-center gap-1.5"><div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div><span className="text-[9px] font-black text-green-500 uppercase">Live</span></div>
                </div>
-               <button onClick={handleCloudSync} disabled={syncStatus === 'loading'} className={`w-full py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 shadow-xl ${syncStatus === 'loading' ? 'bg-slate-700 text-slate-400 cursor-not-allowed' : syncStatus === 'success' ? 'bg-green-600 text-white' : syncStatus === 'error' ? 'bg-red-600 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}>
-                 {syncStatus === 'loading' ? 'Sync...' : syncStatus === 'success' ? 'BERHASIL' : 'SINKRONISASI CLOUD'}
+               
+               <button onClick={handleCloudPull} disabled={pullStatus === 'loading'} className={`w-full py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 border border-white/10 ${pullStatus === 'loading' ? 'bg-slate-700 text-slate-400' : pullStatus === 'success' ? 'bg-emerald-600 text-white' : 'bg-white/5 hover:bg-white/10 text-white'}`}>
+                 {pullStatus === 'loading' ? 'Tarik Data...' : pullStatus === 'success' ? 'DATA TERUPDATE' : 'TARIK DATA SERVER'}
+               </button>
+
+               <button onClick={handleCloudSync} disabled={syncStatus === 'loading'} className={`w-full py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 shadow-xl ${syncStatus === 'loading' ? 'bg-slate-700 text-slate-400 cursor-not-allowed' : syncStatus === 'success' ? 'bg-green-600 text-white' : syncStatus === 'error' ? 'bg-red-600 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}>
+                 {syncStatus === 'loading' ? 'Kirim...' : syncStatus === 'success' ? 'TERSIMPAN' : 'KIRIM KE CLOUD'}
                </button>
             </div>
             <button onClick={() => { setView('login'); setIsMobileMenuOpen(false); }} className="w-full p-4 text-red-400 font-bold hover:bg-red-500/10 rounded-xl transition-all text-left uppercase text-[10px] tracking-widest">Keluar</button>
@@ -223,7 +245,15 @@ const App: React.FC = () => {
         <main className="flex-1 p-4 lg:p-8 overflow-y-auto custom-scrollbar">
           <div className="flex flex-col lg:flex-row gap-8">
             <div className="flex-1 min-w-0">
-              <div className="mb-8"><h1 className="text-2xl lg:text-3xl font-black text-slate-800">Bank Soal Dinamis</h1><p className="text-slate-400 font-medium text-xs lg:text-sm italic">Mode Anti-Cheat Fullscreen aktif untuk setiap siswa.</p></div>
+              <div className="mb-8 flex justify-between items-end">
+                <div>
+                  <h1 className="text-2xl lg:text-3xl font-black text-slate-800">Bank Soal Dinamis</h1>
+                  <p className="text-slate-400 font-medium text-xs lg:text-sm italic">Soal tersinkronisasi antar perangkat melalui Cloud.</p>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100 uppercase tracking-widest">{questions.length} TOTAL SOAL</span>
+                </div>
+              </div>
               <QuestionManager questions={questions} activeToken="" onAdd={(q) => setQuestions(prev => [...prev, { ...q, id: Date.now().toString()+Math.random(), createdAt: Date.now(), isDeleted: false, order: q.order || (prev.length + 1) }])} onUpdate={(updated) => setQuestions(prev => prev.map(q => q.id === updated.id ? updated : q))} onSoftDelete={(id) => setQuestions(prev => prev.map(item => item.id === id ? { ...item, isDeleted: true } : item))} onPermanentDelete={(id) => setQuestions(prev => prev.filter(item => item.id !== id))} onRestore={(id) => setQuestions(prev => prev.map(item => item.id === id ? { ...item, isDeleted: false } : item))} />
             </div>
             <div className="w-full lg:w-80">
@@ -252,15 +282,42 @@ const App: React.FC = () => {
               <button onClick={handleChangeAdminPass} className="w-1.5 h-1.5 bg-red-600 rounded-full opacity-30 hover:opacity-100 transition-opacity cursor-pointer mb-2" aria-hidden="true"></button>
             </div>
           </div>
-          <div className="md:w-7/12 p-12 bg-white">
+          <div className="md:w-7/12 p-12 bg-white max-h-[90vh] overflow-y-auto custom-scrollbar">
             <div className="max-w-md mx-auto text-center md:text-left">
               <h2 className="text-3xl font-black text-slate-800 mb-2">Login Peserta</h2>
-              <p className="text-slate-400 font-medium mb-10 italic">Masukkan identitas dan token ujian dari Guru.</p>
-              <form onSubmit={handleStartQuiz} className="space-y-5">
-                <div className="space-y-1 text-left"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nama Lengkap</label><input required type="text" placeholder="Nama Lengkap Anda" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold text-slate-800" value={identity.name} onChange={e => setIdentity({...identity, name: e.target.value})} /></div>
-                <div className="space-y-1 text-left"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kelas</label><input required type="text" placeholder="Contoh: 6A" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold text-slate-800" value={identity.className} onChange={e => setIdentity({...identity, className: e.target.value})} /></div>
-                <div className="space-y-1 text-left"><label className="text-[10px] font-black text-blue-500 uppercase tracking-widest ml-1">Token Ujian</label><input required type="text" placeholder="....." className="w-full p-4 bg-blue-50 border-2 border-blue-200 rounded-2xl font-black text-blue-700 text-center uppercase tracking-[0.3em] outline-none placeholder:opacity-30" value={identity.token} onChange={e => setIdentity({...identity, token: e.target.value})} /></div>
-                <div className="pt-4"><button disabled={isSyncing} className="w-full font-black py-5 rounded-[2rem] text-xl shadow-2xl transition-all active:scale-95 bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200">{isSyncing ? 'MENGHUBUNGKAN...' : 'MASUK KE UJIAN'}</button></div>
+              <p className="text-slate-400 font-medium mb-10 italic">Lengkapi identitas untuk memulai pengerjaan.</p>
+              <form onSubmit={handleStartQuiz} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1 text-left">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nama Lengkap</label>
+                    <input required type="text" placeholder="Nama Peserta" className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold text-slate-800 text-sm" value={identity.name} onChange={e => setIdentity({...identity, name: e.target.value})} />
+                  </div>
+                  <div className="space-y-1 text-left">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kelas</label>
+                    <input required type="text" placeholder="Contoh: 6A" className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold text-slate-800 text-sm" value={identity.className} onChange={e => setIdentity({...identity, className: e.target.value})} />
+                  </div>
+                </div>
+                
+                <div className="space-y-1 text-left">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Asal Sekolah</label>
+                  <input required type="text" placeholder="Nama Sekolah / Institusi" className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold text-slate-800 text-sm" value={identity.schoolOrigin} onChange={e => setIdentity({...identity, schoolOrigin: e.target.value})} />
+                </div>
+                
+                <div className="space-y-1 text-left">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tanggal Lahir</label>
+                  <input required type="date" className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold text-slate-800 text-sm" value={identity.birthDate} onChange={e => setIdentity({...identity, birthDate: e.target.value})} />
+                </div>
+
+                <div className="space-y-1 text-left">
+                  <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest ml-1 text-center block">Token Ujian</label>
+                  <input required type="text" placeholder="KODE TOKEN" className="w-full p-4 bg-blue-50 border-2 border-blue-200 rounded-2xl font-black text-blue-700 text-center uppercase tracking-[0.3em] outline-none placeholder:opacity-30" value={identity.token} onChange={e => setIdentity({...identity, token: e.target.value})} />
+                </div>
+
+                <div className="pt-2">
+                  <button disabled={isSyncing} className="w-full font-black py-4 rounded-[2rem] text-lg shadow-2xl transition-all active:scale-95 bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200">
+                    {isSyncing ? 'MENGHUBUNGKAN...' : 'MASUK KE UJIAN'}
+                  </button>
+                </div>
               </form>
             </div>
           </div>

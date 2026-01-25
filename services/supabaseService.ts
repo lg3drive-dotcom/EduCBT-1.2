@@ -13,6 +13,35 @@ const sanitizeData = (obj: any): any => {
   ));
 };
 
+export const fetchAllQuestions = async (): Promise<Question[]> => {
+  const { data, error } = await supabase
+    .from('questions')
+    .select('*')
+    .eq('is_deleted', false)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  
+  return (data || []).map(q => ({
+    id: q.id,
+    type: q.type,
+    level: q.level,
+    subject: q.subject,
+    phase: q.phase || 'Fase C',
+    material: q.material,
+    text: q.text,
+    explanation: q.explanation,
+    questionImage: q.question_image,
+    options: q.options,
+    optionImages: q.option_images,
+    correctAnswer: q.correct_answer,
+    isDeleted: q.is_deleted,
+    createdAt: q.created_at,
+    order: q.order,
+    quizToken: q.quiz_token
+  }));
+};
+
 export const pushQuestionsToCloud = async (questions: Question[]) => {
   if (!questions || questions.length === 0) return;
 
@@ -52,7 +81,6 @@ export const updateLiveSettings = async (settings: AppSettings) => {
     timer_minutes: Number(settings.timerMinutes) || 60
   };
 
-  // Hanya masukkan password jika ada
   if (settings.adminPassword) {
     payload.admin_password = settings.adminPassword;
   }
@@ -65,7 +93,7 @@ export const updateLiveSettings = async (settings: AppSettings) => {
 
   if (error) {
     if (error.message.includes('column "admin_password" of relation "active_settings" does not exist') || error.code === '42703') {
-      throw new Error("DATABASE_OUTDATED: Kolom 'admin_password' belum ada di tabel 'active_settings'. Silakan jalankan perintah SQL ALTER TABLE di Supabase Dashboard.");
+      throw new Error("DATABASE_OUTDATED: Kolom 'admin_password' belum ada di tabel 'active_settings'.");
     }
     throw new Error(`Gagal Update Settings: ${error.message}`);
   }
@@ -78,14 +106,11 @@ export const getGlobalSettings = async () => {
     .eq('id', 1)
     .maybeSingle();
 
-  if (error) {
-    console.warn("Gagal mengambil global settings:", error.message);
-    return null;
-  }
+  if (error) return null;
 
   return data ? {
     timerMinutes: data.timer_minutes,
-    adminPassword: data.admin_password // Jika kolom tidak ada, ini akan bernilai undefined secara otomatis tanpa error di SELECT
+    adminPassword: data.admin_password
   } : null;
 };
 
@@ -142,6 +167,8 @@ export const submitResultToCloud = async (result: QuizResult) => {
     id: result.id,
     student_name: result.identity.name,
     class_name: result.identity.className,
+    school_origin: result.identity.schoolOrigin, // Data tambahan
+    birth_date: result.identity.birthDate,     // Data tambahan
     score: result.score,
     answers: result.answers,
     timestamp: result.timestamp,

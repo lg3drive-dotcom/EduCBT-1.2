@@ -18,24 +18,31 @@ const ConfirmIdentity: React.FC<ConfirmIdentityProps> = ({ identity, settings, o
           <p className="text-slate-400 text-xs mt-2 font-bold italic">Periksa kembali data diri Anda sebelum memulai ujian</p>
         </div>
         
-        <div className="p-10 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Nama Peserta</p>
-              <p className="text-xl font-black text-slate-800">{identity.name}</p>
+        <div className="p-8 lg:p-10 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Nama Lengkap</p>
+              <p className="text-lg font-black text-slate-800 truncate">{identity.name}</p>
             </div>
-            <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Kelas / Rombel</p>
-              <p className="text-xl font-black text-slate-800">{identity.className}</p>
+            <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Kelas / Rombel</p>
+              <p className="text-lg font-black text-slate-800">{identity.className}</p>
             </div>
-            <div className="p-6 bg-blue-50 rounded-3xl border border-blue-100">
-              <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Mata Pelajaran</p>
-              {/* FIX: Provide fallback value for activeSubject to handle initial or missing states */}
-              <p className="text-xl font-black text-blue-700">{settings.activeSubject || 'Ujian Digital'}</p>
+            <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Asal Sekolah</p>
+              <p className="text-lg font-black text-slate-800 truncate">{identity.schoolOrigin || '-'}</p>
             </div>
-            <div className="p-6 bg-orange-50 rounded-3xl border border-orange-100">
-              <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-1">Alokasi Waktu</p>
-              <p className="text-xl font-black text-orange-700">{settings.timerMinutes} Menit</p>
+            <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Tanggal Lahir</p>
+              <p className="text-lg font-black text-slate-800">{identity.birthDate || '-'}</p>
+            </div>
+            <div className="p-5 bg-blue-50 rounded-3xl border border-blue-100">
+              <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Mata Pelajaran</p>
+              <p className="text-lg font-black text-blue-700">{settings.activeSubject || 'Ujian Digital'}</p>
+            </div>
+            <div className="p-5 bg-orange-50 rounded-3xl border border-orange-100">
+              <p className="text-[9px] font-black text-orange-400 uppercase tracking-widest mb-1">Alokasi Waktu</p>
+              <p className="text-lg font-black text-orange-700">{settings.timerMinutes} Menit</p>
             </div>
           </div>
 
@@ -46,13 +53,13 @@ const ConfirmIdentity: React.FC<ConfirmIdentityProps> = ({ identity, settings, o
               </svg>
             </div>
             <p className="text-xs text-amber-700 font-medium leading-relaxed">
-              Tombol <b>MULAI</b> akan aktif jika waktu ujian sudah dimulai. Pastikan Anda tidak menutup browser selama ujian berlangsung. Jawaban akan tersimpan otomatis di server Cloud.
+              Pastikan koneksi internet stabil. Tombol <b>MULAI</b> akan mengunci layar browser Anda ke Mode Ujian.
             </p>
           </div>
 
           <div className="flex gap-4 pt-4">
-            <button onClick={onCancel} className="flex-1 py-5 font-black text-slate-400 hover:text-slate-600 transition-all uppercase tracking-widest text-xs">Batal</button>
-            <button onClick={onConfirm} className="flex-[2] bg-blue-600 hover:bg-blue-700 text-white font-black py-5 rounded-[2rem] shadow-2xl shadow-blue-200 transition-all active:scale-95 uppercase tracking-widest">Mulai Ujian Sekarang</button>
+            <button onClick={onCancel} className="flex-1 py-4 font-black text-slate-400 hover:text-slate-600 transition-all uppercase tracking-widest text-[10px]">Batal</button>
+            <button onClick={onConfirm} className="flex-[2] bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl shadow-xl transition-all active:scale-95 uppercase tracking-widest text-[10px]">Mulai Ujian</button>
           </div>
         </div>
       </div>
