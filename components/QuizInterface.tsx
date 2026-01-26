@@ -226,6 +226,11 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                       </div>
                    </div>
                    <div className="space-y-8">
+                      {q?.questionImage && (
+                        <div className="flex justify-center mb-6">
+                           <img src={q.questionImage} alt="Stimulus" className="max-w-full h-auto rounded-[1.5rem] border-4 border-white shadow-xl" />
+                        </div>
+                      )}
                       <div className="leading-relaxed text-slate-800 font-medium" style={{ fontSize: `${fontSize}px`, whiteSpace: 'pre-wrap' }}>{q?.text}</div>
                       <div className="pt-4">{renderInput()}</div>
                    </div>

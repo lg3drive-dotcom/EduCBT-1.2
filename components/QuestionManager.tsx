@@ -29,7 +29,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     text: string;
     material: string;
     explanation: string;
-    questionImage?: string;
+    questionImage: string;
     type: QuestionType;
     level: string;
     options: string[];
@@ -44,6 +44,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     text: '',
     material: '',
     explanation: '',
+    questionImage: '',
     type: QuestionType.SINGLE,
     level: CognitiveLevel.C1,
     options: ['', '', '', ''],
@@ -68,7 +69,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     setShowForm(false);
     setEditingId(null);
     setFormData({ 
-      text: '', material: '', explanation: '', type: QuestionType.SINGLE, 
+      text: '', material: '', explanation: '', questionImage: '', type: QuestionType.SINGLE, 
       level: CognitiveLevel.C1, options: ['', '', '', ''], 
       optionImages: [undefined, undefined, undefined, undefined], 
       correctAnswer: 0, subject: Subject.PANCASILA, phase: 'Fase C', order: 1,
@@ -83,7 +84,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
       text: q.text,
       material: q.material,
       explanation: q.explanation,
-      questionImage: q.questionImage,
+      questionImage: q.questionImage || '',
       type: q.type,
       level: q.level,
       options: q.options || ['', '', '', ''],
@@ -147,6 +148,12 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
 
     return (
       <div className="space-y-6">
+        {q.questionImage && (
+           <div className="w-full flex justify-center mb-4">
+              <img src={q.questionImage} alt="Stimulus" className="max-w-full h-auto rounded-2xl border-4 border-white shadow-lg" />
+           </div>
+        )}
+        
         <div className="text-sm font-medium text-slate-700 leading-relaxed bg-slate-50 p-6 rounded-2xl border border-slate-100 whitespace-pre-wrap">
           {q.text}
         </div>
@@ -232,6 +239,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                 <div className="flex gap-2">
                   <span className="text-[8px] bg-blue-600 text-white px-2 py-0.5 rounded font-black uppercase">TOKEN: {q.quizToken}</span>
                   <span className="text-[8px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-black uppercase">{q.type}</span>
+                  {q.questionImage && <span className="text-[8px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded font-black uppercase">GAMBAR</span>}
                 </div>
                 <div className="flex gap-4 opacity-0 group-hover:opacity-100 transition-all">
                    <button onClick={() => setPreviewQuestion(q)} title="Preview Soal" className="text-emerald-600 text-[9px] font-black uppercase flex items-center gap-1">
@@ -305,18 +313,16 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                       </select>
                    </div>
 
-                   {formData.type === QuestionType.TRUE_FALSE_COMPLEX && (
-                      <div className="grid grid-cols-2 gap-4 p-4 bg-orange-50 border border-orange-100 rounded-2xl">
-                         <div className="space-y-1">
-                            <label className="text-[9px] font-black text-orange-600 uppercase">Pilihan Positif</label>
-                            <input type="text" value={formData.tfLabels.true} onChange={e => setFormData({...formData, tfLabels: {...formData.tfLabels, true: e.target.value}})} className="w-full p-2 border bg-white rounded-lg font-bold text-xs" placeholder="Misal: Benar, Sesuai, Fakta" />
-                         </div>
-                         <div className="space-y-1">
-                            <label className="text-[9px] font-black text-orange-600 uppercase">Pilihan Negatif</label>
-                            <input type="text" value={formData.tfLabels.false} onChange={e => setFormData({...formData, tfLabels: {...formData.tfLabels, false: e.target.value}})} className="w-full p-2 border bg-white rounded-lg font-bold text-xs" placeholder="Misal: Salah, Tidak Sesuai, Opini" />
-                         </div>
-                      </div>
-                   )}
+                   {/* FIELD GAMBAR BARU */}
+                   <div className="space-y-1">
+                      <label className="text-[10px] font-black text-amber-600 uppercase">URL Tautan Gambar (Opsional)</label>
+                      <input type="text" value={formData.questionImage} onChange={e => setFormData({...formData, questionImage: e.target.value})} className="w-full p-3 border-2 border-amber-50 bg-amber-50 rounded-xl font-bold text-xs outline-none focus:border-amber-400" placeholder="https://domain.com/gambar.png" />
+                      {formData.questionImage && (
+                        <div className="mt-2 p-2 border-2 border-dashed border-amber-200 rounded-xl bg-amber-50/30">
+                           <img src={formData.questionImage} alt="Preview Stimulus" className="max-h-32 mx-auto rounded-lg shadow-sm" onError={(e) => (e.currentTarget.src = 'https://placehold.co/400x200?text=Gagal+Memuat+Gambar')} />
+                        </div>
+                      )}
+                   </div>
 
                    <div className="space-y-1">
                       <label className="text-[10px] font-black text-slate-400 uppercase">Butir Pertanyaan</label>
