@@ -188,14 +188,20 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
               const isCorrect = q.type === QuestionType.SINGLE 
                 ? q.correctAnswer === idx 
                 : (q.correctAnswer || []).includes(idx);
+              const optImg = q.optionImages?.[idx];
               
               return (
-                <div key={idx} className={`flex items-center p-4 border-2 rounded-xl ${isCorrect ? 'border-green-500 bg-green-50' : 'border-slate-100 bg-white'}`}>
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs mr-4 ${isCorrect ? 'bg-green-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                <div key={idx} className={`flex items-start p-4 border-2 rounded-xl ${isCorrect ? 'border-green-500 bg-green-50' : 'border-slate-100 bg-white'}`}>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs mr-4 shrink-0 ${isCorrect ? 'bg-green-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
                     {String.fromCharCode(65+idx)}
                   </div>
-                  <span className={`text-xs font-bold ${isCorrect ? 'text-green-800' : 'text-slate-600'}`}>{opt}</span>
-                  {isCorrect && <span className="ml-auto text-[8px] font-black bg-green-600 text-white px-2 py-0.5 rounded">KUNCI</span>}
+                  <div className="flex-1 min-w-0">
+                    <span className={`text-xs font-bold block ${isCorrect ? 'text-green-800' : 'text-slate-600'}`}>{opt}</span>
+                    {optImg && (
+                      <img src={optImg} className="mt-2 max-h-32 rounded-lg border border-slate-200" alt={`Opsi ${idx}`} />
+                    )}
+                  </div>
+                  {isCorrect && <span className="ml-auto text-[8px] font-black bg-green-600 text-white px-2 py-0.5 rounded shrink-0">KUNCI</span>}
                 </div>
               );
             })}
@@ -313,7 +319,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                       </select>
                    </div>
 
-                   {/* FIELD GAMBAR BARU */}
+                   {/* FIELD GAMBAR */}
                    <div className="space-y-1">
                       <label className="text-[10px] font-black text-amber-600 uppercase">URL Tautan Gambar (Opsional)</label>
                       <input type="text" value={formData.questionImage} onChange={e => setFormData({...formData, questionImage: e.target.value})} className="w-full p-3 border-2 border-amber-50 bg-amber-50 rounded-xl font-bold text-xs outline-none focus:border-amber-400" placeholder="https://domain.com/gambar.png" />

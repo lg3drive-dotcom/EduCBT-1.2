@@ -218,6 +218,8 @@ const App: React.FC = () => {
         id: q.id || `import_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
         level: level,
         type: q.type as QuestionType,
+        // FIX: Petakan properti 'image' dari JSON eksternal ke 'questionImage' internal
+        questionImage: q.questionImage || q.image || '',
         quizToken: (q.quizToken || 'UMUM').toUpperCase(),
         isDeleted: q.isDeleted || false,
         createdAt: q.createdAt || Date.now(),

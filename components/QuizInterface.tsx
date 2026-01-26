@@ -163,12 +163,20 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
     if (q.type === QuestionType.SINGLE) {
       return (
         <div className="space-y-4">
-          {q.options?.map((opt, idx) => (
-            <button key={idx} onClick={() => setAnswers({...answers, [q.id]: idx})} className={`w-full flex items-center p-4 text-left border-2 rounded-xl transition-all ${currentAnswer === idx ? 'border-blue-600 bg-blue-50' : 'border-slate-200 hover:bg-slate-50'}`}>
-              <span className={`w-10 h-10 flex items-center justify-center rounded-lg font-black mr-4 ${currentAnswer === idx ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-400'}`}>{String.fromCharCode(65+idx)}</span>
-              <span className="font-bold text-slate-700" style={{ fontSize: `${fontSize - 2}px` }}>{opt}</span>
-            </button>
-          ))}
+          {q.options?.map((opt, idx) => {
+            const optImg = q.optionImages?.[idx];
+            return (
+              <button key={idx} onClick={() => setAnswers({...answers, [q.id]: idx})} className={`w-full flex items-start p-4 text-left border-2 rounded-xl transition-all ${currentAnswer === idx ? 'border-blue-600 bg-blue-50' : 'border-slate-200 hover:bg-slate-50'}`}>
+                <span className={`w-10 h-10 flex items-center justify-center rounded-lg font-black mr-4 shrink-0 ${currentAnswer === idx ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-400'}`}>{String.fromCharCode(65+idx)}</span>
+                <div className="flex-1 min-w-0">
+                  <span className="font-bold text-slate-700 block" style={{ fontSize: `${fontSize - 2}px` }}>{opt}</span>
+                  {optImg && (
+                    <img src={optImg} className="mt-3 max-h-40 rounded-xl border border-slate-200 shadow-sm" alt={`Opsi ${idx}`} />
+                  )}
+                </div>
+              </button>
+            );
+          })}
         </div>
       );
     }
@@ -178,16 +186,22 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
         <div className="space-y-4">
           {q.options?.map((opt, idx) => {
             const selected = (currentAnswer || []).includes(idx);
+            const optImg = q.optionImages?.[idx];
             return (
               <button key={idx} onClick={() => {
                 const prev = currentAnswer || [];
                 const next = selected ? prev.filter((i:any) => i !== idx) : [...prev, idx];
                 setAnswers({...answers, [q.id]: next});
-              }} className={`w-full flex items-center p-4 text-left border-2 rounded-xl transition-all ${selected ? 'border-blue-600 bg-blue-50' : 'border-slate-200 hover:bg-slate-50'}`}>
-                <div className={`w-6 h-6 border-2 rounded-md mr-4 flex items-center justify-center ${selected ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300'}`}>
+              }} className={`w-full flex items-start p-4 text-left border-2 rounded-xl transition-all ${selected ? 'border-blue-600 bg-blue-50' : 'border-slate-200 hover:bg-slate-50'}`}>
+                <div className={`w-6 h-6 border-2 rounded-md mr-4 shrink-0 flex items-center justify-center mt-1 ${selected ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300'}`}>
                   {selected && '✓'}
                 </div>
-                <span className="font-bold text-slate-700" style={{ fontSize: `${fontSize - 2}px` }}>{opt}</span>
+                <div className="flex-1 min-w-0">
+                  <span className="font-bold text-slate-700 block" style={{ fontSize: `${fontSize - 2}px` }}>{opt}</span>
+                  {optImg && (
+                    <img src={optImg} className="mt-3 max-h-40 rounded-xl border border-slate-200 shadow-sm" alt={`Opsi ${idx}`} />
+                  )}
+                </div>
               </button>
             );
           })}
