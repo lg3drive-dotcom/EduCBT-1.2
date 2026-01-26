@@ -56,6 +56,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   });
 
   useEffect(() => {
+    // Only auto-increment order if we are adding a NEW question
     if (!editingId && formData.quizToken) {
       const sameToken = questions.filter(q => q.quizToken === formData.quizToken.toUpperCase() && !q.isDeleted);
       const nextOrder = sameToken.length > 0 ? Math.max(...sameToken.map(i => i.order)) + 1 : 1;
@@ -192,10 +193,14 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
              
              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 <div className="lg:col-span-7 space-y-4">
-                   <div className="grid grid-cols-2 gap-4">
+                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div className="space-y-1">
                          <label className="text-[10px] font-black text-blue-600 uppercase">Token Akses</label>
                          <input type="text" value={formData.quizToken} onChange={e => setFormData({...formData, quizToken: e.target.value.toUpperCase()})} className="w-full p-3 border-2 border-blue-50 bg-blue-50 rounded-xl font-black text-blue-700 outline-none focus:border-blue-500" />
+                      </div>
+                      <div className="space-y-1">
+                         <label className="text-[10px] font-black text-slate-400 uppercase">No. Urut</label>
+                         <input type="number" min="1" value={formData.order} onChange={e => setFormData({...formData, order: parseInt(e.target.value) || 1})} className="w-full p-3 border bg-slate-50 rounded-xl font-black outline-none focus:border-blue-500" />
                       </div>
                       <div className="space-y-1">
                          <label className="text-[10px] font-black text-slate-400 uppercase">Mapel</label>
