@@ -23,6 +23,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   const [downloadToken, setDownloadToken] = useState<string>('');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [previewQuestion, setPreviewQuestion] = useState<Question | null>(null);
   
   const [formData, setFormData] = useState<{
     text: string;
@@ -56,7 +57,6 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   });
 
   useEffect(() => {
-    // Only auto-increment order if we are adding a NEW question
     if (!editingId && formData.quizToken) {
       const sameToken = questions.filter(q => q.quizToken === formData.quizToken.toUpperCase() && !q.isDeleted);
       const nextOrder = sameToken.length > 0 ? Math.max(...sameToken.map(i => i.order)) + 1 : 1;
@@ -109,7 +109,6 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
       }
     }
     
-    // SORTING LOGIC: Group by Token, then Sort by Order
     return filtered.sort((a, b) => {
       const tokenA = (a.quizToken || '').toUpperCase();
       const tokenB = (b.quizToken || '').toUpperCase();
@@ -142,6 +141,68 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     closeForm();
   };
 
+  const renderPreviewContent = (q: Question) => {
+    const isComplex = q.type === QuestionType.COMPLEX_CATEGORY || q.type === QuestionType.TRUE_FALSE_COMPLEX;
+    const labels = q.tfLabels || { true: 'Ya', false: 'Tidak' };
+
+    return (
+      <div className="space-y-6">
+        <div className="text-sm font-medium text-slate-700 leading-relaxed bg-slate-50 p-6 rounded-2xl border border-slate-100 whitespace-pre-wrap">
+          {q.text}
+        </div>
+
+        {isComplex ? (
+          <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+            <table className="w-full text-left">
+              <thead className="bg-slate-800 text-white">
+                <tr>
+                  <th className="p-3 text-[9px] font-black uppercase">Pernyataan</th>
+                  <th className="p-3 text-center text-[9px] font-black uppercase w-48">Kunci: {labels.true} / {labels.false}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {q.options?.map((opt, idx) => (
+                  <tr key={idx}>
+                    <td className="p-3 text-xs font-bold text-slate-600">{opt}</td>
+                    <td className="p-3">
+                       <div className="flex gap-1 justify-center">
+                          <div className={`px-3 py-1 rounded text-[8px] font-black ${q.correctAnswer[idx] === true ? 'bg-green-600 text-white' : 'bg-slate-100 text-slate-300'}`}>{labels.true.toUpperCase()}</div>
+                          <div className={`px-3 py-1 rounded text-[8px] font-black ${q.correctAnswer[idx] === false ? 'bg-red-600 text-white' : 'bg-slate-100 text-slate-300'}`}>{labels.false.toUpperCase()}</div>
+                       </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-3">
+            {q.options?.map((opt, idx) => {
+              const isCorrect = q.type === QuestionType.SINGLE 
+                ? q.correctAnswer === idx 
+                : (q.correctAnswer || []).includes(idx);
+              
+              return (
+                <div key={idx} className={`flex items-center p-4 border-2 rounded-xl ${isCorrect ? 'border-green-500 bg-green-50' : 'border-slate-100 bg-white'}`}>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs mr-4 ${isCorrect ? 'bg-green-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                    {String.fromCharCode(65+idx)}
+                  </div>
+                  <span className={`text-xs font-bold ${isCorrect ? 'text-green-800' : 'text-slate-600'}`}>{opt}</span>
+                  {isCorrect && <span className="ml-auto text-[8px] font-black bg-green-600 text-white px-2 py-0.5 rounded">KUNCI</span>}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="mt-8 p-5 bg-blue-50 border border-blue-100 rounded-2xl">
+          <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-2">Penjelasan Jawaban:</p>
+          <p className="text-xs text-blue-800 font-medium leading-relaxed italic">{q.explanation || "Tidak ada penjelasan."}</p>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="flex flex-col h-full bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
       <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -164,15 +225,19 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
 
       <div className="flex-1 overflow-y-auto bg-slate-50/30 p-4 space-y-4">
         {processedQuestions.map((q) => (
-          <div key={q.id} className="bg-white p-4 border rounded-2xl group flex gap-4 items-start shadow-sm">
+          <div key={q.id} className="bg-white p-4 border rounded-2xl group flex gap-4 items-start shadow-sm hover:shadow-md transition-shadow">
             <div className="w-10 h-10 flex items-center justify-center bg-blue-50 text-blue-700 rounded-xl font-black text-xs shrink-0">{q.order}</div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <div className="flex justify-between items-start mb-2">
                 <div className="flex gap-2">
                   <span className="text-[8px] bg-blue-600 text-white px-2 py-0.5 rounded font-black uppercase">TOKEN: {q.quizToken}</span>
                   <span className="text-[8px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-black uppercase">{q.type}</span>
                 </div>
                 <div className="flex gap-4 opacity-0 group-hover:opacity-100 transition-all">
+                   <button onClick={() => setPreviewQuestion(q)} title="Preview Soal" className="text-emerald-600 text-[9px] font-black uppercase flex items-center gap-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                      Preview
+                   </button>
                    <button onClick={() => handleEdit(q)} className="text-blue-600 text-[9px] font-black uppercase">Edit</button>
                    <button onClick={() => onSoftDelete(q.id)} className="text-red-400 text-[9px] font-black uppercase">Buang</button>
                 </div>
@@ -181,7 +246,31 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
             </div>
           </div>
         ))}
+        {processedQuestions.length === 0 && (
+          <div className="py-20 text-center text-slate-300 font-black uppercase tracking-widest text-[10px]">Bank Soal Kosong</div>
+        )}
       </div>
+
+      {/* MODAL PREVIEW */}
+      {previewQuestion && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+             <div className="p-6 bg-slate-900 text-white flex justify-between items-center">
+                <div>
+                   <h3 className="text-lg font-black uppercase tracking-tight">Preview Soal</h3>
+                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tampilan Siswa • Token: {previewQuestion.quizToken}</p>
+                </div>
+                <button onClick={() => setPreviewQuestion(null)} className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center font-black">×</button>
+             </div>
+             <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+                {renderPreviewContent(previewQuestion)}
+             </div>
+             <div className="p-6 border-t bg-slate-50 flex justify-center">
+                <button onClick={() => setPreviewQuestion(null)} className="px-10 py-3 bg-slate-900 text-white font-black rounded-xl text-[10px] uppercase tracking-widest shadow-xl">TUTUP PREVIEW</button>
+             </div>
+          </div>
+        </div>
+      )}
 
       {showForm && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4">
