@@ -42,107 +42,119 @@ const checkCorrectness = (q: Question, studentAnswer: any): boolean => {
   return false;
 };
 
-export const generateResultPDF = (result: QuizResult, questions: Question[]) => {
+export const generateResultPDF = async (result: QuizResult, questions: Question[]) => {
   const doc = new jsPDF('p', 'mm', 'a4');
   const { identity, score, answers, timestamp } = result;
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 15;
-  const contentWidth = pageWidth - (margin * 2);
+  const marginX = 20; // Margin lebih lebar agar aman
+  const contentWidth = pageWidth - (marginX * 2);
 
   // --- HEADER ---
-  doc.setFillColor(15, 23, 42); // Slate 900
+  doc.setFillColor(15, 23, 42); 
   doc.rect(0, 0, pageWidth, 55, 'F');
   
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(22);
   doc.setFont("helvetica", "bold");
-  doc.text('LEMBAR HASIL UJIAN', margin, 22);
+  doc.text('HASIL EVALUASI SISWA', marginX, 22);
   
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
-  doc.text(`NAMA LENGKAP      : ${identity.name.toUpperCase()}`, margin, 34);
-  doc.text(`KELAS / ROMBEL     : ${identity.className}`, margin, 40);
-  doc.text(`ASAL SEKOLAH      : ${identity.schoolOrigin}`, margin, 46);
-  doc.text(`WAKTU SELESAI   : ${new Date(timestamp).toLocaleString('id-ID')}`, margin, 52);
+  doc.text(`NAMA LENGKAP      : ${identity.name.toUpperCase()}`, marginX, 34);
+  doc.text(`KELAS / ROMBEL     : ${identity.className}`, marginX, 40);
+  doc.text(`TANGGAL UJIAN    : ${new Date(timestamp).toLocaleString('id-ID')}`, marginX, 46);
 
-  // Score Highlight Box
+  // Score Badge
   doc.setFillColor(37, 99, 235);
-  doc.roundedRect(pageWidth - 55, 15, 40, 25, 3, 3, 'F');
+  doc.roundedRect(pageWidth - 60, 15, 40, 25, 3, 3, 'F');
   doc.setFontSize(8);
-  doc.text('SKOR AKHIR', pageWidth - 35, 22, { align: 'center' });
+  doc.text('NILAI AKHIR', pageWidth - 40, 22, { align: 'center' });
   doc.setFontSize(20);
-  doc.text(`${score.toFixed(1)}`, pageWidth - 35, 33, { align: 'center' });
+  doc.text(`${score.toFixed(1)}`, pageWidth - 40, 33, { align: 'center' });
 
   let y = 65;
-  const lineHeight = 5;
 
-  questions.forEach((q, idx) => {
+  for (const [idx, q] of questions.entries()) {
     const studentAns = answers[q.id];
     const isCorrect = checkCorrectness(q, studentAns);
     const studentText = getFullAnswerText(q, studentAns, false);
     const keyText = getFullAnswerText(q, undefined, true);
     const explanationText = q.explanation || "Tidak ada pembahasan.";
 
-    // Split texts to size
+    // 1. Hitung Baris Soal (Font Bold)
     doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
     const qLines = doc.splitTextToSize(`${idx + 1}. ${q.text}`, contentWidth);
-    
-    doc.setFontSize(9);
-    const ansLines = doc.splitTextToSize(`Jawaban Anda: ${studentText}`, contentWidth - 10);
-    const keyLines = doc.splitTextToSize(`Kunci Jawaban: ${keyText}`, contentWidth - 10);
-    const expLines = doc.splitTextToSize(`Pembahasan: ${explanationText}`, contentWidth - 10);
+    const qHeight = qLines.length * 5;
 
-    // Calculate total height needed for this block
-    const blockHeight = (qLines.length * lineHeight) + 
-                        (ansLines.length * 4) + 
-                        (keyLines.length * 4) + 
-                        (expLines.length * 4) + 15;
+    // 2. Cek apakah muat di halaman ini?
+    let estimatedHeight = qHeight + 35; // Estimasi dasar termasuk detail jawaban
+    if (q.questionImage) estimatedHeight += 50; // Tambah jika ada gambar
 
-    // Check for page break
-    if (y + blockHeight > pageHeight - 20) {
+    if (y + estimatedHeight > pageHeight - 20) {
       doc.addPage();
       y = 20;
     }
 
-    // Draw Status Indicator (Circle)
-    doc.setDrawColor(203, 213, 225);
-    doc.setFillColor(isCorrect ? 240 : 254, isCorrect ? 253 : 242, isCorrect ? 244 : 242);
-    doc.roundedRect(margin - 2, y - 4, contentWidth + 4, blockHeight - 4, 2, 2, 'F');
+    // Border Blok Soal (Soft Background)
+    doc.setDrawColor(241, 245, 249);
+    doc.setFillColor(252, 253, 255);
+    // Draw background placeholder (will adjust later if needed, but for list it's fine)
 
-    // 1. Render Question
+    // Render Soal
     doc.setTextColor(15, 23, 42);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.text(qLines, margin, y);
-    y += (qLines.length * lineHeight) + 2;
+    doc.text(qLines, marginX, y);
+    y += qHeight + 3;
 
-    // 2. Render Student Answer
-    doc.setFont("helvetica", "bold");
+    // Render Gambar Stimulus jika ada
+    if (q.questionImage) {
+      try {
+        // Simple heuristic: assume image fits in 80mm width
+        const imgWidth = 80;
+        const imgHeight = 45;
+        doc.addImage(q.questionImage, 'JPEG', marginX + 5, y, imgWidth, imgHeight);
+        y += imgHeight + 5;
+      } catch (e) {
+        console.warn("PDF Image Load Error", e);
+      }
+    }
+
+    // Detail Jawaban & Pembahasan (Lebar dikurangi karena indentasi)
+    const detailMargin = marginX + 8;
+    const detailWidth = contentWidth - 10;
     doc.setFontSize(9);
-    if (isCorrect) doc.setTextColor(22, 163, 74); // Green
-    else doc.setTextColor(220, 38, 38); // Red
-    doc.text(ansLines, margin + 6, y);
-    y += (ansLines.length * 4.5);
 
-    // 3. Render Key
-    doc.setTextColor(37, 99, 235); // Blue
+    // Render Student Answer
+    doc.setFont("helvetica", "bold");
+    if (isCorrect) doc.setTextColor(22, 163, 74); else doc.setTextColor(220, 38, 38);
+    const ansLines = doc.splitTextToSize(`Jawaban Anda: ${studentText}`, detailWidth);
+    doc.text(ansLines, detailMargin, y);
+    y += (ansLines.length * 4.5) + 1;
+
+    // Render Key
     doc.setFont("helvetica", "normal");
-    doc.text(keyLines, margin + 6, y);
-    y += (keyLines.length * 4.5);
+    doc.setTextColor(37, 99, 235);
+    const keyLines = doc.splitTextToSize(`Kunci Jawaban: ${keyText}`, detailWidth);
+    doc.text(keyLines, detailMargin, y);
+    y += (keyLines.length * 4.5) + 1;
 
-    // 4. Render Explanation
-    doc.setTextColor(71, 85, 105);
+    // Render Explanation
     doc.setFont("helvetica", "italic");
-    doc.text(expLines, margin + 6, y);
-    y += (expLines.length * 4.5) + 6; // Add space after block
-  });
+    doc.setTextColor(100, 116, 139);
+    const expLines = doc.splitTextToSize(`Pembahasan: ${explanationText}`, detailWidth);
+    doc.text(expLines, detailMargin, y);
+    y += (expLines.length * 4.5) + 10; // Extra space between questions
 
-  // Footer
+    // Horizontal Separator
+    doc.setDrawColor(241, 245, 249);
+    doc.line(marginX, y - 5, pageWidth - marginX, y - 5);
+  }
+
+  // Branding Footer
   doc.setFontSize(7);
   doc.setTextColor(148, 163, 184);
-  doc.setFont("helvetica", "normal");
-  doc.text(`E-Laporan ini dihasilkan secara otomatis oleh sistem EduCBT Pro. Dicetak pada ${new Date().toLocaleString('id-ID')}`, margin, pageHeight - 10);
+  doc.text(`Dicetak melalui EduCBT Pro v1.2 • ${new Date().toLocaleString('id-ID')}`, marginX, pageHeight - 10);
 
   doc.save(`Hasil_Ujian_${identity.name.replace(/\s+/g, '_')}.pdf`);
 };
