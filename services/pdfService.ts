@@ -47,33 +47,34 @@ export const generateResultPDF = async (result: QuizResult, questions: Question[
   const { identity, score, answers, timestamp } = result;
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const marginX = 20; // Margin lebih lebar agar aman
+  const marginX = 20;
   const contentWidth = pageWidth - (marginX * 2);
+  const bodyFontSize = 10;
+  const lineSpacing = 5; // Spasi antar baris teks
 
   // --- HEADER ---
   doc.setFillColor(15, 23, 42); 
-  doc.rect(0, 0, pageWidth, 55, 'F');
+  doc.rect(0, 0, pageWidth, 50, 'F');
   
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(22);
-  doc.setFont("helvetica", "bold");
-  doc.text('HASIL EVALUASI SISWA', marginX, 22);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(20);
+  doc.text('HASIL EVALUASI SISWA', marginX, 20);
   
   doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.text(`NAMA LENGKAP      : ${identity.name.toUpperCase()}`, marginX, 34);
-  doc.text(`KELAS / ROMBEL     : ${identity.className}`, marginX, 40);
-  doc.text(`TANGGAL UJIAN    : ${new Date(timestamp).toLocaleString('id-ID')}`, marginX, 46);
+  doc.text(`NAMA LENGKAP : ${identity.name.toUpperCase()}`, marginX, 30);
+  doc.text(`KELAS / ROMBEL : ${identity.className}`, marginX, 36);
+  doc.text(`TANGGAL UJIAN : ${new Date(timestamp).toLocaleString('id-ID')}`, marginX, 42);
 
-  // Score Badge
+  // Score Badge (Warna biru tetap digunakan)
   doc.setFillColor(37, 99, 235);
-  doc.roundedRect(pageWidth - 60, 15, 40, 25, 3, 3, 'F');
+  doc.roundedRect(pageWidth - 55, 12, 35, 22, 2, 2, 'F');
   doc.setFontSize(8);
-  doc.text('NILAI AKHIR', pageWidth - 40, 22, { align: 'center' });
-  doc.setFontSize(20);
-  doc.text(`${score.toFixed(1)}`, pageWidth - 40, 33, { align: 'center' });
+  doc.text('NILAI AKHIR', pageWidth - 37.5, 18, { align: 'center' });
+  doc.setFontSize(18);
+  doc.text(`${score.toFixed(1)}`, pageWidth - 37.5, 28, { align: 'center' });
 
-  let y = 65;
+  let y = 60;
 
   for (const [idx, q] of questions.entries()) {
     const studentAns = answers[q.id];
@@ -82,77 +83,67 @@ export const generateResultPDF = async (result: QuizResult, questions: Question[
     const keyText = getFullAnswerText(q, undefined, true);
     const explanationText = q.explanation || "Tidak ada pembahasan.";
 
-    // 1. Hitung Baris Soal (Font Bold)
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    const qLines = doc.splitTextToSize(`${idx + 1}. ${q.text}`, contentWidth);
-    const qHeight = qLines.length * 5;
+    doc.setFontSize(bodyFontSize);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(15, 23, 42);
 
-    // 2. Cek apakah muat di halaman ini?
-    let estimatedHeight = qHeight + 35; // Estimasi dasar termasuk detail jawaban
-    if (q.questionImage) estimatedHeight += 50; // Tambah jika ada gambar
+    // Render Soal
+    const qLines = doc.splitTextToSize(`${idx + 1}. ${q.text}`, contentWidth);
+    const qHeight = qLines.length * lineSpacing;
+
+    // Cek Page Break
+    let estimatedHeight = qHeight + 30; 
+    if (q.questionImage) estimatedHeight += 50;
 
     if (y + estimatedHeight > pageHeight - 20) {
       doc.addPage();
       y = 20;
     }
 
-    // Border Blok Soal (Soft Background)
-    doc.setDrawColor(241, 245, 249);
-    doc.setFillColor(252, 253, 255);
-    // Draw background placeholder (will adjust later if needed, but for list it's fine)
-
-    // Render Soal
-    doc.setTextColor(15, 23, 42);
     doc.text(qLines, marginX, y);
-    y += qHeight + 3;
+    y += qHeight + 4;
 
-    // Render Gambar Stimulus jika ada
+    // Render Gambar jika ada
     if (q.questionImage) {
       try {
-        // Simple heuristic: assume image fits in 80mm width
         const imgWidth = 80;
         const imgHeight = 45;
-        doc.addImage(q.questionImage, 'JPEG', marginX + 5, y, imgWidth, imgHeight);
-        y += imgHeight + 5;
+        doc.addImage(q.questionImage, 'JPEG', marginX, y, imgWidth, imgHeight);
+        y += imgHeight + 6;
       } catch (e) {
         console.warn("PDF Image Load Error", e);
       }
     }
 
-    // Detail Jawaban & Pembahasan (Lebar dikurangi karena indentasi)
-    const detailMargin = marginX + 8;
-    const detailWidth = contentWidth - 10;
-    doc.setFontSize(9);
+    // Detail Jawaban & Pembahasan
+    const detailMargin = marginX + 5;
+    const detailWidth = contentWidth - 5;
 
-    // Render Student Answer
-    doc.setFont("helvetica", "bold");
+    // Render Student Answer (Warna hijau/merah tetap digunakan)
     if (isCorrect) doc.setTextColor(22, 163, 74); else doc.setTextColor(220, 38, 38);
     const ansLines = doc.splitTextToSize(`Jawaban Anda: ${studentText}`, detailWidth);
     doc.text(ansLines, detailMargin, y);
-    y += (ansLines.length * 4.5) + 1;
+    y += (ansLines.length * lineSpacing);
 
-    // Render Key
-    doc.setFont("helvetica", "normal");
+    // Render Key (Warna biru tetap digunakan)
     doc.setTextColor(37, 99, 235);
     const keyLines = doc.splitTextToSize(`Kunci Jawaban: ${keyText}`, detailWidth);
     doc.text(keyLines, detailMargin, y);
-    y += (keyLines.length * 4.5) + 1;
+    y += (keyLines.length * lineSpacing);
 
-    // Render Explanation
-    doc.setFont("helvetica", "italic");
+    // Render Explanation (Warna abu-abu tetap digunakan)
     doc.setTextColor(100, 116, 139);
     const expLines = doc.splitTextToSize(`Pembahasan: ${explanationText}`, detailWidth);
     doc.text(expLines, detailMargin, y);
-    y += (expLines.length * 4.5) + 10; // Extra space between questions
+    y += (expLines.length * lineSpacing) + 8; 
 
-    // Horizontal Separator
+    // Garis Pemisah Tipis
     doc.setDrawColor(241, 245, 249);
-    doc.line(marginX, y - 5, pageWidth - marginX, y - 5);
+    doc.line(marginX, y - 4, pageWidth - marginX, y - 4);
   }
 
   // Branding Footer
-  doc.setFontSize(7);
+  doc.setFontSize(8);
   doc.setTextColor(148, 163, 184);
   doc.text(`Dicetak melalui EduCBT Pro v1.2 • ${new Date().toLocaleString('id-ID')}`, marginX, pageHeight - 10);
 
@@ -162,12 +153,11 @@ export const generateResultPDF = async (result: QuizResult, questions: Question[
 export const generateQuestionBankPDF = (questions: Question[], mode: 'kisi' | 'soal' | 'lengkap', subject?: string, token?: string) => {
   const doc = new jsPDF('p', 'mm', 'a4');
   doc.setFontSize(14);
-  doc.setFont("helvetica", "bold");
+  doc.setFont("helvetica", "normal");
   doc.text(`BANK SOAL - ${token || 'SEMUA'}`, 105, 20, { align: 'center' });
   
   let y = 35;
   doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
 
   questions.forEach((q, i) => {
     const textLines = doc.splitTextToSize(`${q.order}. ${q.text}`, 170);
