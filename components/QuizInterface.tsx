@@ -61,33 +61,39 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
     if (isSubmitting.current) return;
     isSubmitting.current = true;
 
-    let score = 0;
-    const weight = 100 / (questions.length || 1);
+    let correctCount = 0;
+    const totalQuestions = questions.length;
     
     questions.forEach(q => {
       const studentAns = answers[q.id];
       let isCorrect = false;
 
-      if (q.type === QuestionType.SINGLE) isCorrect = studentAns === q.correctAnswer;
-      else if (q.type === QuestionType.MULTIPLE) {
+      if (q.type === QuestionType.SINGLE) {
+        isCorrect = studentAns === q.correctAnswer;
+      } else if (q.type === QuestionType.MULTIPLE) {
         const correctSet = new Set(q.correctAnswer || []);
         const studentSet = new Set(studentAns || []);
         isCorrect = correctSet.size === studentSet.size && [...correctSet].every(x => studentSet.has(x));
-      }
-      else if (q.type === QuestionType.COMPLEX_CATEGORY || q.type === QuestionType.TRUE_FALSE_COMPLEX) {
+      } else if (q.type === QuestionType.COMPLEX_CATEGORY || q.type === QuestionType.TRUE_FALSE_COMPLEX) {
         const correctArr = q.correctAnswer || [];
         const studentArr = studentAns || [];
-        isCorrect = correctArr.length === studentArr.length && correctArr.every((v:any, i:number) => v === studentArr[i]);
+        // Untuk tipe kompleks, semua pernyataan dalam satu soal harus benar untuk dianggap benar per nomor
+        isCorrect = correctArr.length > 0 && 
+                    correctArr.length === studentArr.length && 
+                    correctArr.every((v:any, i:number) => v === studentArr[i]);
       }
 
-      if (isCorrect) score += weight;
+      if (isCorrect) correctCount++;
     });
+
+    // RUMUS SKALA 100: (Jumlah Benar / Total Soal) * 100
+    const finalScore = totalQuestions > 0 ? (correctCount / totalQuestions) * 100 : 0;
 
     onFinish({ 
       id: Date.now().toString(), 
       identity, 
-      score, 
-      totalQuestions: questions.length, 
+      score: finalScore, 
+      totalQuestions: totalQuestions, 
       answers, 
       manualCorrections: {}, 
       timestamp: Date.now(), 
@@ -101,8 +107,8 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 text-center">
         <div className="bg-white rounded-[2rem] p-8 max-w-lg w-full">
           <h2 className="text-2xl font-black text-slate-800 mb-4">Mulai Ujian</h2>
-          <p className="text-slate-500 mb-8">Klik tombol di bawah untuk masuk ke mode layar penuh.</p>
-          <button onClick={requestFullscreen} className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl uppercase tracking-widest shadow-xl">AKTIFKAN UJIAN</button>
+          <p className="text-slate-500 mb-8 text-sm">Identitas berhasil diverifikasi. Klik tombol di bawah untuk masuk ke mode ujian (Layar Penuh).</p>
+          <button onClick={requestFullscreen} className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl uppercase tracking-widest shadow-xl active:scale-95 transition-all">AKTIFKAN MODE UJIAN</button>
         </div>
       </div>
     );
@@ -166,8 +172,8 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
           {q.options?.map((opt, idx) => {
             const optImg = q.optionImages?.[idx];
             return (
-              <button key={idx} onClick={() => setAnswers({...answers, [q.id]: idx})} className={`w-full flex items-start p-4 text-left border-2 rounded-xl transition-all ${currentAnswer === idx ? 'border-blue-600 bg-blue-50' : 'border-slate-200 hover:bg-slate-50'}`}>
-                <span className={`w-10 h-10 flex items-center justify-center rounded-lg font-black mr-4 shrink-0 ${currentAnswer === idx ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-400'}`}>{String.fromCharCode(65+idx)}</span>
+              <button key={idx} onClick={() => setAnswers({...answers, [q.id]: idx})} className={`w-full flex items-start p-4 text-left border-2 rounded-xl transition-all ${currentAnswer === idx ? 'border-blue-600 bg-blue-50 shadow-inner' : 'border-slate-200 hover:bg-slate-50'}`}>
+                <span className={`w-10 h-10 flex items-center justify-center rounded-lg font-black mr-4 shrink-0 ${currentAnswer === idx ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-100 text-slate-400'}`}>{String.fromCharCode(65+idx)}</span>
                 <div className="flex-1 min-w-0">
                   <span className="font-bold text-slate-700 block" style={{ fontSize: `${fontSize - 2}px` }}>{opt}</span>
                   {optImg && (
@@ -223,7 +229,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
          </div>
          <div className="flex items-center gap-8">
             <div className={`flex flex-col items-center px-8 border-l-2 border-slate-200 ${timeLeft < 300 ? 'text-red-600' : 'text-blue-700'}`}>
-               <p className="text-[10px] font-black uppercase tracking-widest mb-1">Waktu</p>
+               <p className="text-[10px] font-black uppercase tracking-widest mb-1">Sisa Waktu</p>
                <p className="font-mono text-3xl font-black leading-none">{Math.floor(timeLeft/60)}:{String(timeLeft%60).padStart(2,'0')}</p>
             </div>
          </div>
@@ -232,17 +238,26 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
        <div className="flex-1 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden">
           <main className="flex-1 overflow-y-auto p-4 lg:p-8 custom-scrollbar">
              <div className="max-w-4xl mx-auto space-y-6">
-                <div className="bg-white rounded-[2rem] shadow-xl border p-10">
+                <div className="bg-white rounded-[2rem] shadow-xl border p-10 relative overflow-hidden">
+                   <div className="absolute top-0 right-0 p-6 flex gap-2">
+                      <button onClick={() => setFontSize(prev => Math.min(prev + 2, 30))} className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-xs font-black hover:bg-slate-200 transition-all">A+</button>
+                      <button onClick={() => setFontSize(prev => Math.max(prev - 2, 12))} className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-xs font-black hover:bg-slate-200 transition-all">A-</button>
+                   </div>
+
                    <div className="flex justify-between items-center mb-8 border-b pb-6 border-slate-100">
                       <div className="flex items-center gap-3">
-                         <span className="bg-blue-600 text-white w-14 h-14 rounded-2xl flex items-center justify-center font-black text-2xl">{currentIdx + 1}</span>
-                         <h2 className="text-sm font-black text-slate-800 uppercase tracking-tighter">{q?.type}</h2>
+                         <span className="bg-blue-600 text-white w-14 h-14 rounded-2xl flex items-center justify-center font-black text-2xl shadow-lg shadow-blue-100">{currentIdx + 1}</span>
+                         <div>
+                            <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tipe Pertanyaan</h2>
+                            <p className="text-sm font-black text-slate-800 uppercase tracking-tighter">{q?.type}</p>
+                         </div>
                       </div>
                    </div>
+                   
                    <div className="space-y-8">
                       {q?.questionImage && (
                         <div className="flex justify-center mb-6">
-                           <img src={q.questionImage} alt="Stimulus" className="max-w-full h-auto rounded-[1.5rem] border-4 border-white shadow-xl" />
+                           <img src={q.questionImage} alt="Stimulus Soal" className="max-w-full h-auto rounded-[1.5rem] border-4 border-white shadow-xl" />
                         </div>
                       )}
                       <div className="leading-relaxed text-slate-800 font-medium" style={{ fontSize: `${fontSize}px`, whiteSpace: 'pre-wrap' }}>{q?.text}</div>
@@ -251,32 +266,59 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                 </div>
 
                 <div className="flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-3xl border-2 border-slate-300 shadow-md gap-3">
-                   <button disabled={currentIdx === 0} onClick={() => setCurrentIdx(prev => prev-1)} className="w-full sm:w-auto px-8 py-4 bg-slate-100 text-slate-500 font-black rounded-2xl border-b-4 border-slate-300 uppercase text-xs">Sebelumnya</button>
-                   <label className="flex items-center gap-3 cursor-pointer px-6 py-4 bg-orange-50 rounded-2xl border-2 border-orange-200">
+                   <button disabled={currentIdx === 0} onClick={() => setCurrentIdx(prev => prev-1)} className="w-full sm:w-auto px-8 py-4 bg-slate-100 text-slate-500 font-black rounded-2xl border-b-4 border-slate-300 uppercase text-xs disabled:opacity-30">Sebelumnya</button>
+                   <label className="flex items-center gap-3 cursor-pointer px-6 py-4 bg-orange-50 rounded-2xl border-2 border-orange-200 hover:bg-orange-100 transition-all">
                       <input type="checkbox" checked={isDoubtful} onChange={e => setDoubtfuls({...doubtfuls, [q.id]: e.target.checked})} className="w-6 h-6 accent-orange-500 rounded" />
                       <span className="font-black text-orange-600 uppercase text-xs">Ragu-Ragu</span>
                    </label>
                    {currentIdx === questions.length - 1 ? (
-                     <button onClick={handleSubmit} className="w-full sm:w-auto px-12 py-4 bg-green-600 text-white font-black rounded-2xl border-b-4 border-green-800 uppercase text-xs">Selesai</button>
+                     <button onClick={() => { if(confirm('Yakin ingin mengakhiri ujian?')) handleSubmit(); }} className="w-full sm:w-auto px-12 py-4 bg-green-600 text-white font-black rounded-2xl border-b-4 border-green-800 uppercase text-xs hover:bg-green-700 transition-all">Selesai</button>
                    ) : (
-                     <button onClick={() => setCurrentIdx(prev => prev+1)} className="w-full sm:w-auto px-12 py-4 bg-blue-600 text-white font-black rounded-2xl border-b-4 border-blue-800 uppercase text-xs">Berikutnya</button>
+                     <button onClick={() => setCurrentIdx(prev => prev+1)} className="w-full sm:w-auto px-12 py-4 bg-blue-600 text-white font-black rounded-2xl border-b-4 border-blue-800 uppercase text-xs hover:bg-blue-700 transition-all">Berikutnya</button>
                    )}
                 </div>
              </div>
           </main>
 
           <aside className="w-full lg:w-80 bg-white border-l-4 border-slate-300 overflow-y-auto p-6 shrink-0 custom-scrollbar lg:h-full">
+             <div className="mb-6">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Informasi Peserta</p>
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                   <p className="font-black text-slate-800 text-sm truncate">{identity.name}</p>
+                   <p className="text-[10px] font-bold text-slate-400 uppercase">{identity.className}</p>
+                </div>
+             </div>
+
              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Navigasi Soal</p>
              <div className="grid grid-cols-5 gap-2">
                 {questions.map((item, i) => {
                    const hasAns = answers[item.id] !== undefined;
                    const isDbt = doubtfuls[item.id];
                    return (
-                     <button key={item.id} onClick={() => setCurrentIdx(i)} className={`h-12 w-full flex items-center justify-center rounded-xl font-black text-sm border-b-4 transition-all ${i === currentIdx ? 'scale-105 ring-4 ring-blue-100' : ''} ${isDbt ? 'bg-orange-500 text-white border-orange-700' : hasAns ? 'bg-blue-600 text-white border-blue-800' : 'bg-white text-slate-400 border-slate-200'}`}>
+                     <button 
+                        key={item.id} 
+                        onClick={() => setCurrentIdx(i)} 
+                        className={`h-12 w-full flex items-center justify-center rounded-xl font-black text-sm border-b-4 transition-all active:scale-95 ${i === currentIdx ? 'scale-105 ring-4 ring-blue-100 z-10' : ''} ${isDbt ? 'bg-orange-500 text-white border-orange-700' : hasAns ? 'bg-blue-600 text-white border-blue-800' : 'bg-white text-slate-400 border-slate-200'}`}
+                      >
                        {i + 1}
                      </button>
                    );
                 })}
+             </div>
+             
+             <div className="mt-8 space-y-2">
+                <div className="flex items-center gap-3">
+                   <div className="w-4 h-4 bg-blue-600 rounded-md border-b-2 border-blue-800"></div>
+                   <span className="text-[10px] font-black text-slate-500 uppercase">Sudah Dijawab</span>
+                </div>
+                <div className="flex items-center gap-3">
+                   <div className="w-4 h-4 bg-orange-500 rounded-md border-b-2 border-orange-700"></div>
+                   <span className="text-[10px] font-black text-slate-500 uppercase">Ragu-Ragu</span>
+                </div>
+                <div className="flex items-center gap-3">
+                   <div className="w-4 h-4 bg-white border-2 border-slate-200"></div>
+                   <span className="text-[10px] font-black text-slate-500 uppercase">Belum Dijawab</span>
+                </div>
              </div>
           </aside>
        </div>
