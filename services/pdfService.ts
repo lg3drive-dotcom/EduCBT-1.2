@@ -12,7 +12,7 @@ const getFullAnswerText = (q: Question, answerValue?: any, isKey: boolean = fals
       return q.options?.map((opt, i) => {
         const val = targetAnswer[i];
         const textVal = val === true ? labels.true : val === false ? labels.false : '-';
-        return `[${opt}: ${textVal}]`;
+        return `[${opt.substring(0, 15)}...: ${textVal}]`;
       }).join(", ") || "-";
     }
     return "-";
@@ -50,73 +50,160 @@ export const generateResultPDF = (result: QuizResult, questions: Question[]) => 
   const margin = 15;
   const contentWidth = pageWidth - (margin * 2);
 
-  doc.setFillColor(30, 41, 59); 
-  doc.rect(0, 0, pageWidth, 55, 'F');
+  // --- HEADER SECTION ---
+  doc.setFillColor(15, 23, 42); // Slate 900
+  doc.rect(0, 0, pageWidth, 50, 'F');
   
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(22);
+  doc.setFontSize(20);
   doc.setFont("helvetica", "bold");
-  doc.text('LAPORAN HASIL UJIAN', pageWidth / 2, 18, { align: 'center' });
+  doc.text('HASIL EVALUASI UJIAN', margin, 18);
   
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
-  doc.text(`Nama: ${identity.name.toUpperCase()}`, margin, 33);
-  doc.text(`Kelas: ${identity.className}`, margin, 38);
-  doc.text(`Waktu: ${new Date(timestamp).toLocaleString('id-ID')}`, margin, 43);
-  
-  doc.setFillColor(37, 99, 235); 
-  doc.roundedRect(pageWidth - 55, 15, 40, 22, 3, 3, 'F');
+  doc.text(`NAMA LENGKAP  : ${identity.name.toUpperCase()}`, margin, 30);
+  doc.text(`KELAS / ROMBEL : ${identity.className}`, margin, 35);
+  doc.text(`TANGGAL UJIAN  : ${new Date(timestamp).toLocaleString('id-ID')}`, margin, 40);
+
+  // Score Box
+  doc.setFillColor(37, 99, 235); // Blue 600
+  doc.roundedRect(pageWidth - 55, 12, 40, 25, 3, 3, 'F');
+  doc.setFontSize(8);
+  doc.text('TOTAL SKOR', pageWidth - 35, 18, { align: 'center' });
   doc.setFontSize(18);
-  doc.setFont("helvetica", "bold");
-  doc.text(`${score.toFixed(1)}`, pageWidth - 35, 31, { align: 'center' });
+  doc.text(`${score.toFixed(1)}`, pageWidth - 35, 30, { align: 'center' });
 
-  let yPos = 65;
-  doc.setTextColor(0, 0, 0);
+  // --- TABLE HEADER ---
+  let yPos = 60;
+  const colWidths = {
+    no: 10,
+    soal: 80,
+    jawaban: 40,
+    kunci: 40,
+    status: 10
+  };
 
+  const drawTableHeader = (y: number) => {
+    doc.setFillColor(241, 245, 249); // Slate 100
+    doc.setDrawColor(203, 213, 225); // Slate 300
+    doc.rect(margin, y, contentWidth, 10, 'F');
+    doc.rect(margin, y, contentWidth, 10, 'D');
+    
+    doc.setTextColor(51, 65, 85);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
+    
+    let x = margin;
+    doc.text('NO', x + 2, y + 6.5);
+    x += colWidths.no;
+    doc.text('BUTIR PERTANYAAN', x + 2, y + 6.5);
+    x += colWidths.soal;
+    doc.text('JAWABAN ANDA', x + 2, y + 6.5);
+    x += colWidths.jawaban;
+    doc.text('KUNCI', x + 2, y + 6.5);
+    x += colWidths.kunci;
+    doc.text('STAT', x + 2, y + 6.5);
+  };
+
+  drawTableHeader(yPos);
+  yPos += 10;
+
+  // --- TABLE BODY ---
   questions.forEach((q, idx) => {
     const studentAns = answers[q.id];
     const isCorrect = checkCorrectness(q, studentAns);
     const fullStudentAns = getFullAnswerText(q, studentAns, false);
     const fullKeyText = getFullAnswerText(q, undefined, true);
-    
-    doc.setFontSize(9);
-    const qLines = doc.splitTextToSize(`${idx + 1}. ${q.text}`, contentWidth - 40);
-    const itemHeight = (qLines.length * 5) + 30;
 
-    if (yPos + itemHeight > pageHeight - 15) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    
+    const soalLines = doc.splitTextToSize(q.text, colWidths.soal - 4);
+    const ansLines = doc.splitTextToSize(fullStudentAns, colWidths.jawaban - 4);
+    const keyLines = doc.splitTextToSize(fullKeyText, colWidths.kunci - 4);
+    
+    // Hitung tinggi baris berdasarkan teks terpanjang
+    const maxLines = Math.max(soalLines.length, ansLines.length, keyLines.length);
+    const rowHeight = (maxLines * 4) + 4;
+
+    // Cek apakah muat di halaman ini
+    if (yPos + rowHeight > pageHeight - 20) {
       doc.addPage();
-      yPos = 15;
+      yPos = 20;
+      drawTableHeader(yPos);
+      yPos += 10;
     }
 
-    doc.setDrawColor(226, 232, 240); 
-    doc.rect(margin, yPos, contentWidth, itemHeight);
+    // Draw Row Borders
+    doc.setDrawColor(226, 232, 240);
+    doc.rect(margin, yPos, contentWidth, rowHeight, 'D');
     
-    doc.setFont("helvetica", "bold");
-    doc.text(qLines, margin + 5, yPos + 8);
+    // Print Cells
+    let x = margin;
     
-    doc.setFont("helvetica", "normal");
-    doc.text(`Jawaban: ${fullStudentAns}`, margin + 5, yPos + 18 + (qLines.length * 2));
+    // No
+    doc.text(`${idx + 1}`, x + 5, yPos + 5, { align: 'center' });
+    x += colWidths.no;
+    
+    // Soal
+    doc.text(soalLines, x + 2, yPos + 5);
+    x += colWidths.soal;
+    
+    // Jawaban (Warna merah jika salah)
+    if (!isCorrect) doc.setTextColor(220, 38, 38);
+    doc.text(ansLines, x + 2, yPos + 5);
+    doc.setTextColor(51, 65, 85);
+    x += colWidths.jawaban;
+    
+    // Kunci
     doc.setTextColor(22, 101, 52);
-    doc.text(`Kunci: ${fullKeyText}`, margin + 5, yPos + 24 + (qLines.length * 2));
-    doc.setTextColor(0, 0, 0);
+    doc.text(keyLines, x + 2, yPos + 5);
+    doc.setTextColor(51, 65, 85);
+    x += colWidths.kunci;
+    
+    // Status (V / X)
+    doc.setFont("helvetica", "bold");
+    if (isCorrect) {
+      doc.setTextColor(22, 163, 74);
+      doc.text('OK', x + 5, yPos + 5, { align: 'center' });
+    } else {
+      doc.setTextColor(220, 38, 38);
+      doc.text('X', x + 5, yPos + 5, { align: 'center' });
+    }
+    doc.setTextColor(51, 65, 85);
 
-    yPos += itemHeight + 5;
+    yPos += rowHeight;
   });
 
-  doc.save(`Hasil_${identity.name}.pdf`);
+  // Footer Branding
+  doc.setFontSize(7);
+  doc.setTextColor(148, 163, 184);
+  doc.text('Diterbitkan otomatis oleh sistem EduCBT Pro • Laporan ini sah tanpa tanda tangan.', margin, pageHeight - 10);
+
+  doc.save(`Hasil_Ujian_${identity.name.replace(/\s+/g, '_')}.pdf`);
 };
 
 export const generateQuestionBankPDF = (questions: Question[], mode: 'kisi' | 'soal' | 'lengkap', subject?: Subject, token?: string) => {
   const doc = new jsPDF('p', 'mm', 'a4');
   doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
   doc.text(`BANK SOAL - ${token || 'SEMUA'}`, 105, 20, { align: 'center' });
   
-  let y = 30;
+  let y = 35;
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+
   questions.forEach((q, i) => {
-    doc.setFontSize(10);
-    doc.text(`${q.order}. ${q.text}`, 20, y);
-    y += 10;
-    if (y > 270) { doc.addPage(); y = 20; }
+    const textLines = doc.splitTextToSize(`${q.order}. ${q.text}`, 170);
+    const itemHeight = (textLines.length * 5) + 5;
+
+    if (y + itemHeight > 270) { 
+      doc.addPage(); 
+      y = 25; 
+    }
+
+    doc.text(textLines, 20, y);
+    y += itemHeight;
   });
   
   doc.save(`BankSoal_${token || 'Export'}.pdf`);
