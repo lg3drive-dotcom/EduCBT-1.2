@@ -1,6 +1,6 @@
 
 import { jsPDF } from 'jspdf';
-import { QuizResult, Question, Subject, QuestionType } from '../types';
+import { QuizResult, Question, QuestionType } from '../types';
 
 const getFullAnswerText = (q: Question, answerValue?: any, isKey: boolean = false): string => {
   const targetAnswer = isKey ? q.correctAnswer : answerValue;
@@ -12,7 +12,7 @@ const getFullAnswerText = (q: Question, answerValue?: any, isKey: boolean = fals
       return q.options?.map((opt, i) => {
         const val = targetAnswer[i];
         const textVal = val === true ? labels.true : val === false ? labels.false : '-';
-        return `[${opt.substring(0, 10)}..: ${textVal}]`;
+        return `[${opt}: ${textVal}]`;
       }).join(", ") || "-";
     }
     return "-";
@@ -50,159 +50,104 @@ export const generateResultPDF = (result: QuizResult, questions: Question[]) => 
   const margin = 15;
   const contentWidth = pageWidth - (margin * 2);
 
-  // --- HEADER SECTION ---
-  doc.setFillColor(15, 23, 42); 
-  doc.rect(0, 0, pageWidth, 50, 'F');
+  // --- HEADER ---
+  doc.setFillColor(15, 23, 42); // Slate 900
+  doc.rect(0, 0, pageWidth, 55, 'F');
   
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(20);
+  doc.setFontSize(22);
   doc.setFont("helvetica", "bold");
-  doc.text('LAPORAN HASIL UJIAN', margin, 18);
+  doc.text('LEMBAR HASIL UJIAN', margin, 22);
   
-  doc.setFontSize(9);
+  doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
-  doc.text(`NAMA LENGKAP  : ${identity.name.toUpperCase()}`, margin, 30);
-  doc.text(`KELAS / ROMBEL : ${identity.className}`, margin, 35);
-  doc.text(`TANGGAL UJIAN  : ${new Date(timestamp).toLocaleString('id-ID')}`, margin, 40);
+  doc.text(`NAMA LENGKAP      : ${identity.name.toUpperCase()}`, margin, 34);
+  doc.text(`KELAS / ROMBEL     : ${identity.className}`, margin, 40);
+  doc.text(`ASAL SEKOLAH      : ${identity.schoolOrigin}`, margin, 46);
+  doc.text(`WAKTU SELESAI   : ${new Date(timestamp).toLocaleString('id-ID')}`, margin, 52);
 
-  // Score Box
+  // Score Highlight Box
   doc.setFillColor(37, 99, 235);
-  doc.roundedRect(pageWidth - 55, 12, 40, 25, 3, 3, 'F');
+  doc.roundedRect(pageWidth - 55, 15, 40, 25, 3, 3, 'F');
   doc.setFontSize(8);
-  doc.text('SKOR AKHIR', pageWidth - 35, 18, { align: 'center' });
-  doc.setFontSize(18);
-  doc.text(`${score.toFixed(1)}`, pageWidth - 35, 30, { align: 'center' });
+  doc.text('SKOR AKHIR', pageWidth - 35, 22, { align: 'center' });
+  doc.setFontSize(20);
+  doc.text(`${score.toFixed(1)}`, pageWidth - 35, 33, { align: 'center' });
 
-  // --- TABLE CONFIGURATION ---
-  const colWidths = {
-    no: 8,
-    soal: 45,
-    jawaban: 35,
-    kunci: 30,
-    pembahasan: 55,
-    status: 7
-  };
-  
-  const drawTableHeader = (y: number) => {
-    doc.setFillColor(241, 245, 249);
-    doc.setDrawColor(203, 213, 225);
-    doc.rect(margin, y, contentWidth, 10, 'F');
-    doc.rect(margin, y, contentWidth, 10, 'D');
-    
-    doc.setTextColor(51, 65, 85);
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "bold");
-    
-    let x = margin;
-    doc.text('NO', x + 2, y + 6.5);
-    x += colWidths.no;
-    doc.text('PERTANYAAN', x + 2, y + 6.5);
-    x += colWidths.soal;
-    doc.text('JAWABAN ANDA', x + 2, y + 6.5);
-    x += colWidths.jawaban;
-    doc.text('KUNCI', x + 2, y + 6.5);
-    x += colWidths.kunci;
-    doc.text('PEMBAHASAN', x + 2, y + 6.5);
-    x += colWidths.pembahasan;
-    doc.text('ST', x + 2, y + 6.5);
-  };
+  let y = 65;
+  const lineHeight = 5;
 
-  let yPos = 60;
-  drawTableHeader(yPos);
-  yPos += 10;
-
-  // --- TABLE BODY ---
   questions.forEach((q, idx) => {
     const studentAns = answers[q.id];
     const isCorrect = checkCorrectness(q, studentAns);
-    const fullStudentAns = getFullAnswerText(q, studentAns, false);
-    const fullKeyText = getFullAnswerText(q, undefined, true);
-    const explanation = q.explanation || "Tidak ada pembahasan.";
+    const studentText = getFullAnswerText(q, studentAns, false);
+    const keyText = getFullAnswerText(q, undefined, true);
+    const explanationText = q.explanation || "Tidak ada pembahasan.";
 
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(6.5);
+    // Split texts to size
+    doc.setFontSize(10);
+    const qLines = doc.splitTextToSize(`${idx + 1}. ${q.text}`, contentWidth);
     
-    // Split text for each column
-    const soalLines = doc.splitTextToSize(q.text, colWidths.soal - 4);
-    const ansLines = doc.splitTextToSize(fullStudentAns, colWidths.jawaban - 4);
-    const keyLines = doc.splitTextToSize(fullKeyText, colWidths.kunci - 4);
-    const expLines = doc.splitTextToSize(explanation, colWidths.pembahasan - 4);
-    
-    // Calculate row height (min 10mm, with padding)
-    const lineHeight = 3.5;
-    const maxLines = Math.max(soalLines.length, ansLines.length, keyLines.length, expLines.length);
-    const rowHeight = Math.max(10, (maxLines * lineHeight) + 6);
+    doc.setFontSize(9);
+    const ansLines = doc.splitTextToSize(`Jawaban Anda: ${studentText}`, contentWidth - 10);
+    const keyLines = doc.splitTextToSize(`Kunci Jawaban: ${keyText}`, contentWidth - 10);
+    const expLines = doc.splitTextToSize(`Pembahasan: ${explanationText}`, contentWidth - 10);
 
-    // Page break check
-    if (yPos + rowHeight > pageHeight - 20) {
+    // Calculate total height needed for this block
+    const blockHeight = (qLines.length * lineHeight) + 
+                        (ansLines.length * 4) + 
+                        (keyLines.length * 4) + 
+                        (expLines.length * 4) + 15;
+
+    // Check for page break
+    if (y + blockHeight > pageHeight - 20) {
       doc.addPage();
-      yPos = 20;
-      drawTableHeader(yPos);
-      yPos += 10;
+      y = 20;
     }
 
-    // Draw row background for odd rows for better readability
-    if (idx % 2 === 1) {
-      doc.setFillColor(252, 253, 255);
-      doc.rect(margin, yPos, contentWidth, rowHeight, 'F');
-    }
+    // Draw Status Indicator (Circle)
+    doc.setDrawColor(203, 213, 225);
+    doc.setFillColor(isCorrect ? 240 : 254, isCorrect ? 253 : 242, isCorrect ? 244 : 242);
+    doc.roundedRect(margin - 2, y - 4, contentWidth + 4, blockHeight - 4, 2, 2, 'F');
 
-    // Draw cell borders
-    doc.setDrawColor(226, 232, 240);
-    doc.rect(margin, yPos, contentWidth, rowHeight, 'D');
-    
-    let x = margin;
-    
-    // NO
-    doc.setTextColor(100, 116, 139);
-    doc.text(`${idx + 1}`, x + 4, yPos + 6, { align: 'center' });
-    x += colWidths.no;
-    
-    // SOAL
-    doc.setTextColor(51, 65, 85);
-    doc.text(soalLines, x + 2, yPos + 6);
-    x += colWidths.soal;
-    
-    // JAWABAN
-    if (!isCorrect) doc.setTextColor(220, 38, 38); // Red if wrong
-    else doc.setTextColor(22, 101, 52); // Dark Green if correct
-    doc.text(ansLines, x + 2, yPos + 6);
-    x += colWidths.jawaban;
-    
-    // KUNCI
-    doc.setTextColor(30, 64, 175); // Blue for key
-    doc.text(keyLines, x + 2, yPos + 6);
-    x += colWidths.kunci;
-    
-    // PEMBAHASAN
+    // 1. Render Question
+    doc.setTextColor(15, 23, 42);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text(qLines, margin, y);
+    y += (qLines.length * lineHeight) + 2;
+
+    // 2. Render Student Answer
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    if (isCorrect) doc.setTextColor(22, 163, 74); // Green
+    else doc.setTextColor(220, 38, 38); // Red
+    doc.text(ansLines, margin + 6, y);
+    y += (ansLines.length * 4.5);
+
+    // 3. Render Key
+    doc.setTextColor(37, 99, 235); // Blue
+    doc.setFont("helvetica", "normal");
+    doc.text(keyLines, margin + 6, y);
+    y += (keyLines.length * 4.5);
+
+    // 4. Render Explanation
     doc.setTextColor(71, 85, 105);
     doc.setFont("helvetica", "italic");
-    doc.text(expLines, x + 2, yPos + 6);
-    doc.setFont("helvetica", "normal");
-    x += colWidths.pembahasan;
-    
-    // STATUS
-    doc.setFont("helvetica", "bold");
-    if (isCorrect) {
-      doc.setTextColor(22, 163, 74);
-      doc.text('V', x + 3.5, yPos + 6, { align: 'center' });
-    } else {
-      doc.setTextColor(220, 38, 38);
-      doc.text('X', x + 3.5, yPos + 6, { align: 'center' });
-    }
-    
-    yPos += rowHeight;
+    doc.text(expLines, margin + 6, y);
+    y += (expLines.length * 4.5) + 6; // Add space after block
   });
 
-  // Branding Footer
-  doc.setFontSize(6.5);
+  // Footer
+  doc.setFontSize(7);
   doc.setTextColor(148, 163, 184);
-  doc.text(`E-Laporan EduCBT Pro • Dicetak pada ${new Date().toLocaleString('id-ID')}`, margin, pageHeight - 10);
+  doc.setFont("helvetica", "normal");
+  doc.text(`E-Laporan ini dihasilkan secara otomatis oleh sistem EduCBT Pro. Dicetak pada ${new Date().toLocaleString('id-ID')}`, margin, pageHeight - 10);
 
   doc.save(`Hasil_Ujian_${identity.name.replace(/\s+/g, '_')}.pdf`);
 };
 
-export const generateQuestionBankPDF = (questions: Question[], mode: 'kisi' | 'soal' | 'lengkap', subject?: Subject, token?: string) => {
+export const generateQuestionBankPDF = (questions: Question[], mode: 'kisi' | 'soal' | 'lengkap', subject?: string, token?: string) => {
   const doc = new jsPDF('p', 'mm', 'a4');
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
