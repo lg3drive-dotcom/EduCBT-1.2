@@ -32,7 +32,6 @@ const formatCorrectAnswer = (q: Question): string => {
 const cleanText = (text: string): string => {
   if (!text) return '';
   // Menghapus karakter yang bisa merusak format CSV dan membungkus dengan kutip ganda
-  // Menghilangkan newline agar data tetap dalam satu baris Excel
   const cleaned = text.toString().replace(/"/g, '""').replace(/\n/g, ' ');
   return `"${cleaned}"`;
 };
@@ -40,7 +39,7 @@ const cleanText = (text: string): string => {
 export const exportQuestionsToExcel = (questions: Question[], fileName: string) => {
   if (questions.length === 0) return;
 
-  // Header sesuai permintaan user dan screenshot
+  // Header 19 Kolom sesuai permintaan
   const headers = [
     'No', 
     'Tipe Soal', 
@@ -85,7 +84,7 @@ export const exportQuestionsToExcel = (questions: Question[], fileName: string) 
     ].join(',');
   });
 
-  // Gunakan UTF-8 BOM agar Excel mengenali karakter spesial/lokal dengan benar
+  // UTF-8 BOM agar Excel mengenali karakter lokal dengan benar
   const csvContent = "\uFEFF" + headers.join(',') + '\n' + rows.join('\n');
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
