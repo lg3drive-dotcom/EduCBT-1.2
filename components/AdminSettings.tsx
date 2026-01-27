@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { AppSettings, Question } from '../types';
 
 interface AdminSettingsProps {
@@ -18,7 +18,16 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
   onReset
 }) => {
   const [timer, setTimer] = useState(settings.timerMinutes.toString());
+  const [exportToken, setExportToken] = useState<string>('ALL');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Ambil daftar token unik dari bank soal
+  const availableTokens = useMemo(() => {
+    const tokens = questions
+      .map(q => q.quizToken?.toUpperCase())
+      .filter((t): t is string => !!t);
+    return Array.from(new Set(tokens)).sort();
+  }, [questions]);
 
   const handleSave = () => {
     onUpdateSettings({
@@ -29,11 +38,24 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
   };
 
   const handleBackup = () => {
-    const blob = new Blob([JSON.stringify(questions, null, 2)], { type: 'application/json' });
+    let dataToExport = questions;
+    let fileNameSuffix = 'SEMUA_TOKEN';
+
+    if (exportToken !== 'ALL') {
+      dataToExport = questions.filter(q => q.quizToken?.toUpperCase() === exportToken);
+      fileNameSuffix = `TOKEN_${exportToken}`;
+    }
+
+    if (dataToExport.length === 0) {
+      alert("Tidak ada soal untuk diekspor dengan kriteria tersebut.");
+      return;
+    }
+
+    const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `EduCBT_Backup_BankSoal_${new Date().toISOString().split('T')[0]}.json`;
+    link.download = `EduCBT_Backup_${fileNameSuffix}_${new Date().toISOString().split('T')[0]}.json`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -51,7 +73,6 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
           return;
         }
 
-        // Tampilkan pilihan mode import
         const userChoice = confirm(
           `Ditemukan ${imported.length} soal baru.\n\n` +
           `PILIH TINDAKAN:\n` +
@@ -60,11 +81,9 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
         );
 
         if (userChoice) {
-          // Mode: Append (Gabungkan)
           onImportQuestions(imported, 'append');
           alert(`BERHASIL: ${imported.length} soal baru telah ditambahkan ke bank soal.`);
         } else {
-          // Mode: Replace (Ganti)
           const confirmReplace = confirm("PERINGATAN: Semua soal lama akan DIHAPUS. Lanjutkan?");
           if (confirmReplace) {
             onImportQuestions(imported, 'replace');
@@ -72,7 +91,6 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
           }
         }
         
-        // Reset input file agar bisa memilih file yang sama lagi jika perlu
         if (fileInputRef.current) fileInputRef.current.value = '';
 
       } catch(e) { 
@@ -105,9 +123,31 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
           Data & Backup
         </h2>
 
-        <div className="space-y-3">
-          <button onClick={handleBackup} className="w-full bg-slate-100 text-slate-700 font-bold py-3 rounded-2xl border border-slate-200 hover:bg-slate-200 transition-all uppercase text-[10px] tracking-widest">Download Bank Soal</button>
+        <div className="space-y-4">
+          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+            <label className="block text-[9px] font-black text-slate-500 uppercase mb-2 tracking-widest">Pilih Filter Export</label>
+            <select 
+              value={exportToken} 
+              onChange={(e) => setExportToken(e.target.value)}
+              className="w-full p-2 bg-white border border-slate-200 rounded-xl text-[10px] font-black outline-none focus:border-purple-500"
+            >
+              <option value="ALL">SEMUA TOKEN (KESELURUHAN)</option>
+              {availableTokens.map(token => (
+                <option key={token} value={token}>TOKEN: {token}</option>
+              ))}
+            </select>
+          </div>
+
+          <button onClick={handleBackup} className="w-full bg-slate-900 text-white font-bold py-3 rounded-2xl shadow-md hover:bg-black transition-all uppercase text-[10px] tracking-widest flex items-center justify-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+            Download {exportToken === 'ALL' ? 'Semua Soal' : 'Soal Terpilih'}
+          </button>
           
+          <div className="relative py-2">
+            <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-slate-100"></span></div>
+            <div className="relative flex justify-center"><span className="bg-white px-2 text-[8px] font-black text-slate-300 uppercase tracking-widest">Atau</span></div>
+          </div>
+
           <input 
             type="file" 
             ref={fileInputRef} 
