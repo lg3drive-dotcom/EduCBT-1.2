@@ -358,7 +358,7 @@ const App: React.FC = () => {
               <div className="mt-auto flex flex-col items-center">
                 <button onClick={() => setView('admin-auth')} className="w-full bg-white/5 hover:bg-white/10 p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/5 transition-all mb-4">Administrator</button>
                 <a href="http://lynk.id/edupreneur25/n3yqk5e4er64" target="_blank" rel="noopener noreferrer" className="mb-4 block text-[10px] text-center font-bold text-slate-400 hover:text-blue-600 transition-colors uppercase tracking-widest leading-relaxed">klik di sini untuk mendapatkan<br/>password administrator</a>
-                <button onClick={handleChangeAdminPass} className="w-1.5 h-1.5 bg-red-600 rounded-full opacity-30 hover:opacity-100 transition-opacity cursor-pointer mb-2" aria-hidden="true"></button>
+                <button onClick={handleChangeAdminPass} className="text-[9px] font-bold text-slate-500 opacity-30 hover:opacity-100 transition-opacity cursor-pointer mb-2 tracking-tighter">asepsukanta25@guru.sd.belajar.id</button>
               </div>
             </div>
             <div className="md:w-7/12 p-12 bg-white max-h-[90vh] overflow-y-auto custom-scrollbar">
