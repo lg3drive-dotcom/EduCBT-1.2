@@ -21,20 +21,65 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
   const startTime = useRef(Date.now());
   const isSubmitting = useRef(false);
 
+  // Protokol Keamanan Ketat
+  useEffect(() => {
+    if (!isFullscreen) return;
+
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement && !isSubmitting.current) {
+        onViolation("SISTEM: Anda dilarang keluar dari mode layar penuh selama ujian berlangsung.");
+      }
+    };
+
+    const handleBlur = () => {
+      if (!isSubmitting.current) {
+        onViolation("SISTEM: Anda terdeteksi berpindah jendela atau membuka aplikasi lain.");
+      }
+    };
+
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Blokir F12, Ctrl+Shift+I, Ctrl+U, Alt+Tab (sebagian)
+      if (
+        e.key === 'F12' || 
+        (e.ctrlKey && e.shiftKey && e.key === 'I') || 
+        (e.ctrlKey && e.key === 'u') ||
+        (e.altKey && e.key === 'Tab')
+      ) {
+        e.preventDefault();
+        return false;
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    window.addEventListener('blur', handleBlur);
+    document.addEventListener('contextmenu', handleContextMenu);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      window.removeEventListener('blur', handleBlur);
+      document.removeEventListener('contextmenu', handleContextMenu);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isFullscreen, onViolation]);
+
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (isSubmitting.current) return;
       if (document.visibilityState === 'hidden') {
-        onViolation("Anda terdeteksi meninggalkan halaman ujian.");
+        onViolation("SISTEM: Anda terdeteksi meninggalkan halaman ujian (pindah tab).");
       }
     };
-    if (isFullscreen) {
-      document.addEventListener('visibilitychange', handleVisibilityChange);
-    }
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [isFullscreen, onViolation]);
+  }, [onViolation]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -53,7 +98,9 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
   const requestFullscreen = () => {
     const elem = document.documentElement;
     if (elem.requestFullscreen) {
-      elem.requestFullscreen().then(() => setIsFullscreen(true));
+      elem.requestFullscreen()
+        .then(() => setIsFullscreen(true))
+        .catch(() => alert("Gagal mengaktifkan mode ujian. Pastikan browser Anda mengizinkan Fullscreen."));
     }
   };
 
@@ -87,6 +134,10 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
 
     const finalScore = totalQuestions > 0 ? (correctCount / totalQuestions) * 100 : 0;
 
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+
     onFinish({ 
       id: Date.now().toString(), 
       identity, 
@@ -103,10 +154,18 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
   if (!isFullscreen) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 text-center">
-        <div className="bg-white rounded-[2rem] p-8 max-w-lg w-full">
-          <h2 className="text-2xl font-black text-slate-800 mb-4">Mulai Ujian</h2>
-          <p className="text-slate-500 mb-8 text-sm">Identitas berhasil diverifikasi. Klik tombol di bawah untuk masuk ke mode ujian (Layar Penuh).</p>
-          <button onClick={requestFullscreen} className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl uppercase tracking-widest shadow-xl active:scale-95 transition-all">AKTIFKAN MODE UJIAN</button>
+        <div className="bg-white rounded-[2rem] p-10 max-w-lg w-full shadow-2xl">
+          <div className="w-20 h-20 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-black text-slate-800 mb-2">Siap Memulai Ujian?</h2>
+          <p className="text-slate-500 mb-8 text-sm leading-relaxed font-medium">
+            Sistem akan mengunci layar browser Anda. <br/>
+            <span className="text-red-500 font-bold">Peringatan:</span> Keluar dari layar penuh atau berpindah tab akan membatalkan ujian Anda secara otomatis.
+          </p>
+          <button onClick={requestFullscreen} className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl uppercase tracking-widest shadow-xl shadow-blue-200 active:scale-95 transition-all">MASUK MODE UJIAN</button>
         </div>
       </div>
     );
@@ -129,7 +188,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
              <thead className="bg-slate-800 text-white">
                <tr>
                  <th className="p-4 text-[10px] font-black uppercase tracking-widest">Pernyataan Analisis</th>
-                 <th className="p-4 text-center text-[10px] font-black uppercase tracking-widest w-64">Kesesuaian</th>
+                 <th className="p-4 text-center text-[10px] font-black uppercase tracking-widest w-64">Pilihan ({labels.true}/{labels.false})</th>
                </tr>
              </thead>
              <tbody className="divide-y divide-slate-200">
@@ -137,7 +196,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                  const resArr = currentAnswer || q.options?.map(() => null);
                  const val = resArr[idx];
                  return (
-                   <tr key={idx} className="hover:bg-slate-50">
+                   <tr key={idx} className="hover:bg-slate-50 transition-colors">
                      <td className="p-4 font-bold text-slate-700" style={{ fontSize: `${fontSize - 4}px` }}>{opt}</td>
                      <td className="p-4">
                         <div className="flex bg-slate-100 p-1 rounded-xl gap-1">
@@ -187,7 +246,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
 
     if (q.type === QuestionType.MULTIPLE) {
       return (
-        <div className="space-y-6">
+        <div className="space-y-4">
           <p className="text-slate-500 italic font-bold text-sm mb-4">
             (Soal MCMA – pilih lebih dari satu jawaban yang benar)
           </p>
@@ -203,9 +262,9 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                     const next = selected ? prev.filter((i:any) => i !== idx) : [...prev, idx];
                     setAnswers({...answers, [q.id]: next});
                   }} 
-                  className={`w-full flex items-start p-4 text-left rounded-xl transition-all border-2 ${selected ? 'border-blue-500 bg-blue-50/30' : 'border-transparent hover:bg-slate-50'}`}
+                  className={`w-full flex items-start p-4 text-left rounded-xl transition-all border-2 group ${selected ? 'border-blue-500 bg-blue-50/30' : 'border-slate-100 hover:bg-slate-50'}`}
                 >
-                  <div className={`w-6 h-6 border-2 rounded mr-4 shrink-0 flex items-center justify-center transition-all ${selected ? 'bg-blue-600 border-blue-600' : 'bg-white border-slate-400'}`}>
+                  <div className={`w-6 h-6 border-2 rounded mr-4 shrink-0 flex items-center justify-center transition-all ${selected ? 'bg-blue-600 border-blue-600' : 'bg-white border-slate-400 group-hover:border-blue-400'}`}>
                     {selected && (
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -229,7 +288,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
   };
 
   return (
-    <div className="min-h-screen bg-slate-200 flex flex-col lg:h-screen lg:overflow-hidden">
+    <div className="min-h-screen bg-slate-200 flex flex-col lg:h-screen lg:overflow-hidden select-none">
        <header className="bg-white border-b-4 border-blue-600 p-4 shadow-md flex justify-between items-center z-10 shrink-0">
          <div className="flex items-center gap-4">
            <div className="bg-blue-600 text-white w-12 h-12 rounded-xl flex items-center justify-center font-black text-2xl">C</div>
@@ -239,7 +298,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
            </div>
          </div>
          <div className="flex items-center gap-8">
-            <div className={`flex flex-col items-center px-8 border-l-2 border-slate-200 ${timeLeft < 300 ? 'text-red-600' : 'text-blue-700'}`}>
+            <div className={`flex flex-col items-center px-8 border-l-2 border-slate-200 ${timeLeft < 300 ? 'text-red-600 animate-pulse' : 'text-blue-700'}`}>
                <p className="text-[10px] font-black uppercase tracking-widest mb-1">Sisa Waktu</p>
                <p className="font-mono text-3xl font-black leading-none">{Math.floor(timeLeft/60)}:{String(timeLeft%60).padStart(2,'0')}</p>
             </div>
