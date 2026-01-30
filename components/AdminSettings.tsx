@@ -120,6 +120,19 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
     reader.readAsText(file);
   };
 
+  const handleResetData = () => {
+    const confirmed = confirm(
+      "PERINGATAN KERAS!\n\n" +
+      "Seluruh data soal yang ada di perangkat ini (LOKAL) akan dihapus total.\n" +
+      "Tindakan ini tidak akan menghapus data di Cloud Supabase, namun bank soal di layar ini akan kosong.\n\n" +
+      "Apakah Anda yakin ingin melakukan RESET LOKAL?"
+    );
+    if (confirmed) {
+      onReset();
+      alert("Bank soal lokal telah dikosongkan.");
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* PENGATURAN DURASI */}
@@ -162,7 +175,7 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
             ))}
           </div>
 
-          <div className="grid grid-cols-1 gap-2">
+          <div className="grid grid-cols-1 gap-2 pt-2">
             <button 
               onClick={handleDownloadRecap} 
               disabled={selectedTokens.length === 0 || isDownloading} 
@@ -172,8 +185,12 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
             </button>
             
             <button onClick={handleExportJSON} disabled={selectedTokens.length === 0} className="w-full bg-slate-900 disabled:opacity-20 text-white font-black py-4 rounded-2xl text-[10px] uppercase tracking-widest">Backup Soal (.JSON)</button>
-            <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleFileChange} />
-            <button onClick={() => fileInputRef.current?.click()} className="w-full bg-white text-blue-600 font-bold py-4 rounded-2xl border-2 border-blue-100 text-[10px] uppercase tracking-widest">Upload .JSON</button>
+            
+            <div className="grid grid-cols-2 gap-2">
+               <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleFileChange} />
+               <button onClick={() => fileInputRef.current?.click()} className="w-full bg-white text-blue-600 font-bold py-4 rounded-2xl border-2 border-blue-100 text-[10px] uppercase tracking-widest">Upload .JSON</button>
+               <button onClick={handleResetData} className="w-full bg-white text-red-500 font-bold py-4 rounded-2xl border-2 border-red-100 text-[10px] uppercase tracking-widest">Reset Lokal</button>
+            </div>
           </div>
         </div>
       </div>
