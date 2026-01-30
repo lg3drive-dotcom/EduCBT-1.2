@@ -160,6 +160,50 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     });
   };
 
+  const handleDeleteOption = (index: number) => {
+    if (formData.options.length <= 1) {
+      alert("Soal harus memiliki minimal satu opsi/pernyataan.");
+      return;
+    }
+
+    setFormData(prev => {
+      const nextOptions = [...prev.options];
+      nextOptions.splice(index, 1);
+
+      const nextOptionImages = [...prev.optionImages];
+      nextOptionImages.splice(index, 1);
+
+      let nextCorrect = prev.correctAnswer;
+
+      if (prev.type === QuestionType.SINGLE) {
+        if (prev.correctAnswer === index) {
+          nextCorrect = 0;
+        } else if (prev.correctAnswer > index) {
+          nextCorrect = prev.correctAnswer - 1;
+        }
+      } else if (prev.type === QuestionType.MULTIPLE) {
+        if (Array.isArray(prev.correctAnswer)) {
+          nextCorrect = prev.correctAnswer
+            .filter((i: number) => i !== index)
+            .map((i: number) => (i > index ? i - 1 : i));
+        }
+      } else if (prev.type === QuestionType.COMPLEX_CATEGORY || prev.type === QuestionType.TRUE_FALSE_COMPLEX) {
+        if (Array.isArray(prev.correctAnswer)) {
+          const nextArr = [...prev.correctAnswer];
+          nextArr.splice(index, 1);
+          nextCorrect = nextArr;
+        }
+      }
+
+      return {
+        ...prev,
+        options: nextOptions,
+        optionImages: nextOptionImages,
+        correctAnswer: nextCorrect
+      };
+    });
+  };
+
   const handleSave = () => {
     if (!formData.text) return alert("Butir soal wajib diisi.");
     const finalData = {
@@ -286,7 +330,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                 </div>
                 <div className="flex gap-4 opacity-0 group-hover:opacity-100 transition-all">
                    <button onClick={() => setPreviewQuestion(q)} title="Preview Soal" className="text-emerald-600 text-[9px] font-black uppercase flex items-center gap-1">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                       Preview
                    </button>
                    <button onClick={() => handleEdit(q)} className="text-blue-600 text-[9px] font-black uppercase">Edit</button>
@@ -378,8 +422,8 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                       <label className="text-[10px] font-black text-slate-400 uppercase">Pernyataan & Kunci</label>
                       <div className="max-h-[40vh] overflow-y-auto space-y-3 pr-2 custom-scrollbar">
                          {formData.options.map((opt, idx) => (
-                           <div key={idx} className="p-3 bg-slate-50 border rounded-xl flex gap-3 items-start">
-                              <div className="flex flex-col gap-1 items-center">
+                           <div key={idx} className="p-3 bg-slate-50 border rounded-xl flex gap-3 items-start relative group">
+                              <div className="flex flex-col gap-1 items-center pt-1">
                                 {formData.type === QuestionType.TRUE_FALSE_COMPLEX || formData.type === QuestionType.COMPLEX_CATEGORY ? (
                                    <div className="flex flex-col gap-1">
                                      <button 
@@ -415,17 +459,25 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                                         setFormData({...formData, correctAnswer: next});
                                       }
                                     }}
+                                    className="w-4 h-4 cursor-pointer accent-blue-600 mt-1"
                                   />
                                 )}
                               </div>
                               <textarea value={opt} onChange={e => {
                                  const next = [...formData.options]; next[idx] = e.target.value;
                                  setFormData({...formData, options: next});
-                              }} className="flex-1 p-2 bg-white border rounded-lg text-[11px] font-bold h-12" />
+                              }} className="flex-1 p-2 bg-white border rounded-lg text-[11px] font-bold h-12 outline-none focus:border-blue-400" />
+                              <button 
+                                onClick={() => handleDeleteOption(idx)}
+                                className="absolute -right-2 -top-2 w-6 h-6 bg-red-100 text-red-600 rounded-full border border-red-200 flex items-center justify-center text-xs font-black opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 hover:text-white"
+                                title="Hapus Opsi"
+                              >
+                                ×
+                              </button>
                            </div>
                          ))}
                       </div>
-                      <button onClick={() => setFormData(prev => ({ ...prev, options: [...prev.options, ''], correctAnswer: Array.isArray(prev.correctAnswer) ? [...prev.correctAnswer, false] : prev.correctAnswer }))} className="w-full py-2 border-2 border-dashed border-slate-200 text-slate-400 text-[10px] font-black uppercase rounded-xl">+ Tambah Pernyataan</button>
+                      <button onClick={() => setFormData(prev => ({ ...prev, options: [...prev.options, ''], optionImages: [...prev.optionImages, undefined], correctAnswer: Array.isArray(prev.correctAnswer) ? [...prev.correctAnswer, false] : prev.correctAnswer }))} className="w-full py-2 border-2 border-dashed border-slate-200 text-slate-400 text-[10px] font-black uppercase rounded-xl">+ Tambah Pernyataan</button>
                    </div>
                 </div>
              </div>
