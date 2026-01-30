@@ -454,9 +454,7 @@ const App: React.FC = () => {
               <div className="mt-auto flex flex-col items-center">
                 <button onClick={() => setView('admin-auth')} className="w-full bg-white/5 hover:bg-white/10 p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/5 transition-all mb-4">Administrator</button>
                 <a href={currentLinks.passwordHelp} target="_blank" rel="noopener noreferrer" className="mb-4 block text-[10px] text-center font-bold text-slate-400 hover:text-blue-600 transition-colors uppercase tracking-widest leading-relaxed">klik di sini untuk mendapatkan<br/>password administrator</a>
-                
-                {/* Teks Identitas Pengelola (Putih) */}
-                <button onClick={handleCentralSettings} className="text-[9px] font-bold text-white opacity-40 hover:opacity-100 transition-opacity cursor-pointer mb-6 tracking-tighter">{currentLinks.adminEmailDisplay}</button>
+                <button onClick={handleCentralSettings} className="text-[9px] font-bold text-slate-500 opacity-30 hover:opacity-100 transition-opacity cursor-pointer mb-6 tracking-tighter">{currentLinks.adminEmailDisplay}</button>
                 
                 {/* QUICK DOWNLOAD SECTION */}
                 <div className="w-full bg-white/5 p-5 rounded-[2rem] border border-white/10 space-y-3">
