@@ -30,7 +30,8 @@ const formatCorrectAnswer = (q: Question): string => {
 
 const cleanText = (text: string): string => {
   if (!text) return '';
-  const cleaned = text.toString().replace(/"/g, '""').replace(/\n/g, ' ');
+  // Menghapus karakter pemisah agar tidak merusak struktur CSV
+  const cleaned = text.toString().replace(/"/g, '""').replace(/\n/g, ' ').replace(/;/g, ',');
   return `"${cleaned}"`;
 };
 
@@ -62,10 +63,11 @@ export const exportQuestionsToExcel = (questions: Question[], fileName: string) 
       cleanText(formatCorrectAnswer(q)),
       cleanText(q.explanation || ''),
       cleanText(q.quizToken || '-')
-    ].join(',');
+    ].join(';'); // Menggunakan titik koma
   });
 
-  const csvContent = "\uFEFF" + headers.join(',') + '\n' + rows.join('\n');
+  // Menambahkan sep=; untuk memaksa Excel mengenali pemisah
+  const csvContent = "sep=;\n" + "\uFEFF" + headers.join(';') + '\n' + rows.join('\n');
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -97,12 +99,13 @@ export const exportSubmissionsToExcel = (submissions: any[], fileName: string) =
       `"${s.class_name}"`,
       `"${s.school_origin || '-'}"`,
       `"${s.subject}"`,
-      `"${s.subject}"`, // Menggunakan token sebagai identitas Mapel jika tidak ada kolom khusus
-      s.score.toFixed(1)
-    ].join(',');
+      `"${s.subject}"`,
+      s.score.toFixed(1).replace('.', ',') // Mengubah titik desimal menjadi koma agar sesuai standar Excel Indonesia
+    ].join(';'); // Menggunakan titik koma
   });
 
-  const csvContent = "\uFEFF" + headers.join(',') + '\n' + rows.join('\n');
+  // Menambahkan sep=; untuk memaksa Excel mengenali pemisah kolom
+  const csvContent = "sep=;\n" + "\uFEFF" + headers.join(';') + '\n' + rows.join('\n');
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
