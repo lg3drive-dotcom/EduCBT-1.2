@@ -102,12 +102,13 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
       for (const token of selectedTokens) {
         const data = await fetchSubmissionsByToken(token);
         if (data && data.length > 0) {
-          exportSubmissionsToExcel(data, `Rekap_Nilai_${token}_${new Date().toISOString().split('T')[0]}`);
+          // Sekarang mengirimkan 'questions' agar sistem bisa mencari nama Mapel yang benar berdasarkan token
+          exportSubmissionsToExcel(data, `Rekap_Nilai_${token}_${new Date().toISOString().split('T')[0]}`, questions);
         } else {
           console.warn(`Tidak ada data pengerjaan untuk token ${token}`);
         }
       }
-      alert("Proses download selesai. Jika file tidak muncul, pastikan browser tidak memblokir multiple download.");
+      alert("Proses download selesai. Nama Mata Pelajaran akan otomatis dicocokkan dengan data bank soal.");
     } catch (err: any) {
       alert(`Gagal mengambil data dari server: ${err.message}`);
     } finally {

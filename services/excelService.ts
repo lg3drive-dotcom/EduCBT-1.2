@@ -65,7 +65,6 @@ export const exportQuestionsToExcel = (questions: Question[], fileName: string) 
     ].join(';');
   });
 
-  // Menggunakan BOM (\uFEFF) saja tanpa sep=; agar A1 langsung berisi "No"
   const csvContent = "\uFEFF" + headers.join(';') + '\n' + rows.join('\n');
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -78,7 +77,11 @@ export const exportQuestionsToExcel = (questions: Question[], fileName: string) 
   document.body.removeChild(link);
 };
 
-export const exportSubmissionsToExcel = (submissions: any[], fileName: string) => {
+/**
+ * Ekspor hasil pengerjaan siswa ke Excel.
+ * Jika subject_name kosong atau sama dengan token, coba cari nama mapel dari bank soal.
+ */
+export const exportSubmissionsToExcel = (submissions: any[], fileName: string, questionBank: Question[] = []) => {
   if (!submissions || submissions.length === 0) return;
 
   const headers = [
@@ -92,20 +95,30 @@ export const exportSubmissionsToExcel = (submissions: any[], fileName: string) =
   ];
 
   const rows = submissions.map((s, idx) => {
-    // ID Token biasanya disimpan di field 'subject_token' atau 'subject' (jika itu token)
-    // Mapel Nama disimpan di field 'subject_name' (kita akan perbarui submitResultToCloud)
+    const token = (s.subject_token || s.subject || '-').toUpperCase();
+    
+    // Cari nama mapel asli dari bank soal berdasarkan token jika data pengerjaan tidak valid
+    let realSubjectName = s.subject_name || s.subject;
+    
+    // Jika subject_name masih berisi token (punya tanda - atau angka), cari di bank soal
+    if (!realSubjectName || realSubjectName === token) {
+      const matchInBank = questionBank.find(q => q.quizToken?.toUpperCase() === token);
+      if (matchInBank) {
+        realSubjectName = matchInBank.subject;
+      }
+    }
+
     return [
       idx + 1,
       `"${s.student_name}"`,
       `"${s.class_name}"`,
       `"${s.school_origin || '-'}"`,
-      `"${s.subject_token || s.subject || '-'}"`, // ID Token
-      `"${s.subject_name || s.subject || '-'}"`, // Nama Mapel (Matematika, dll)
+      `"${token}"`,
+      `"${realSubjectName || 'Ujian Digital'}"`,
       s.score.toFixed(1).replace('.', ',')
     ].join(';');
   });
 
-  // Menghapus sep=; agar sel A1 langsung berisi header "No"
   const csvContent = "\uFEFF" + headers.join(';') + '\n' + rows.join('\n');
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
