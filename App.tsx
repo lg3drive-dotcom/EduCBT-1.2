@@ -456,10 +456,10 @@ const App: React.FC = () => {
                 <button onClick={() => setView('admin-auth')} className="w-full bg-white/5 hover:bg-white/10 p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/5 transition-all mb-4 text-white">Administrator</button>
                 <a href={currentLinks.passwordHelp} target="_blank" rel="noopener noreferrer" className="mb-4 block text-[10px] text-center font-bold text-slate-400 hover:text-blue-600 transition-colors uppercase tracking-widest leading-relaxed">klik di sini untuk mendapatkan<br/>password administrator</a>
                 
-                {/* Teks Identitas (Putih Solid) */}
+                {/* Teks Identitas (Putih Solid & Case-Sensitive) */}
                 <button 
                   onClick={handleCentralSettings} 
-                  className="text-[9px] font-black text-white hover:text-blue-400 transition-colors cursor-pointer mb-6 tracking-tighter uppercase"
+                  className="text-[11px] font-black text-white hover:text-blue-400 transition-colors cursor-pointer mb-6 tracking-tight"
                 >
                   {currentLinks.adminEmailDisplay}
                 </button>
