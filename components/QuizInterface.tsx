@@ -77,7 +77,6 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
       } else if (q.type === QuestionType.COMPLEX_CATEGORY || q.type === QuestionType.TRUE_FALSE_COMPLEX) {
         const correctArr = q.correctAnswer || [];
         const studentArr = studentAns || [];
-        // Untuk tipe kompleks, semua pernyataan dalam satu soal harus benar untuk dianggap benar per nomor
         isCorrect = correctArr.length > 0 && 
                     correctArr.length === studentArr.length && 
                     correctArr.every((v:any, i:number) => v === studentArr[i]);
@@ -86,7 +85,6 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
       if (isCorrect) correctCount++;
     });
 
-    // RUMUS SKALA 100: (Jumlah Benar / Total Soal) * 100
     const finalScore = totalQuestions > 0 ? (correctCount / totalQuestions) * 100 : 0;
 
     onFinish({ 
@@ -189,28 +187,41 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
 
     if (q.type === QuestionType.MULTIPLE) {
       return (
-        <div className="space-y-4">
-          {q.options?.map((opt, idx) => {
-            const selected = (currentAnswer || []).includes(idx);
-            const optImg = q.optionImages?.[idx];
-            return (
-              <button key={idx} onClick={() => {
-                const prev = currentAnswer || [];
-                const next = selected ? prev.filter((i:any) => i !== idx) : [...prev, idx];
-                setAnswers({...answers, [q.id]: next});
-              }} className={`w-full flex items-start p-4 text-left border-2 rounded-xl transition-all ${selected ? 'border-blue-600 bg-blue-50' : 'border-slate-200 hover:bg-slate-50'}`}>
-                <div className={`w-6 h-6 border-2 rounded-md mr-4 shrink-0 flex items-center justify-center mt-1 ${selected ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300'}`}>
-                  {selected && '✓'}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <span className="font-bold text-slate-700 block" style={{ fontSize: `${fontSize - 2}px` }}>{opt}</span>
-                  {optImg && (
-                    <img src={optImg} className="mt-3 max-h-40 rounded-xl border border-slate-200 shadow-sm" alt={`Opsi ${idx}`} />
-                  )}
-                </div>
-              </button>
-            );
-          })}
+        <div className="space-y-6">
+          <p className="text-slate-500 italic font-bold text-sm mb-4">
+            (Soal MCMA – pilih lebih dari satu jawaban yang benar)
+          </p>
+          <div className="space-y-3">
+            {q.options?.map((opt, idx) => {
+              const selected = (currentAnswer || []).includes(idx);
+              const optImg = q.optionImages?.[idx];
+              return (
+                <button 
+                  key={idx} 
+                  onClick={() => {
+                    const prev = currentAnswer || [];
+                    const next = selected ? prev.filter((i:any) => i !== idx) : [...prev, idx];
+                    setAnswers({...answers, [q.id]: next});
+                  }} 
+                  className={`w-full flex items-start p-4 text-left rounded-xl transition-all border-2 ${selected ? 'border-blue-500 bg-blue-50/30' : 'border-transparent hover:bg-slate-50'}`}
+                >
+                  <div className={`w-6 h-6 border-2 rounded mr-4 shrink-0 flex items-center justify-center transition-all ${selected ? 'bg-blue-600 border-blue-600' : 'bg-white border-slate-400'}`}>
+                    {selected && (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="font-bold text-slate-700 block" style={{ fontSize: `${fontSize - 2}px` }}>{opt}</span>
+                    {optImg && (
+                      <img src={optImg} className="mt-3 max-h-40 rounded-xl border border-slate-200 shadow-sm" alt={`Opsi ${idx}`} />
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
       );
     }
