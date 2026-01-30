@@ -4,9 +4,10 @@ import React, { useState } from 'react';
 interface AdminLoginProps {
   onLogin: () => void;
   correctPassword?: string;
+  helpLink?: string;
 }
 
-const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, correctPassword = 'admin123' }) => {
+const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, correctPassword = 'admin123', helpLink = 'https://lynk.id/edupreneur25/n3yqk5e4er64' }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState(false);
 
@@ -17,7 +18,7 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, correctPassword = 'adm
     } else {
       setError(true);
       alert('PASSWORD SALAH!\n\nSilakan kunjungi situs berikut untuk mendapatkan password administrator yang valid. Anda akan dialihkan otomatis.');
-      window.location.href = "https://lynk.id/edupreneur25/n3yqk5e4er64";
+      window.location.href = helpLink;
     }
   };
 
@@ -65,7 +66,9 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, correctPassword = 'adm
         <div className="mt-6 pt-6 border-t border-slate-100 text-center">
           <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mb-2">Lupa Password?</p>
           <a 
-            href="https://lynk.id/edupreneur25/n3yqk5e4er64" 
+            href={helpLink} 
+            target="_blank"
+            rel="noopener noreferrer"
             className="text-blue-600 font-black text-[10px] uppercase hover:underline"
           >
             Dapatkan Password Baru Disini

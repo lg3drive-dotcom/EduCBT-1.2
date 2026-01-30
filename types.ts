@@ -28,6 +28,12 @@ export enum CognitiveLevel {
   L3 = 'Level 3 (Penalaran)'
 }
 
+export interface ExternalLinks {
+  passwordHelp: string;
+  aiGenerator: string;
+  adminEmailDisplay: string;
+}
+
 export interface Question {
   id: string;
   type: QuestionType;
@@ -75,4 +81,5 @@ export interface AppSettings {
   timerMinutes: number;
   activeSubject?: string;
   adminPassword?: string;
+  externalLinks?: ExternalLinks;
 }

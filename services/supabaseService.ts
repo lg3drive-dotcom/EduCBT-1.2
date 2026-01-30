@@ -75,7 +75,8 @@ export const pushQuestionsToCloud = async (questions: Question[]) => {
 export const updateLiveSettings = async (settings: AppSettings) => {
   const payload: any = { 
     id: 1, 
-    timer_minutes: Number(settings.timerMinutes) || 60
+    timer_minutes: Number(settings.timerMinutes) || 60,
+    external_links: settings.externalLinks || {}
   };
   if (settings.adminPassword) payload.admin_password = settings.adminPassword;
   const { error } = await supabase.from('active_settings').upsert(sanitizeData(payload), { onConflict: 'id' });
@@ -87,7 +88,8 @@ export const getGlobalSettings = async () => {
   if (error) return null;
   return data ? { 
     timerMinutes: data.timer_minutes, 
-    adminPassword: data.admin_password
+    adminPassword: data.admin_password,
+    externalLinks: data.external_links
   } : null;
 };
 
@@ -109,7 +111,8 @@ export const getLiveExamData = async (studentToken: string) => {
     return {
       settings: { 
         timerMinutes: set?.timer_minutes || 60, 
-        activeSubject: questions[0].subject || 'Ujian Digital'
+        activeSubject: questions[0].subject || 'Ujian Digital',
+        externalLinks: set?.external_links
       },
       questions: questions.map(q => ({
         id: q.id, type: q.type, level: q.level, subject: q.subject, material: q.material, text: q.text,

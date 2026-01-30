@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Question, Subject, StudentIdentity, QuizResult, AppSettings, QuestionType, CognitiveLevel } from './types.ts';
+import { Question, Subject, StudentIdentity, QuizResult, AppSettings, QuestionType, CognitiveLevel, ExternalLinks } from './types.ts';
 import { INITIAL_QUESTIONS } from './constants.ts';
 import QuizInterface from './components/QuizInterface.tsx';
 import AdminLogin from './components/AdminLogin.tsx';
@@ -21,6 +21,12 @@ import {
 } from './services/supabaseService.ts';
 
 type ViewMode = 'login' | 'confirm-data' | 'quiz' | 'result' | 'admin-auth' | 'admin-panel';
+
+const DEFAULT_LINKS: ExternalLinks = {
+  passwordHelp: 'https://lynk.id/edupreneur25/n3yqk5e4er64',
+  aiGenerator: 'https://ai.studio/apps/drive/13CnHs1wO_wbrWZYjpbUDvJ0ZKsTA1z0E?fullscreenApplet=true',
+  adminEmailDisplay: 'asepsukanta25@guru.sd.belajar.id'
+};
 
 const App: React.FC = () => {
   const [view, setView] = useState<ViewMode>('login');
@@ -45,7 +51,11 @@ const App: React.FC = () => {
   
   const [settings, setSettings] = useState<AppSettings>(() => {
     const saved = localStorage.getItem('cbt_settings');
-    return saved ? JSON.parse(saved) : { timerMinutes: 60 };
+    const base = saved ? JSON.parse(saved) : { timerMinutes: 60 };
+    return {
+      ...base,
+      externalLinks: base.externalLinks || DEFAULT_LINKS
+    };
   });
 
   const [identity, setIdentity] = useState<StudentIdentity>({ 
@@ -79,7 +89,8 @@ const App: React.FC = () => {
           }
           setSettings(prev => ({
             ...prev,
-            timerMinutes: cloudSettings.timerMinutes || prev.timerMinutes
+            timerMinutes: cloudSettings.timerMinutes || prev.timerMinutes,
+            externalLinks: cloudSettings.externalLinks || prev.externalLinks || DEFAULT_LINKS
           }));
         }
       } catch (err) {
@@ -204,18 +215,51 @@ const App: React.FC = () => {
     if (lastResult) generateResultPDF(lastResult, questions.filter(q => !q.isDeleted));
   };
 
-  const handleChangeAdminPass = async () => {
+  const handleCentralSettings = async () => {
     const accessCode = prompt("Masukkan KODE AKSES PUSAT:");
     if (accessCode === "Indme&781l") {
-      const newPass = prompt("PENGATURAN ULANG: Masukkan Password Admin Baru:", adminPassword);
-      if (newPass && newPass.trim() !== "") {
-        const trimmedPass = newPass.trim();
-        setAdminPassword(trimmedPass);
-        try {
-          await updateLiveSettings({ ...settings, adminPassword: trimmedPass });
-          alert("BERHASIL: Password diperbarui di Cloud.");
-        } catch (e: any) {
-          alert("Gagal sinkron ke Cloud, hanya tersimpan di perangkat ini.");
+      const choice = prompt(
+        "MENU AKSES PUSAT:\n\n" +
+        "1. Ubah Password Administrator\n" +
+        "2. Konfigurasi Tautan & Identitas\n\n" +
+        "Pilih nomor menu (1/2):"
+      );
+
+      if (choice === "1") {
+        const newPass = prompt("PENGATURAN ULANG: Masukkan Password Admin Baru:", adminPassword);
+        if (newPass && newPass.trim() !== "") {
+          const trimmedPass = newPass.trim();
+          setAdminPassword(trimmedPass);
+          try {
+            await updateLiveSettings({ ...settings, adminPassword: trimmedPass });
+            alert("BERHASIL: Password diperbarui di Cloud.");
+          } catch (e: any) {
+            alert("Gagal sinkron ke Cloud, hanya tersimpan di perangkat ini.");
+          }
+        }
+      } else if (choice === "2") {
+        const currentLinks = settings.externalLinks || DEFAULT_LINKS;
+        
+        const newHelpLink = prompt("Link Bantuan Password (Lynk.id/dst):", currentLinks.passwordHelp);
+        const newAiLink = prompt("Link Generate Soal AI (AI Studio/dst):", currentLinks.aiGenerator);
+        const newEmailDisplay = prompt("Teks Display Identitas (Email Pengelola):", currentLinks.adminEmailDisplay);
+
+        if (newHelpLink !== null && newAiLink !== null && newEmailDisplay !== null) {
+          const updatedLinks: ExternalLinks = {
+            passwordHelp: newHelpLink.trim() || DEFAULT_LINKS.passwordHelp,
+            aiGenerator: newAiLink.trim() || DEFAULT_LINKS.aiGenerator,
+            adminEmailDisplay: newEmailDisplay.trim() || DEFAULT_LINKS.adminEmailDisplay
+          };
+
+          const newSettings = { ...settings, externalLinks: updatedLinks };
+          setSettings(newSettings);
+          
+          try {
+            await updateLiveSettings({ ...newSettings, adminPassword });
+            alert("BERHASIL: Seluruh konfigurasi tautan telah diperbarui.");
+          } catch (e: any) {
+            alert("Konfigurasi tersimpan lokal, gagal sinkron ke Cloud.");
+          }
         }
       }
     } else if (accessCode !== null) {
@@ -298,9 +342,11 @@ const App: React.FC = () => {
     }
   };
 
+  const currentLinks = settings.externalLinks || DEFAULT_LINKS;
+
   return (
     <div className="min-h-screen bg-slate-50">
-      {view === 'admin-auth' && <AdminLogin onLogin={() => setView('admin-panel')} correctPassword={adminPassword} />}
+      {view === 'admin-auth' && <AdminLogin onLogin={() => setView('admin-panel')} correctPassword={adminPassword} helpLink={currentLinks.passwordHelp} />}
       
       {view === 'admin-panel' && (
         <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row relative">
@@ -321,7 +367,7 @@ const App: React.FC = () => {
             </div>
             <nav className="space-y-2 flex-1">
               <button className="w-full text-left p-4 bg-white/10 rounded-xl font-bold border-l-4 border-blue-500 uppercase text-[10px] tracking-widest">Bank Soal</button>
-              <a href="https://ai.studio/apps/drive/13CnHs1wO_wbrWZYjpbUDvJ0ZKsTA1z0E?fullscreenApplet=true" target="_blank" rel="noopener noreferrer" className="w-full flex items-center gap-3 p-4 hover:bg-white/5 rounded-xl font-bold uppercase text-[10px] tracking-widest text-purple-400 border border-transparent hover:border-purple-500/20 transition-all group">
+              <a href={currentLinks.aiGenerator} target="_blank" rel="noopener noreferrer" className="w-full flex items-center gap-3 p-4 hover:bg-white/5 rounded-xl font-bold uppercase text-[10px] tracking-widest text-purple-400 border border-transparent hover:border-purple-500/20 transition-all group">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 group-hover:animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                 Generate Soal AI ✨
               </a>
@@ -407,8 +453,8 @@ const App: React.FC = () => {
               </div>
               <div className="mt-auto flex flex-col items-center">
                 <button onClick={() => setView('admin-auth')} className="w-full bg-white/5 hover:bg-white/10 p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/5 transition-all mb-4">Administrator</button>
-                <a href="http://lynk.id/edupreneur25/n3yqk5e4er64" target="_blank" rel="noopener noreferrer" className="mb-4 block text-[10px] text-center font-bold text-slate-400 hover:text-blue-600 transition-colors uppercase tracking-widest leading-relaxed">klik di sini untuk mendapatkan<br/>password administrator</a>
-                <button onClick={handleChangeAdminPass} className="text-[9px] font-bold text-slate-500 opacity-30 hover:opacity-100 transition-opacity cursor-pointer mb-6 tracking-tighter">asepsukanta25@guru.sd.belajar.id</button>
+                <a href={currentLinks.passwordHelp} target="_blank" rel="noopener noreferrer" className="mb-4 block text-[10px] text-center font-bold text-slate-400 hover:text-blue-600 transition-colors uppercase tracking-widest leading-relaxed">klik di sini untuk mendapatkan<br/>password administrator</a>
+                <button onClick={handleCentralSettings} className="text-[9px] font-bold text-slate-500 opacity-30 hover:opacity-100 transition-opacity cursor-pointer mb-6 tracking-tighter">{currentLinks.adminEmailDisplay}</button>
                 
                 {/* QUICK DOWNLOAD SECTION */}
                 <div className="w-full bg-white/5 p-5 rounded-[2rem] border border-white/10 space-y-3">
