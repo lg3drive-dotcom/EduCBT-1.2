@@ -156,7 +156,8 @@ const App: React.FC = () => {
 
   const handleFinishQuiz = async (result: QuizResult) => {
     setIsSyncing(true);
-    const response = await submitResultToCloud(result);
+    // Mengirimkan settings.activeSubject (Contoh: Matematika) agar tersimpan di database
+    const response = await submitResultToCloud(result, settings.activeSubject);
     
     if (response.success) {
       setLastResult(result);
@@ -165,7 +166,7 @@ const App: React.FC = () => {
       alert(
         `GAGAL MENGIRIM KE SERVER!\n\n` +
         `Pesan Error: ${response.error}\n\n` +
-        `Saran: Pastikan tabel 'submissions' di Supabase Anda sudah memiliki kolom 'school_origin' dan 'birth_date' (Tipe: text).`
+        `Saran: Pastikan tabel 'submissions' di Supabase Anda sudah memiliki kolom 'subject_name' dan 'subject_token'.`
       );
     }
     setIsSyncing(false);

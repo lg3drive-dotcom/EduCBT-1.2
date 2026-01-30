@@ -30,7 +30,6 @@ const formatCorrectAnswer = (q: Question): string => {
 
 const cleanText = (text: string): string => {
   if (!text) return '';
-  // Menghapus karakter pemisah agar tidak merusak struktur CSV
   const cleaned = text.toString().replace(/"/g, '""').replace(/\n/g, ' ').replace(/;/g, ',');
   return `"${cleaned}"`;
 };
@@ -63,11 +62,11 @@ export const exportQuestionsToExcel = (questions: Question[], fileName: string) 
       cleanText(formatCorrectAnswer(q)),
       cleanText(q.explanation || ''),
       cleanText(q.quizToken || '-')
-    ].join(';'); // Menggunakan titik koma
+    ].join(';');
   });
 
-  // Menambahkan sep=; untuk memaksa Excel mengenali pemisah
-  const csvContent = "sep=;\n" + "\uFEFF" + headers.join(';') + '\n' + rows.join('\n');
+  // Menggunakan BOM (\uFEFF) saja tanpa sep=; agar A1 langsung berisi "No"
+  const csvContent = "\uFEFF" + headers.join(';') + '\n' + rows.join('\n');
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -93,19 +92,21 @@ export const exportSubmissionsToExcel = (submissions: any[], fileName: string) =
   ];
 
   const rows = submissions.map((s, idx) => {
+    // ID Token biasanya disimpan di field 'subject_token' atau 'subject' (jika itu token)
+    // Mapel Nama disimpan di field 'subject_name' (kita akan perbarui submitResultToCloud)
     return [
       idx + 1,
       `"${s.student_name}"`,
       `"${s.class_name}"`,
       `"${s.school_origin || '-'}"`,
-      `"${s.subject}"`,
-      `"${s.subject}"`,
-      s.score.toFixed(1).replace('.', ',') // Mengubah titik desimal menjadi koma agar sesuai standar Excel Indonesia
-    ].join(';'); // Menggunakan titik koma
+      `"${s.subject_token || s.subject || '-'}"`, // ID Token
+      `"${s.subject_name || s.subject || '-'}"`, // Nama Mapel (Matematika, dll)
+      s.score.toFixed(1).replace('.', ',')
+    ].join(';');
   });
 
-  // Menambahkan sep=; untuk memaksa Excel mengenali pemisah kolom
-  const csvContent = "sep=;\n" + "\uFEFF" + headers.join(';') + '\n' + rows.join('\n');
+  // Menghapus sep=; agar sel A1 langsung berisi header "No"
+  const csvContent = "\uFEFF" + headers.join(';') + '\n' + rows.join('\n');
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');

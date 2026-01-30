@@ -73,8 +73,6 @@ export const pushQuestionsToCloud = async (questions: Question[]) => {
 };
 
 export const updateLiveSettings = async (settings: AppSettings) => {
-  // Fix: changed settings.randomize_questions to settings.randomizeQuestions
-  // and settings.randomize_options to settings.randomizeOptions to match types.ts
   const payload: any = { 
     id: 1, 
     timer_minutes: Number(settings.timerMinutes) || 60,
@@ -129,12 +127,19 @@ export const getLiveExamData = async (studentToken: string) => {
   } catch (err: any) { throw new Error(err.message); }
 };
 
-export const submitResultToCloud = async (result: QuizResult): Promise<{success: boolean, error?: string}> => {
+export const submitResultToCloud = async (result: QuizResult, subjectName?: string): Promise<{success: boolean, error?: string}> => {
   try {
     const payload = sanitizeData({
-      id: result.id, student_name: result.identity.name, class_name: result.identity.className,
-      school_origin: result.identity.schoolOrigin || '-', score: Number(result.score) || 0,
-      answers: result.answers || {}, timestamp: result.timestamp || Date.now(), subject: result.identity.token.toUpperCase() 
+      id: result.id, 
+      student_name: result.identity.name, 
+      class_name: result.identity.className,
+      school_origin: result.identity.schoolOrigin || '-', 
+      score: Number(result.score) || 0,
+      answers: result.answers || {}, 
+      timestamp: result.timestamp || Date.now(), 
+      subject: result.identity.token.toUpperCase(), // Tetap simpan token di subject untuk backward compatibility
+      subject_token: result.identity.token.toUpperCase(),
+      subject_name: subjectName || 'Ujian Digital' 
     });
     const { error } = await supabase.from('submissions').insert([payload]);
     return error ? { success: false, error: error.message } : { success: true };
