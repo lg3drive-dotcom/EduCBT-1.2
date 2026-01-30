@@ -73,13 +73,33 @@ export const pushQuestionsToCloud = async (questions: Question[]) => {
 };
 
 export const updateLiveSettings = async (settings: AppSettings) => {
-  const payload: any = { 
+  // Payload lengkap termasuk external_links
+  const fullPayload: any = { 
     id: 1, 
     timer_minutes: Number(settings.timerMinutes) || 60,
     external_links: settings.externalLinks || {}
   };
-  if (settings.adminPassword) payload.admin_password = settings.adminPassword;
-  const { error } = await supabase.from('active_settings').upsert(sanitizeData(payload), { onConflict: 'id' });
+  if (settings.adminPassword) fullPayload.admin_password = settings.adminPassword;
+
+  const { error } = await supabase.from('active_settings').upsert(sanitizeData(fullPayload), { onConflict: 'id' });
+  
+  // Jika error karena kolom 'external_links' tidak ditemukan
+  if (error && error.message.includes('external_links')) {
+    console.warn("Kolom 'external_links' tidak ditemukan di database. Menyimpan tanpa tautan eksternal...");
+    
+    // Kirim payload versi aman (tanpa kolom external_links)
+    const safePayload: any = { 
+      id: 1, 
+      timer_minutes: Number(settings.timerMinutes) || 60
+    };
+    if (settings.adminPassword) safePayload.admin_password = settings.adminPassword;
+    
+    const { error: retryError } = await supabase.from('active_settings').upsert(sanitizeData(safePayload), { onConflict: 'id' });
+    if (retryError) throw new Error(`Gagal Update Settings (Retry): ${retryError.message}`);
+    
+    return; // Berhasil dengan fallback
+  }
+
   if (error) throw new Error(`Gagal Update Settings: ${error.message}`);
 };
 

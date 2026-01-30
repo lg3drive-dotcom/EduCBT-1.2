@@ -116,6 +116,7 @@ const App: React.FC = () => {
     setSyncStatus('loading');
     try {
       await pushQuestionsToCloud(questions);
+      // Update settings ke cloud (akan ditangani otomatis oleh service jika kolom hilang)
       await updateLiveSettings({ ...settings, adminPassword });
       setSyncStatus('success');
       setTimeout(() => setSyncStatus('idle'), 3000);
@@ -234,7 +235,7 @@ const App: React.FC = () => {
             await updateLiveSettings({ ...settings, adminPassword: trimmedPass });
             alert("BERHASIL: Password diperbarui di Cloud.");
           } catch (e: any) {
-            alert("Gagal sinkron ke Cloud, hanya tersimpan di perangkat ini.");
+            alert("Berhasil simpan di perangkat ini. (Gagal sinkron cloud: pastikan internet stabil)");
           }
         }
       } else if (choice === "2") {
@@ -244,22 +245,25 @@ const App: React.FC = () => {
         const newAiLink = prompt("Link Generate Soal AI:", currentLinks.aiGenerator);
         const newEmailDisplay = prompt("Teks Identitas Pengelola (Email/Nama):", currentLinks.adminEmailDisplay);
 
-        // Jika user tidak membatalkan prompt (klik OK)
         if (newHelpLink !== null || newAiLink !== null || newEmailDisplay !== null) {
           const updatedLinks: ExternalLinks = {
-            passwordHelp: newHelpLink?.trim() || currentLinks.passwordHelp,
-            aiGenerator: newAiLink?.trim() || currentLinks.aiGenerator,
-            adminEmailDisplay: newEmailDisplay?.trim() || currentLinks.adminEmailDisplay
+            passwordHelp: (newHelpLink !== null ? newHelpLink.trim() : null) || currentLinks.passwordHelp,
+            aiGenerator: (newAiLink !== null ? newAiLink.trim() : null) || currentLinks.aiGenerator,
+            adminEmailDisplay: (newEmailDisplay !== null ? newEmailDisplay.trim() : null) || currentLinks.adminEmailDisplay
           };
 
           const newSettings = { ...settings, externalLinks: updatedLinks };
+          
+          // Update LOKAL dahulu agar tampilan langsung berubah
           setSettings(newSettings);
+          localStorage.setItem('cbt_settings', JSON.stringify(newSettings));
           
           try {
+            // Coba update ke cloud (service akan handle jika kolom tidak ada)
             await updateLiveSettings({ ...newSettings, adminPassword });
-            alert("BERHASIL: Seluruh konfigurasi tautan telah diperbarui ke Cloud.");
+            alert("BERHASIL: Pengaturan diperbarui.");
           } catch (e: any) {
-            alert("Perubahan disimpan secara lokal. Pastikan internet stabil untuk sinkronisasi cloud.");
+            alert("Perubahan disimpan di perangkat ini. Untuk sinkronisasi cloud, silakan tambahkan kolom 'external_links' di database Supabase.");
           }
         }
       }

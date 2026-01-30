@@ -22,6 +22,8 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
   const [timer, setTimer] = useState(settings.timerMinutes.toString());
   const [selectedTokens, setSelectedTokens] = useState<string[]>([]);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isPasteModalOpen, setIsPasteModalOpen] = useState(false);
+  const [pasteContent, setPasteContent] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const availableTokens = useMemo(() => {
@@ -120,6 +122,27 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
     reader.readAsText(file);
   };
 
+  const handlePasteImport = () => {
+    if (!pasteContent.trim()) {
+      alert("Silakan tempel teks JSON terlebih dahulu.");
+      return;
+    }
+
+    try {
+      const imported = JSON.parse(pasteContent);
+      if (!Array.isArray(imported)) {
+        alert("Data JSON harus berupa array (kumpulan soal).");
+        return;
+      }
+      onImportQuestions(imported, 'append');
+      alert(`BERHASIL: ${imported.length} soal baru telah diimpor dari teks.`);
+      setPasteContent('');
+      setIsPasteModalOpen(false);
+    } catch (e) {
+      alert("Format JSON tidak valid. Pastikan Anda menyalin seluruh teks dengan benar.");
+    }
+  };
+
   const handleResetData = () => {
     const confirmed = confirm(
       "PERINGATAN KERAS!\n\n" +
@@ -188,12 +211,51 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
             
             <div className="grid grid-cols-2 gap-2">
                <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleFileChange} />
-               <button onClick={() => fileInputRef.current?.click()} className="w-full bg-white text-blue-600 font-bold py-4 rounded-2xl border-2 border-blue-100 text-[10px] uppercase tracking-widest">Upload .JSON</button>
-               <button onClick={handleResetData} className="w-full bg-white text-red-500 font-bold py-4 rounded-2xl border-2 border-red-100 text-[10px] uppercase tracking-widest">Reset Lokal</button>
+               <button onClick={() => fileInputRef.current?.click()} className="w-full bg-white text-blue-600 font-bold py-4 rounded-2xl border-2 border-blue-100 text-[10px] uppercase tracking-widest shadow-sm">Upload .JSON</button>
+               <button onClick={() => setIsPasteModalOpen(true)} className="w-full bg-blue-50 text-blue-700 font-bold py-4 rounded-2xl border-2 border-blue-200 text-[10px] uppercase tracking-widest shadow-sm">Paste .JSON</button>
             </div>
+            <button onClick={handleResetData} className="w-full bg-white text-red-500 font-bold py-4 rounded-2xl border-2 border-red-100 text-[10px] uppercase tracking-widest">Reset Lokal</button>
           </div>
         </div>
       </div>
+
+      {/* MODAL PASTE JSON */}
+      {isPasteModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-md z-[200] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+            <div className="p-8 bg-slate-900 text-white flex justify-between items-center shrink-0">
+              <div>
+                <h3 className="text-xl font-black uppercase tracking-tight">Paste Bank Soal</h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Tempel teks JSON dari AI Lab ke sini</p>
+              </div>
+              <button onClick={() => setIsPasteModalOpen(false)} className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center font-black">×</button>
+            </div>
+            <div className="p-8 flex-1 overflow-y-auto">
+              <textarea 
+                className="w-full h-80 p-6 bg-slate-50 border-2 border-slate-100 rounded-3xl font-mono text-xs text-slate-600 outline-none focus:border-blue-500 transition-all custom-scrollbar"
+                placeholder='Tempel kumpulan soal di sini. Contoh: [{"text": "Soal 1", ...}, ...]'
+                value={pasteContent}
+                onChange={(e) => setPasteContent(e.target.value)}
+              />
+              <div className="mt-6 bg-blue-50 p-4 rounded-2xl border border-blue-100 flex gap-3">
+                <div className="text-blue-500 shrink-0">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <p className="text-[10px] text-blue-700 font-bold leading-relaxed uppercase tracking-wide">
+                  Pastikan format JSON yang Anda tempel sesuai dengan standar ekspor EduCBT AI Lab. 
+                  Sistem akan mengabaikan soal dengan ID yang sudah ada di lokal.
+                </p>
+              </div>
+            </div>
+            <div className="p-8 border-t bg-slate-50 flex gap-4">
+              <button onClick={() => setIsPasteModalOpen(false)} className="flex-1 py-4 font-black text-slate-400 uppercase tracking-widest text-[10px]">Tutup</button>
+              <button onClick={handlePasteImport} className="flex-[2] bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl shadow-xl transition-all active:scale-95 uppercase tracking-widest text-[10px]">Import Sekarang</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
