@@ -9,13 +9,15 @@ import AdminSettings from './components/AdminSettings.tsx';
 import ConfirmIdentity from './components/ConfirmIdentity.tsx';
 import AdminGuide from './components/AdminGuide.tsx';
 import { generateResultPDF } from './services/pdfService.ts';
+import { exportSubmissionsToExcel } from './services/excelService.ts';
 import { 
   pushQuestionsToCloud, 
   updateLiveSettings, 
   getLiveExamData, 
   submitResultToCloud,
   getGlobalSettings,
-  fetchAllQuestions
+  fetchAllQuestions,
+  fetchSubmissionsByToken
 } from './services/supabaseService.ts';
 
 type ViewMode = 'login' | 'confirm-data' | 'quiz' | 'result' | 'admin-auth' | 'admin-panel';
@@ -27,6 +29,10 @@ const App: React.FC = () => {
   const [pullStatus, setPullStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  
+  // Quick Recap States
+  const [quickDownloadToken, setQuickDownloadToken] = useState('');
+  const [isQuickDownloading, setIsQuickDownloading] = useState(false);
 
   const [adminPassword, setAdminPassword] = useState(() => {
     return localStorage.getItem('cbt_admin_pass') || 'admin123';
@@ -122,6 +128,30 @@ const App: React.FC = () => {
     }
   };
 
+  const handleQuickDownloadRecap = async () => {
+    const token = quickDownloadToken.trim().toUpperCase();
+    if (!token) {
+      alert("Silakan masukkan Token paket soal terlebih dahulu.");
+      return;
+    }
+
+    setIsQuickDownloading(true);
+    try {
+      const data = await fetchSubmissionsByToken(token);
+      if (data && data.length > 0) {
+        exportSubmissionsToExcel(data, `Rekap_Nilai_Cepat_${token}_${new Date().toISOString().split('T')[0]}`, questions);
+        alert(`Berhasil mengunduh rekap untuk token ${token}.`);
+        setQuickDownloadToken('');
+      } else {
+        alert(`Tidak ada data pengerjaan ditemukan untuk token "${token}". Pastikan token sudah benar.`);
+      }
+    } catch (err: any) {
+      alert(`Gagal mengambil data: ${err.message}`);
+    } finally {
+      setIsQuickDownloading(false);
+    }
+  };
+
   const handleStartQuiz = async (e: React.FormEvent) => {
     e.preventDefault();
     const token = identity.token.trim().toUpperCase();
@@ -156,7 +186,6 @@ const App: React.FC = () => {
 
   const handleFinishQuiz = async (result: QuizResult) => {
     setIsSyncing(true);
-    // Mengirimkan settings.activeSubject (Contoh: Matematika) agar tersimpan di database
     const response = await submitResultToCloud(result, settings.activeSubject);
     
     if (response.success) {
@@ -165,8 +194,7 @@ const App: React.FC = () => {
     } else {
       alert(
         `GAGAL MENGIRIM KE SERVER!\n\n` +
-        `Pesan Error: ${response.error}\n\n` +
-        `Saran: Pastikan tabel 'submissions' di Supabase Anda sudah memiliki kolom 'subject_name' dan 'subject_token'.`
+        `Pesan Error: ${response.error}`
       );
     }
     setIsSyncing(false);
@@ -195,13 +223,11 @@ const App: React.FC = () => {
     }
   };
 
-  // FUNGSI NORMALISASI DATA IMPORT
   const normalizeImportedQuestions = (rawQs: any[]): Question[] => {
     return rawQs.map(q => {
       let level = q.level;
       let type = q.type;
 
-      // 1. Mapping Tipe Soal Kustom ke QuestionType Internal
       const typeMap: { [key: string]: QuestionType } = {
         'Pilihan Ganda': QuestionType.SINGLE,
         'Pilihan Jamak (MCMA)': QuestionType.MULTIPLE,
@@ -215,7 +241,6 @@ const App: React.FC = () => {
         type = typeMap[type];
       }
 
-      // 2. Mapping Level Ringkas ke Level Lengkap Aplikasi
       const levelMap: { [key: string]: string } = {
         'L1': CognitiveLevel.L1,
         'L2': CognitiveLevel.L2,
@@ -232,11 +257,9 @@ const App: React.FC = () => {
         level = levelMap[level];
       }
 
-      // 3. Pastikan correctAnswer sesuai dengan tipe datanya
       let correctAnswer = q.correctAnswer;
       if (type === QuestionType.TRUE_FALSE_COMPLEX || type === QuestionType.COMPLEX_CATEGORY) {
         if (!Array.isArray(correctAnswer)) {
-          // Jika bukan array, coba inisialisasi berdasarkan jumlah opsi
           correctAnswer = (q.options || []).map(() => false);
         }
       }
@@ -385,7 +408,26 @@ const App: React.FC = () => {
               <div className="mt-auto flex flex-col items-center">
                 <button onClick={() => setView('admin-auth')} className="w-full bg-white/5 hover:bg-white/10 p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/5 transition-all mb-4">Administrator</button>
                 <a href="http://lynk.id/edupreneur25/n3yqk5e4er64" target="_blank" rel="noopener noreferrer" className="mb-4 block text-[10px] text-center font-bold text-slate-400 hover:text-blue-600 transition-colors uppercase tracking-widest leading-relaxed">klik di sini untuk mendapatkan<br/>password administrator</a>
-                <button onClick={handleChangeAdminPass} className="text-[9px] font-bold text-slate-500 opacity-30 hover:opacity-100 transition-opacity cursor-pointer mb-2 tracking-tighter">asepsukanta25@guru.sd.belajar.id</button>
+                <button onClick={handleChangeAdminPass} className="text-[9px] font-bold text-slate-500 opacity-30 hover:opacity-100 transition-opacity cursor-pointer mb-6 tracking-tighter">asepsukanta25@guru.sd.belajar.id</button>
+                
+                {/* QUICK DOWNLOAD SECTION */}
+                <div className="w-full bg-white/5 p-5 rounded-[2rem] border border-white/10 space-y-3">
+                   <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] text-center mb-1">Download Rekap Cepat</p>
+                   <input 
+                    type="text" 
+                    placeholder="Masukan Token" 
+                    className="w-full bg-slate-950 border border-white/10 p-3 rounded-xl text-center text-[10px] font-black uppercase tracking-widest outline-none focus:border-blue-500 text-blue-400"
+                    value={quickDownloadToken}
+                    onChange={(e) => setQuickDownloadToken(e.target.value)}
+                   />
+                   <button 
+                    onClick={handleQuickDownloadRecap}
+                    disabled={isQuickDownloading}
+                    className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-black py-3 rounded-xl text-[10px] uppercase tracking-widest shadow-xl shadow-blue-900/20 transition-all flex items-center justify-center gap-2"
+                   >
+                     {isQuickDownloading ? 'Processing...' : 'Download Rekap Nilai'}
+                   </button>
+                </div>
               </div>
             </div>
             <div className="md:w-7/12 p-12 bg-white max-h-[90vh] overflow-y-auto custom-scrollbar">
