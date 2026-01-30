@@ -231,11 +231,21 @@ const App: React.FC = () => {
         level = levelMap[level];
       }
 
+      // 3. Pastikan correctAnswer sesuai dengan tipe datanya
+      let correctAnswer = q.correctAnswer;
+      if (type === QuestionType.TRUE_FALSE_COMPLEX || type === QuestionType.COMPLEX_CATEGORY) {
+        if (!Array.isArray(correctAnswer)) {
+          // Jika bukan array, coba inisialisasi berdasarkan jumlah opsi
+          correctAnswer = (q.options || []).map(() => false);
+        }
+      }
+
       return {
         ...q,
         id: q.id || `import_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
         level: level,
         type: type as QuestionType,
+        correctAnswer: correctAnswer,
         questionImage: q.questionImage || q.image || '',
         quizToken: (q.quizToken || 'UMUM').toUpperCase(),
         isDeleted: q.isDeleted || false,

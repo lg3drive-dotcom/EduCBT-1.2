@@ -173,8 +173,12 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                     <td className="p-3 text-xs font-bold text-slate-600">{opt}</td>
                     <td className="p-3">
                        <div className="flex gap-1 justify-center">
-                          <div className={`px-3 py-1 rounded text-[8px] font-black ${q.correctAnswer[idx] === true ? 'bg-green-600 text-white' : 'bg-slate-100 text-slate-300'}`}>{labels.true.toUpperCase()}</div>
-                          <div className={`px-3 py-1 rounded text-[8px] font-black ${q.correctAnswer[idx] === false ? 'bg-red-600 text-white' : 'bg-slate-100 text-slate-300'}`}>{labels.false.toUpperCase()}</div>
+                          <div className={`px-3 py-1 rounded text-[8px] font-black transition-colors ${Array.isArray(q.correctAnswer) && q.correctAnswer[idx] === true ? 'bg-green-600 text-white shadow-md' : 'bg-slate-100 text-slate-300'}`}>
+                            {labels.true.toUpperCase()}
+                          </div>
+                          <div className={`px-3 py-1 rounded text-[8px] font-black transition-colors ${Array.isArray(q.correctAnswer) && q.correctAnswer[idx] === false ? 'bg-red-600 text-white shadow-md' : 'bg-slate-100 text-slate-300'}`}>
+                            {labels.false.toUpperCase()}
+                          </div>
                        </div>
                     </td>
                   </tr>
@@ -344,16 +348,28 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                            <div key={idx} className="p-3 bg-slate-50 border rounded-xl flex gap-3 items-start">
                               <div className="flex flex-col gap-1 items-center">
                                 {formData.type === QuestionType.TRUE_FALSE_COMPLEX || formData.type === QuestionType.COMPLEX_CATEGORY ? (
-                                   <button 
-                                      onClick={() => {
-                                        const next = [...(formData.correctAnswer || formData.options.map(() => false))];
-                                        next[idx] = !next[idx];
-                                        setFormData({...formData, correctAnswer: next});
-                                      }}
-                                      className={`w-6 h-6 rounded-md flex items-center justify-center font-black text-[10px] ${formData.correctAnswer?.[idx] ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}
-                                   >
-                                     {formData.correctAnswer?.[idx] ? 'T' : 'F'}
-                                   </button>
+                                   <div className="flex flex-col gap-1">
+                                     <button 
+                                        onClick={() => {
+                                          const next = Array.isArray(formData.correctAnswer) ? [...formData.correctAnswer] : formData.options.map(() => false);
+                                          next[idx] = true;
+                                          setFormData({...formData, correctAnswer: next});
+                                        }}
+                                        className={`w-6 h-6 rounded-md flex items-center justify-center font-black text-[10px] transition-all ${formData.correctAnswer?.[idx] === true ? 'bg-green-600 text-white' : 'bg-slate-200 text-slate-400'}`}
+                                     >
+                                       T
+                                     </button>
+                                     <button 
+                                        onClick={() => {
+                                          const next = Array.isArray(formData.correctAnswer) ? [...formData.correctAnswer] : formData.options.map(() => false);
+                                          next[idx] = false;
+                                          setFormData({...formData, correctAnswer: next});
+                                        }}
+                                        className={`w-6 h-6 rounded-md flex items-center justify-center font-black text-[10px] transition-all ${formData.correctAnswer?.[idx] === false ? 'bg-red-600 text-white' : 'bg-slate-200 text-slate-400'}`}
+                                     >
+                                       F
+                                     </button>
+                                   </div>
                                 ) : (
                                   <input 
                                     type={formData.type === QuestionType.SINGLE ? 'radio' : 'checkbox'} 
