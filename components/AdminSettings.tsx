@@ -39,20 +39,6 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
     alert('Pengaturan waktu berhasil disimpan!');
   };
 
-  const toggleRandomizeQuestions = () => {
-    onUpdateSettings({
-      ...settings,
-      randomizeQuestions: !settings.randomizeQuestions
-    });
-  };
-
-  const toggleRandomizeOptions = () => {
-    onUpdateSettings({
-      ...settings,
-      randomizeOptions: !settings.randomizeOptions
-    });
-  };
-
   const toggleToken = (token: string) => {
     setSelectedTokens(prev => 
       prev.includes(token) ? prev.filter(t => t !== token) : [...prev, token]
@@ -102,13 +88,10 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
       for (const token of selectedTokens) {
         const data = await fetchSubmissionsByToken(token);
         if (data && data.length > 0) {
-          // Sekarang mengirimkan 'questions' agar sistem bisa mencari nama Mapel yang benar berdasarkan token
           exportSubmissionsToExcel(data, `Rekap_Nilai_${token}_${new Date().toISOString().split('T')[0]}`, questions);
-        } else {
-          console.warn(`Tidak ada data pengerjaan untuk token ${token}`);
         }
       }
-      alert("Proses download selesai. Nama Mata Pelajaran akan otomatis dicocokkan dengan data bank soal.");
+      alert("Proses download selesai.");
     } catch (err: any) {
       alert(`Gagal mengambil data dari server: ${err.message}`);
     } finally {
@@ -124,28 +107,14 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
       try {
         const imported = JSON.parse(event.target?.result as string);
         if (!Array.isArray(imported)) {
-          alert("Format file tidak valid. File harus berisi array soal.");
+          alert("Format file tidak valid.");
           return;
         }
-        const userChoice = confirm(
-          `Ditemukan ${imported.length} soal baru.\n\n` +
-          `PILIH TINDAKAN:\n` +
-          `OK = TAMBAH (Gabungkan soal baru dengan yang sudah ada)\n` +
-          `BATAL = GANTI (Hapus semua soal lama dan ganti dengan yang baru)`
-        );
-        if (userChoice) {
-          onImportQuestions(imported, 'append');
-          alert(`BERHASIL: ${imported.length} soal baru telah ditambahkan ke bank soal.`);
-        } else {
-          const confirmReplace = confirm("PERINGATAN: Semua soal lama akan DIHAPUS. Lanjutkan?");
-          if (confirmReplace) {
-            onImportQuestions(imported, 'replace');
-            alert(`BERHASIL: Bank soal telah diganti dengan ${imported.length} soal baru.`);
-          }
-        }
+        onImportQuestions(imported, 'append');
+        alert(`BERHASIL: ${imported.length} soal baru telah diimpor.`);
         if (fileInputRef.current) fileInputRef.current.value = '';
       } catch(e) { 
-        alert("Gagal membaca file. Pastikan file dalam format .json yang benar."); 
+        alert("Gagal membaca file."); 
       }
     };
     reader.readAsText(file);
@@ -153,52 +122,20 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* PENGATURAN DURASI & ACAK */}
+      {/* PENGATURAN DURASI */}
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
         <h2 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.533 1.533 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.533 1.533 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" /></svg>
-          Sistem Ujian
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" /></svg>
+          Waktu Ujian
         </h2>
         
-        <div className="space-y-6">
+        <div className="space-y-4">
           <div>
-            <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Waktu Ujian (Menit)</label>
+            <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Durasi (Menit)</label>
             <div className="flex gap-2">
               <input type="number" value={timer} onChange={(e) => setTimer(e.target.value)} className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-black outline-none focus:border-blue-600 transition-all text-sm" />
-              <button onClick={handleSaveTime} className="bg-slate-900 text-white px-4 rounded-2xl text-[10px] font-black">SIMPAN</button>
+              <button onClick={handleSaveTime} className="bg-slate-900 text-white px-4 rounded-2xl text-[10px] font-black uppercase">Simpan</button>
             </div>
-          </div>
-
-          <div className="space-y-3">
-            <button 
-              onClick={toggleRandomizeQuestions}
-              className={`w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all ${settings.randomizeQuestions ? 'border-blue-600 bg-blue-50' : 'border-slate-100 bg-white'}`}
-            >
-              <div className="text-left">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Soal Acak</p>
-                <p className={`text-xs font-black ${settings.randomizeQuestions ? 'text-blue-700' : 'text-slate-400'}`}>
-                  {settings.randomizeQuestions ? 'AKTIF' : 'NON-AKTIF'}
-                </p>
-              </div>
-              <div className={`w-10 h-6 rounded-full relative transition-all ${settings.randomizeQuestions ? 'bg-blue-600' : 'bg-slate-200'}`}>
-                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${settings.randomizeQuestions ? 'right-1' : 'left-1'}`}></div>
-              </div>
-            </button>
-
-            <button 
-              onClick={toggleRandomizeOptions}
-              className={`w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all ${settings.randomizeOptions ? 'border-purple-600 bg-purple-50' : 'border-slate-100 bg-white'}`}
-            >
-              <div className="text-left">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Opsi Acak</p>
-                <p className={`text-xs font-black ${settings.randomizeOptions ? 'text-purple-700' : 'text-slate-400'}`}>
-                  {settings.randomizeOptions ? 'AKTIF' : 'NON-AKTIF'}
-                </p>
-              </div>
-              <div className={`w-10 h-6 rounded-full relative transition-all ${settings.randomizeOptions ? 'bg-purple-600' : 'bg-slate-200'}`}>
-                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${settings.randomizeOptions ? 'right-1' : 'left-1'}`}></div>
-              </div>
-            </button>
           </div>
         </div>
       </div>
@@ -207,7 +144,7 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
         <h2 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-2">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-emerald-600" viewBox="0 0 20 20" fill="currentColor"><path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" /></svg>
-          Data & Hasil Ujian
+          Data & Hasil
         </h2>
 
         <div className="space-y-4">

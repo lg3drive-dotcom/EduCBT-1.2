@@ -75,9 +75,7 @@ export const pushQuestionsToCloud = async (questions: Question[]) => {
 export const updateLiveSettings = async (settings: AppSettings) => {
   const payload: any = { 
     id: 1, 
-    timer_minutes: Number(settings.timerMinutes) || 60,
-    randomize_questions: settings.randomizeQuestions,
-    randomize_options: settings.randomizeOptions
+    timer_minutes: Number(settings.timerMinutes) || 60
   };
   if (settings.adminPassword) payload.admin_password = settings.adminPassword;
   const { error } = await supabase.from('active_settings').upsert(sanitizeData(payload), { onConflict: 'id' });
@@ -89,9 +87,7 @@ export const getGlobalSettings = async () => {
   if (error) return null;
   return data ? { 
     timerMinutes: data.timer_minutes, 
-    adminPassword: data.admin_password,
-    randomizeQuestions: data.randomize_questions,
-    randomizeOptions: data.randomize_options
+    adminPassword: data.admin_password
   } : null;
 };
 
@@ -113,9 +109,7 @@ export const getLiveExamData = async (studentToken: string) => {
     return {
       settings: { 
         timerMinutes: set?.timer_minutes || 60, 
-        activeSubject: questions[0].subject || 'Ujian Digital',
-        randomizeQuestions: set?.randomize_questions || false,
-        randomizeOptions: set?.randomize_options || false
+        activeSubject: questions[0].subject || 'Ujian Digital'
       },
       questions: questions.map(q => ({
         id: q.id, type: q.type, level: q.level, subject: q.subject, material: q.material, text: q.text,
@@ -137,7 +131,7 @@ export const submitResultToCloud = async (result: QuizResult, subjectName?: stri
       score: Number(result.score) || 0,
       answers: result.answers || {}, 
       timestamp: result.timestamp || Date.now(), 
-      subject: result.identity.token.toUpperCase(), // Tetap simpan token di subject untuk backward compatibility
+      subject: result.identity.token.toUpperCase(),
       subject_token: result.identity.token.toUpperCase(),
       subject_name: subjectName || 'Ujian Digital' 
     });

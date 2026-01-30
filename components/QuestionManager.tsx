@@ -12,6 +12,7 @@ interface QuestionManagerProps {
   onSoftDelete: (id: string) => void;
   onPermanentDelete: (id: string) => void;
   onRestore: (id: string) => void;
+  onBulkUpdate?: (updatedQuestions: Question[]) => void; // Opsional: Tambahkan prop untuk update masal jika ada
 }
 
 const QuestionManager: React.FC<QuestionManagerProps> = ({ 
@@ -117,6 +118,37 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
       return (a.order || 0) - (b.order || 0);
     });
   }, [questions, activeTab, subjectFilter, tokenFilter]);
+
+  const handleRandomizeOrder = () => {
+    const token = tokenFilter.trim().toUpperCase();
+    if (!token) {
+      alert("Masukkan nama TOKEN pada filter pencarian terlebih dahulu untuk mengacak urutannya.");
+      return;
+    }
+
+    const tokenQuestions = questions.filter(q => q.quizToken?.toUpperCase() === token && !q.isDeleted);
+    
+    if (tokenQuestions.length === 0) {
+      alert(`Tidak ada soal ditemukan untuk token "${token}".`);
+      return;
+    }
+
+    if (!confirm(`Acak nomor urut untuk ${tokenQuestions.length} soal pada token "${token}"?`)) return;
+
+    // Shuffle algorithm
+    const shuffled = [...tokenQuestions];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+
+    // Update order 1...N
+    shuffled.forEach((q, idx) => {
+      onUpdate({ ...q, order: idx + 1 });
+    });
+
+    alert(`Berhasil mengacak urutan soal untuk token ${token}. Jangan lupa klik "Kirim ke Cloud" agar siswa menerima urutan terbaru ini.`);
+  };
 
   const handleTypeChange = (newType: QuestionType) => {
     setFormData(prev => {
@@ -229,9 +261,10 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
             <button onClick={() => setActiveTab('trash')} className={`px-4 py-2 rounded-lg text-[10px] font-black ${activeTab === 'trash' ? 'bg-red-500 text-white' : 'text-slate-400'}`}>SAMPAH</button>
           </div>
           <input type="text" value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value)} placeholder="Mapel..." className="w-32 bg-white border rounded-xl px-3 py-1.5 text-[10px] font-bold outline-none" />
-          <input type="text" value={tokenFilter} onChange={(e) => setTokenFilter(e.target.value)} placeholder="Token..." className="w-24 bg-white border rounded-xl px-3 py-1.5 text-[10px] font-bold outline-none" />
+          <input type="text" value={tokenFilter} onChange={(e) => setTokenFilter(e.target.value)} placeholder="Ketik Token..." className="w-24 bg-white border rounded-xl px-3 py-1.5 text-[10px] font-bold outline-none uppercase" />
         </div>
         <div className="flex gap-2">
+           <button onClick={handleRandomizeOrder} title="Acak Urutan Soal (Hanya untuk Token yang difilter)" className="bg-amber-100 text-amber-700 px-4 py-2 rounded-xl text-[10px] font-black uppercase border border-amber-200 hover:bg-amber-200 transition-all">Acak Urutan</button>
            <div className="flex bg-white border rounded-xl overflow-hidden shadow-sm">
              <input type="text" value={downloadToken} onChange={(e) => setDownloadToken(e.target.value)} placeholder="Token" className="w-20 px-3 py-1.5 text-[10px] font-bold outline-none uppercase" />
              <button onClick={() => generateQuestionBankPDF(questions.filter(q => q.quizToken?.toUpperCase() === downloadToken.toUpperCase() && !q.isDeleted), 'lengkap', undefined, downloadToken)} className="bg-slate-100 px-3 py-1.5 text-[10px] font-bold border-l">PDF</button>

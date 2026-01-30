@@ -1,18 +1,17 @@
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Question, StudentIdentity, QuizResult, QuestionType, AppSettings } from '../types';
+import React, { useState, useEffect, useRef } from 'react';
+import { Question, StudentIdentity, QuizResult, QuestionType } from '../types';
 
 interface QuizInterfaceProps {
   questions: Question[];
   identity: StudentIdentity;
   timeLimitMinutes: number;
   subjectName: string;
-  settings?: AppSettings; // Menambahkan props settings
   onFinish: (result: QuizResult) => void;
   onViolation: (reason: string) => void; 
 }
 
-const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, timeLimitMinutes, subjectName, settings, onFinish, onViolation }) => {
+const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, timeLimitMinutes, subjectName, onFinish, onViolation }) => {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState<{ [key: string]: any }>({});
   const [doubtfuls, setDoubtfuls] = useState<{ [key: string]: boolean }>({});
@@ -20,74 +19,10 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
   const [fontSize, setFontSize] = useState(18);
   const [isFullscreen, setIsFullscreen] = useState(false);
   
-  // State untuk menyimpan soal yang sudah diproses (diacak)
-  const [processedQuestions, setProcessedQuestions] = useState<Question[]>([]);
-  
   const startTime = useRef(Date.now());
   const isSubmitting = useRef(false);
 
-  // Algoritma Shuffle Fisher-Yates
-  const shuffle = <T,>(array: T[]): T[] => {
-    const newArr = [...array];
-    for (let i = newArr.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
-    }
-    return newArr;
-  };
-
-  // Inisialisasi Soal (Acak Soal & Opsi jika diaktifkan)
-  useEffect(() => {
-    let finalQs = [...questions];
-
-    // 1. Acak Urutan Soal
-    if (settings?.randomizeQuestions) {
-      finalQs = shuffle(finalQs);
-    }
-
-    // 2. Acak Opsi untuk setiap soal
-    if (settings?.randomizeOptions) {
-      finalQs = finalQs.map(q => {
-        if (!q.options || q.options.length < 2) return q;
-        if (q.type === QuestionType.TRUE_FALSE_COMPLEX || q.type === QuestionType.COMPLEX_CATEGORY) return q;
-
-        // Buat pasangan opsi & gambar & index asli
-        const paired = q.options.map((opt, i) => ({
-          text: opt,
-          img: q.optionImages?.[i],
-          originalIdx: i
-        }));
-
-        // Explicitly type the result of shuffle to avoid 'unknown' type issues reported by TypeScript
-        const shuffledPairs: { text: string; img: string | undefined; originalIdx: number }[] = shuffle(paired);
-
-        // Map kembali ke struktur soal
-        const newOptions = shuffledPairs.map(p => p.text);
-        const newOptionImages = shuffledPairs.map(p => p.img);
-        
-        // Sesuaikan correctAnswer
-        let newCorrectAnswer = q.correctAnswer;
-        if (q.type === QuestionType.SINGLE) {
-          newCorrectAnswer = shuffledPairs.findIndex(p => p.originalIdx === q.correctAnswer);
-        } else if (q.type === QuestionType.MULTIPLE && Array.isArray(q.correctAnswer)) {
-          newCorrectAnswer = q.correctAnswer.map(oldIdx => 
-            shuffledPairs.findIndex(p => p.originalIdx === oldIdx)
-          );
-        }
-
-        return {
-          ...q,
-          options: newOptions,
-          optionImages: newOptionImages,
-          correctAnswer: newCorrectAnswer
-        };
-      });
-    }
-
-    setProcessedQuestions(finalQs);
-  }, [questions, settings]);
-
-  // Protokol Keamanan Ketat
+  // Protokol Keamanan
   useEffect(() => {
     if (!isFullscreen) return;
 
@@ -158,9 +93,9 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
     isSubmitting.current = true;
 
     let correctCount = 0;
-    const totalQuestions = processedQuestions.length;
+    const totalQuestions = questions.length;
     
-    processedQuestions.forEach(q => {
+    questions.forEach(q => {
       const studentAns = answers[q.id];
       let isCorrect = false;
 
@@ -212,8 +147,8 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
     );
   }
 
-  const q = processedQuestions[currentIdx];
-  if (!q) return null; // Loading state jika pengacakan belum selesai
+  const q = questions[currentIdx];
+  if (!q) return null;
   
   const currentAnswer = answers[q.id];
   const isDoubtful = doubtfuls[q.id] || false;
@@ -287,7 +222,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
     if (q.type === QuestionType.MULTIPLE) {
       return (
         <div className="space-y-4">
-          <p className="text-slate-500 italic font-bold text-sm mb-4">(Soal MCMA – pilih lebih dari satu jawaban yang benar)</p>
+          <p className="text-slate-500 italic font-bold text-sm mb-4">(Pilih lebih dari satu jawaban yang benar)</p>
           <div className="space-y-3">
             {q.options?.map((opt, idx) => {
               const selected = (currentAnswer || []).includes(idx);
@@ -366,7 +301,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                       <input type="checkbox" checked={isDoubtful} onChange={e => setDoubtfuls({...doubtfuls, [q.id]: e.target.checked})} className="w-6 h-6 accent-orange-500 rounded" />
                       <span className="font-black text-orange-600 uppercase text-xs">Ragu-Ragu</span>
                    </label>
-                   {currentIdx === processedQuestions.length - 1 ? (
+                   {currentIdx === questions.length - 1 ? (
                      <button onClick={() => { if(confirm('Yakin ingin mengakhiri ujian?')) handleSubmit(); }} className="w-full sm:w-auto px-12 py-4 bg-green-600 text-white font-black rounded-2xl border-b-4 border-green-800 uppercase text-xs hover:bg-green-700 transition-all">Selesai</button>
                    ) : (
                      <button onClick={() => setCurrentIdx(prev => prev+1)} className="w-full sm:w-auto px-12 py-4 bg-blue-600 text-white font-black rounded-2xl border-b-4 border-blue-800 uppercase text-xs hover:bg-blue-700 transition-all">Berikutnya</button>
@@ -384,7 +319,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
              </div>
              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Navigasi Soal</p>
              <div className="grid grid-cols-5 gap-2">
-                {processedQuestions.map((item, i) => {
+                {questions.map((item, i) => {
                    const hasAns = answers[item.id] !== undefined;
                    const isDbt = doubtfuls[item.id];
                    return (
