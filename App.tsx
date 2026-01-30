@@ -443,88 +443,86 @@ const App: React.FC = () => {
       )}
 
       {view === 'login' && (
-        <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4 font-inter">
-          <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col md:flex-row border border-slate-200">
-            <div className="md:w-5/12 bg-slate-900 p-12 text-white flex flex-col justify-between relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600 rounded-full -mr-32 -mt-32 blur-3xl opacity-20"></div>
+        <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 font-inter">
+          <div className="w-full max-w-6xl flex flex-col md:flex-row gap-4 items-stretch">
+            {/* PANEL KIRI: INFO SERVER */}
+            <div className="md:w-5/12 p-12 text-white flex flex-col justify-between relative overflow-hidden bg-slate-950/40 rounded-[3rem] border border-white/5 backdrop-blur-sm">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600 rounded-full -mr-32 -mt-32 blur-3xl opacity-10"></div>
               <div className="relative z-10 text-center md:text-left">
                 <div className="flex items-center justify-center md:justify-start gap-3 mb-12"><div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-black text-xl shadow-lg">C</div><div className="font-black text-2xl tracking-tighter text-white">EduCBT Pro</div></div>
-                <h1 className="text-4xl font-black mb-6 leading-tight">Computer Based Test</h1>
-                <div className="bg-white/5 p-5 rounded-3xl border border-white/10 backdrop-blur-sm"><p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em] mb-2">Sistem</p><p className="text-xl font-black text-white italic">Full Dynamic Partitioning</p></div>
+                <h1 className="text-4xl lg:text-5xl font-black mb-6 leading-tight">Computer Based Test</h1>
+                <div className="bg-white/5 p-5 rounded-3xl border border-white/10 backdrop-blur-sm inline-block"><p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em] mb-2">Sistem Terverifikasi</p><p className="text-xl font-black text-white italic">Full Dynamic Partitioning</p></div>
               </div>
-              <div className="mt-auto flex flex-col items-center">
-                <button onClick={() => setView('admin-auth')} className="w-full bg-white/5 hover:bg-white/10 p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/5 transition-all mb-4 text-white">Administrator</button>
-                <a href={currentLinks.passwordHelp} target="_blank" rel="noopener noreferrer" className="mb-4 block text-[10px] text-center font-bold text-slate-400 hover:text-blue-600 transition-colors uppercase tracking-widest leading-relaxed">klik di sini untuk mendapatkan<br/>password administrator</a>
-                
-                <button 
-                  onClick={handleCentralSettings} 
-                  className="text-[11px] font-black text-white hover:text-blue-400 transition-colors cursor-pointer mb-6 tracking-tight"
-                >
-                  {currentLinks.adminEmailDisplay}
-                </button>
+              <div className="mt-12 space-y-4">
+                <button onClick={() => setView('admin-auth')} className="w-full bg-white/5 hover:bg-white/10 p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/5 transition-all text-white">Administrator Access</button>
+                <div className="text-center space-y-2">
+                   <a href={currentLinks.passwordHelp} target="_blank" rel="noopener noreferrer" className="block text-[9px] font-bold text-slate-500 hover:text-blue-400 transition-colors uppercase tracking-[0.2em]">Klik untuk bantuan password admin</a>
+                   <p className="text-[11px] font-black text-slate-400">CP: {currentLinks.adminEmailDisplay}</p>
+                   <p className="text-[10px] font-bold text-slate-600">087773280452</p>
+                </div>
               </div>
             </div>
-            <div className="md:w-7/12 p-12 bg-white max-h-[90vh] overflow-y-auto custom-scrollbar flex flex-col">
-              <div className="max-w-md mx-auto text-center md:text-left flex-1">
-                <h2 className="text-3xl font-black text-slate-800 mb-2">Login Peserta</h2>
-                <p className="text-slate-400 font-medium mb-10 italic">Lengkapi identitas untuk memulai pengerjaan.</p>
-                <form onSubmit={handleStartQuiz} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-1 text-left">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nama Lengkap</label>
-                      <input required type="text" placeholder="Nama Peserta" className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold text-slate-800 text-sm" value={identity.name} onChange={e => setIdentity({...identity, name: e.target.value})} />
-                    </div>
-                    <div className="space-y-1 text-left">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kelas</label>
-                      <input required type="text" placeholder="Contoh: 6A" className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold text-slate-800 text-sm" value={identity.className} onChange={e => setIdentity({...identity, className: e.target.value})} />
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-1 text-left">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Asal Sekolah</label>
-                    <input required type="text" placeholder="Nama Sekolah / Institusi" className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold text-slate-800 text-sm" value={identity.schoolOrigin} onChange={e => setIdentity({...identity, schoolOrigin: e.target.value})} />
-                  </div>
-                  
-                  <div className="space-y-1 text-left">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tanggal Lahir</label>
-                    <input required type="date" className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold text-slate-800 text-sm" value={identity.birthDate} onChange={e => setIdentity({...identity, birthDate: e.target.value})} />
-                  </div>
 
-                  <div className="space-y-1 text-left">
-                    <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest ml-1 text-center block">Token Ujian</label>
-                    <input required type="text" placeholder="KODE TOKEN" className="w-full p-4 bg-blue-50 border-2 border-blue-200 rounded-2xl font-black text-blue-700 text-center uppercase tracking-[0.3em] outline-none placeholder:opacity-30" value={identity.token} onChange={e => setIdentity({...identity, token: e.target.value})} />
-                  </div>
+            {/* PANEL KANAN: LOGIN & REKAP (FLEKSIBEL) */}
+            <div className="md:w-7/12 flex flex-col gap-4">
+               {/* FORM LOGIN PESERTA */}
+               <div className="bg-white rounded-[3rem] shadow-2xl p-10 lg:p-12 flex-1 border border-slate-200 flex flex-col justify-center">
+                  <div className="max-w-md mx-auto w-full text-center md:text-left">
+                    <h2 className="text-3xl font-black text-slate-800 mb-2">Login Peserta</h2>
+                    <p className="text-slate-400 font-medium mb-10 italic">Lengkapi identitas untuk memulai pengerjaan.</p>
+                    <form onSubmit={handleStartQuiz} className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="space-y-1 text-left">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nama Lengkap</label>
+                          <input required type="text" placeholder="Nama Peserta" className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold text-slate-800 text-sm" value={identity.name} onChange={e => setIdentity({...identity, name: e.target.value})} />
+                        </div>
+                        <div className="space-y-1 text-left">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kelas</label>
+                          <input required type="text" placeholder="Contoh: 6A" className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold text-slate-800 text-sm" value={identity.className} onChange={e => setIdentity({...identity, className: e.target.value})} />
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-1 text-left">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Asal Sekolah</label>
+                        <input required type="text" placeholder="Nama Sekolah / Institusi" className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold text-slate-800 text-sm" value={identity.schoolOrigin} onChange={e => setIdentity({...identity, schoolOrigin: e.target.value})} />
+                      </div>
+                      
+                      <div className="space-y-1 text-left">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 text-center block">Token Ujian</label>
+                        <input required type="text" placeholder="KODE TOKEN" className="w-full p-4 bg-blue-50 border-2 border-blue-200 rounded-2xl font-black text-blue-700 text-center uppercase tracking-[0.3em] outline-none placeholder:opacity-30" value={identity.token} onChange={e => setIdentity({...identity, token: e.target.value})} />
+                      </div>
 
-                  <div className="pt-2">
-                    <button disabled={isSyncing} className="w-full font-black py-4 rounded-[2rem] text-lg shadow-2xl transition-all active:scale-95 bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200">
-                      {isSyncing ? 'MENGHUBUNGKAN...' : 'MASUK KE UJIAN'}
-                    </button>
+                      <div className="pt-2">
+                        <button disabled={isSyncing} className="w-full font-black py-4 rounded-[2rem] text-lg shadow-2xl transition-all active:scale-95 bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200">
+                          {isSyncing ? 'MENGHUBUNGKAN...' : 'MASUK KE UJIAN'}
+                        </button>
+                      </div>
+                    </form>
                   </div>
-                </form>
+               </div>
 
-                {/* AREA REKAP - DIPINDAHKAN KE BAWAH LOGIN PESERTA */}
-                <hr className="my-10 border-slate-100" />
-                <div className="max-w-xs mx-auto">
-                   <div className="bg-slate-900 p-6 rounded-[2rem] border border-slate-800 shadow-xl space-y-3">
-                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] text-center mb-1">Download Rekap Cepat (Guru)</p>
+               {/* REKAP CEPAT (DILUAR KARTU PUTIH - DI FOOTER KANAN) */}
+               <div className="flex justify-end">
+                  <div className="bg-slate-950/80 p-6 rounded-[2.5rem] border border-white/5 shadow-2xl w-full max-w-sm space-y-3 backdrop-blur-lg">
+                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] text-center mb-1">Download Rekap Cepat (Guru)</p>
+                    <div className="space-y-2">
                       <input 
                        type="text" 
-                       placeholder="Masukan Token" 
-                       className="w-full bg-slate-950 border border-white/10 p-3 rounded-xl text-center text-[10px] font-black uppercase tracking-widest outline-none focus:border-blue-500 text-blue-400"
+                       placeholder="MASUKAN TOKEN" 
+                       className="w-full bg-slate-900 border border-white/5 p-3 rounded-xl text-center text-[10px] font-black uppercase tracking-widest outline-none focus:border-blue-500 text-blue-400 placeholder:text-slate-700"
                        value={quickDownloadToken}
                        onChange={(e) => setQuickDownloadToken(e.target.value)}
                       />
                       <button 
                        onClick={handleQuickDownloadRecap}
                        disabled={isQuickDownloading}
-                       className="w-full bg-white/10 hover:bg-white/20 disabled:opacity-50 text-white font-black py-3 rounded-xl text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+                       className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-black py-3 rounded-xl text-[10px] uppercase tracking-[0.1em] transition-all shadow-lg shadow-blue-900/20"
                       >
                         {isQuickDownloading ? 'Processing...' : 'Download Rekap Nilai'}
                       </button>
-                   </div>
-                   <p className="text-[8px] text-slate-400 text-center mt-3 font-bold uppercase tracking-widest opacity-50">Hanya untuk pengelola ujian</p>
-                </div>
-              </div>
+                    </div>
+                  </div>
+               </div>
             </div>
           </div>
         </div>
