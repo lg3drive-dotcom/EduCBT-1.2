@@ -102,6 +102,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
 
   const processedQuestions = useMemo(() => {
     let filtered = questions.filter(q => activeTab === 'active' ? !q.isDeleted : (activeTab === 'trash' ? q.isDeleted : false));
+    
     if (activeTab === 'active') {
       if (subjectFilter.trim() !== '') {
         filtered = filtered.filter(q => q.subject.toLowerCase().includes(subjectFilter.toLowerCase()));
@@ -111,10 +112,25 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
       }
     }
     
+    // Hitung waktu pembuatan terbaru untuk setiap grup Token
+    const tokenActivityMap: { [key: string]: number } = {};
+    filtered.forEach(q => {
+      const t = (q.quizToken || 'UMUM').toUpperCase();
+      if (!tokenActivityMap[t] || q.createdAt > tokenActivityMap[t]) {
+        tokenActivityMap[t] = q.createdAt;
+      }
+    });
+
     return filtered.sort((a, b) => {
-      const tokenA = (a.quizToken || '').toUpperCase();
-      const tokenB = (b.quizToken || '').toUpperCase();
-      if (tokenA !== tokenB) return tokenA.localeCompare(tokenB);
+      const tokenA = (a.quizToken || 'UMUM').toUpperCase();
+      const tokenB = (b.quizToken || 'UMUM').toUpperCase();
+      
+      if (tokenA !== tokenB) {
+        // Urutkan grup Token berdasarkan soal yang paling baru dibuat (descending)
+        return (tokenActivityMap[tokenB] || 0) - (tokenActivityMap[tokenA] || 0);
+      }
+      
+      // Jika Token sama, urutkan berdasarkan nomor urut (ascending)
       return (a.order || 0) - (b.order || 0);
     });
   }, [questions, activeTab, subjectFilter, tokenFilter]);
