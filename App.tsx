@@ -240,15 +240,16 @@ const App: React.FC = () => {
       } else if (choice === "2") {
         const currentLinks = settings.externalLinks || DEFAULT_LINKS;
         
-        const newHelpLink = prompt("Link Bantuan Password (Lynk.id/dst):", currentLinks.passwordHelp);
-        const newAiLink = prompt("Link Generate Soal AI (AI Studio/dst):", currentLinks.aiGenerator);
-        const newEmailDisplay = prompt("Teks Display Identitas (Email Pengelola):", currentLinks.adminEmailDisplay);
+        const newHelpLink = prompt("Link Bantuan Password:", currentLinks.passwordHelp);
+        const newAiLink = prompt("Link Generate Soal AI:", currentLinks.aiGenerator);
+        const newEmailDisplay = prompt("Teks Identitas Pengelola (Email/Nama):", currentLinks.adminEmailDisplay);
 
-        if (newHelpLink !== null && newAiLink !== null && newEmailDisplay !== null) {
+        // Jika user tidak membatalkan prompt (klik OK)
+        if (newHelpLink !== null || newAiLink !== null || newEmailDisplay !== null) {
           const updatedLinks: ExternalLinks = {
-            passwordHelp: newHelpLink.trim() || DEFAULT_LINKS.passwordHelp,
-            aiGenerator: newAiLink.trim() || DEFAULT_LINKS.aiGenerator,
-            adminEmailDisplay: newEmailDisplay.trim() || DEFAULT_LINKS.adminEmailDisplay
+            passwordHelp: newHelpLink?.trim() || currentLinks.passwordHelp,
+            aiGenerator: newAiLink?.trim() || currentLinks.aiGenerator,
+            adminEmailDisplay: newEmailDisplay?.trim() || currentLinks.adminEmailDisplay
           };
 
           const newSettings = { ...settings, externalLinks: updatedLinks };
@@ -256,9 +257,9 @@ const App: React.FC = () => {
           
           try {
             await updateLiveSettings({ ...newSettings, adminPassword });
-            alert("BERHASIL: Seluruh konfigurasi tautan telah diperbarui.");
+            alert("BERHASIL: Seluruh konfigurasi tautan telah diperbarui ke Cloud.");
           } catch (e: any) {
-            alert("Konfigurasi tersimpan lokal, gagal sinkron ke Cloud.");
+            alert("Perubahan disimpan secara lokal. Pastikan internet stabil untuk sinkronisasi cloud.");
           }
         }
       }
@@ -372,7 +373,7 @@ const App: React.FC = () => {
                 Generate Soal AI ✨
               </a>
               <button onClick={() => setShowGuide(true)} className="w-full flex items-center gap-3 p-4 hover:bg-white/5 rounded-xl font-bold uppercase text-[10px] tracking-widest text-emerald-400 border border-transparent hover:border-emerald-500/20 transition-all">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5S19.832 6.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5S19.832 6.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5S19.832 6.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
                 Panduan Penggunaan
               </button>
             </nav>
@@ -452,9 +453,16 @@ const App: React.FC = () => {
                 <div className="bg-white/5 p-5 rounded-3xl border border-white/10 backdrop-blur-sm"><p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em] mb-2">Sistem</p><p className="text-xl font-black text-white italic">Full Dynamic Partitioning</p></div>
               </div>
               <div className="mt-auto flex flex-col items-center">
-                <button onClick={() => setView('admin-auth')} className="w-full bg-white/5 hover:bg-white/10 p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/5 transition-all mb-4">Administrator</button>
+                <button onClick={() => setView('admin-auth')} className="w-full bg-white/5 hover:bg-white/10 p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/5 transition-all mb-4 text-white">Administrator</button>
                 <a href={currentLinks.passwordHelp} target="_blank" rel="noopener noreferrer" className="mb-4 block text-[10px] text-center font-bold text-slate-400 hover:text-blue-600 transition-colors uppercase tracking-widest leading-relaxed">klik di sini untuk mendapatkan<br/>password administrator</a>
-                <button onClick={handleCentralSettings} className="text-[9px] font-bold text-slate-500 opacity-30 hover:opacity-100 transition-opacity cursor-pointer mb-6 tracking-tighter">{currentLinks.adminEmailDisplay}</button>
+                
+                {/* Teks Identitas (Putih Solid) */}
+                <button 
+                  onClick={handleCentralSettings} 
+                  className="text-[9px] font-black text-white hover:text-blue-400 transition-colors cursor-pointer mb-6 tracking-tighter uppercase"
+                >
+                  {currentLinks.adminEmailDisplay}
+                </button>
                 
                 {/* QUICK DOWNLOAD SECTION */}
                 <div className="w-full bg-white/5 p-5 rounded-[2rem] border border-white/10 space-y-3">
