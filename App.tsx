@@ -198,7 +198,23 @@ const App: React.FC = () => {
   const normalizeImportedQuestions = (rawQs: any[]): Question[] => {
     return rawQs.map(q => {
       let level = q.level;
-      // Mapping Level Ringkas ke Level Lengkap Aplikasi
+      let type = q.type;
+
+      // 1. Mapping Tipe Soal Kustom ke QuestionType Internal
+      const typeMap: { [key: string]: QuestionType } = {
+        'Pilihan Ganda': QuestionType.SINGLE,
+        'Pilihan Jamak (MCMA)': QuestionType.MULTIPLE,
+        'Pilihan Ganda Kompleks': QuestionType.COMPLEX_CATEGORY,
+        'Pilihan Ganda Kompleks (B/S)': QuestionType.TRUE_FALSE_COMPLEX,
+        '(Benar/Salah)': QuestionType.TRUE_FALSE_COMPLEX,
+        '(Sesuai/Tidak Sesuai)': QuestionType.TRUE_FALSE_COMPLEX
+      };
+
+      if (typeMap[type]) {
+        type = typeMap[type];
+      }
+
+      // 2. Mapping Level Ringkas ke Level Lengkap Aplikasi
       const levelMap: { [key: string]: string } = {
         'L1': CognitiveLevel.L1,
         'L2': CognitiveLevel.L2,
@@ -211,20 +227,21 @@ const App: React.FC = () => {
         'C6': CognitiveLevel.C6,
       };
 
-      if (levelMap[level]) level = levelMap[level];
+      if (levelMap[level]) {
+        level = levelMap[level];
+      }
 
       return {
         ...q,
         id: q.id || `import_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
         level: level,
-        type: q.type as QuestionType,
-        // FIX: Petakan properti 'image' dari JSON eksternal ke 'questionImage' internal
+        type: type as QuestionType,
         questionImage: q.questionImage || q.image || '',
         quizToken: (q.quizToken || 'UMUM').toUpperCase(),
         isDeleted: q.isDeleted || false,
         createdAt: q.createdAt || Date.now(),
         order: Number(q.order) || 1,
-        tfLabels: q.tfLabels || (q.type === QuestionType.TRUE_FALSE_COMPLEX ? { true: 'Benar', false: 'Salah' } : undefined)
+        tfLabels: q.tfLabels || (type === QuestionType.TRUE_FALSE_COMPLEX ? { true: 'Benar', false: 'Salah' } : undefined)
       };
     });
   };
@@ -238,7 +255,6 @@ const App: React.FC = () => {
       setQuestions(prev => {
         const merged = [...prev];
         normalized.forEach(newQ => {
-          // Cek duplikasi ID
           if (!merged.find(m => m.id === newQ.id)) {
             merged.push(newQ);
           }
