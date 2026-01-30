@@ -116,7 +116,6 @@ const App: React.FC = () => {
     setSyncStatus('loading');
     try {
       await pushQuestionsToCloud(questions);
-      // Update settings ke cloud (akan ditangani otomatis oleh service jika kolom hilang)
       await updateLiveSettings({ ...settings, adminPassword });
       setSyncStatus('success');
       setTimeout(() => setSyncStatus('idle'), 3000);
@@ -253,17 +252,14 @@ const App: React.FC = () => {
           };
 
           const newSettings = { ...settings, externalLinks: updatedLinks };
-          
-          // Update LOKAL dahulu agar tampilan langsung berubah
           setSettings(newSettings);
           localStorage.setItem('cbt_settings', JSON.stringify(newSettings));
           
           try {
-            // Coba update ke cloud (service akan handle jika kolom tidak ada)
             await updateLiveSettings({ ...newSettings, adminPassword });
             alert("BERHASIL: Pengaturan diperbarui.");
           } catch (e: any) {
-            alert("Perubahan disimpan di perangkat ini. Untuk sinkronisasi cloud, silakan tambahkan kolom 'external_links' di database Supabase.");
+            alert("Perubahan disimpan di perangkat ini.");
           }
         }
       }
@@ -460,36 +456,16 @@ const App: React.FC = () => {
                 <button onClick={() => setView('admin-auth')} className="w-full bg-white/5 hover:bg-white/10 p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/5 transition-all mb-4 text-white">Administrator</button>
                 <a href={currentLinks.passwordHelp} target="_blank" rel="noopener noreferrer" className="mb-4 block text-[10px] text-center font-bold text-slate-400 hover:text-blue-600 transition-colors uppercase tracking-widest leading-relaxed">klik di sini untuk mendapatkan<br/>password administrator</a>
                 
-                {/* Teks Identitas (Putih Solid & Case-Sensitive) */}
                 <button 
                   onClick={handleCentralSettings} 
                   className="text-[11px] font-black text-white hover:text-blue-400 transition-colors cursor-pointer mb-6 tracking-tight"
                 >
                   {currentLinks.adminEmailDisplay}
                 </button>
-                
-                {/* QUICK DOWNLOAD SECTION */}
-                <div className="w-full bg-white/5 p-5 rounded-[2rem] border border-white/10 space-y-3">
-                   <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] text-center mb-1">Download Rekap Cepat</p>
-                   <input 
-                    type="text" 
-                    placeholder="Masukan Token" 
-                    className="w-full bg-slate-950 border border-white/10 p-3 rounded-xl text-center text-[10px] font-black uppercase tracking-widest outline-none focus:border-blue-500 text-blue-400"
-                    value={quickDownloadToken}
-                    onChange={(e) => setQuickDownloadToken(e.target.value)}
-                   />
-                   <button 
-                    onClick={handleQuickDownloadRecap}
-                    disabled={isQuickDownloading}
-                    className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-black py-3 rounded-xl text-[10px] uppercase tracking-widest shadow-xl shadow-blue-900/20 transition-all flex items-center justify-center gap-2"
-                   >
-                     {isQuickDownloading ? 'Processing...' : 'Download Rekap Nilai'}
-                   </button>
-                </div>
               </div>
             </div>
-            <div className="md:w-7/12 p-12 bg-white max-h-[90vh] overflow-y-auto custom-scrollbar">
-              <div className="max-w-md mx-auto text-center md:text-left">
+            <div className="md:w-7/12 p-12 bg-white max-h-[90vh] overflow-y-auto custom-scrollbar flex flex-col">
+              <div className="max-w-md mx-auto text-center md:text-left flex-1">
                 <h2 className="text-3xl font-black text-slate-800 mb-2">Login Peserta</h2>
                 <p className="text-slate-400 font-medium mb-10 italic">Lengkapi identitas untuk memulai pengerjaan.</p>
                 <form onSubmit={handleStartQuiz} className="space-y-4">
@@ -525,6 +501,29 @@ const App: React.FC = () => {
                     </button>
                   </div>
                 </form>
+
+                {/* AREA REKAP - DIPINDAHKAN KE BAWAH LOGIN PESERTA */}
+                <hr className="my-10 border-slate-100" />
+                <div className="max-w-xs mx-auto">
+                   <div className="bg-slate-900 p-6 rounded-[2rem] border border-slate-800 shadow-xl space-y-3">
+                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] text-center mb-1">Download Rekap Cepat (Guru)</p>
+                      <input 
+                       type="text" 
+                       placeholder="Masukan Token" 
+                       className="w-full bg-slate-950 border border-white/10 p-3 rounded-xl text-center text-[10px] font-black uppercase tracking-widest outline-none focus:border-blue-500 text-blue-400"
+                       value={quickDownloadToken}
+                       onChange={(e) => setQuickDownloadToken(e.target.value)}
+                      />
+                      <button 
+                       onClick={handleQuickDownloadRecap}
+                       disabled={isQuickDownloading}
+                       className="w-full bg-white/10 hover:bg-white/20 disabled:opacity-50 text-white font-black py-3 rounded-xl text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+                      >
+                        {isQuickDownloading ? 'Processing...' : 'Download Rekap Nilai'}
+                      </button>
+                   </div>
+                   <p className="text-[8px] text-slate-400 text-center mt-3 font-bold uppercase tracking-widest opacity-50">Hanya untuk pengelola ujian</p>
+                </div>
               </div>
             </div>
           </div>
