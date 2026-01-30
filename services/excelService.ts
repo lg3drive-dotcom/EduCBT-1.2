@@ -19,7 +19,6 @@ const formatCorrectAnswer = (q: Question): string => {
   
   if (q.type === QuestionType.COMPLEX_CATEGORY || q.type === QuestionType.TRUE_FALSE_COMPLEX) {
     if (Array.isArray(q.correctAnswer)) {
-      // Sesuai screenshot: B = Benar/Sesuai, S = Salah/Tidak Sesuai
       return q.correctAnswer
         .map((val: boolean) => (val === true ? 'B' : 'S'))
         .join(', ');
@@ -31,7 +30,6 @@ const formatCorrectAnswer = (q: Question): string => {
 
 const cleanText = (text: string): string => {
   if (!text) return '';
-  // Menghapus karakter yang bisa merusak format CSV dan membungkus dengan kutip ganda
   const cleaned = text.toString().replace(/"/g, '""').replace(/\n/g, ' ');
   return `"${cleaned}"`;
 };
@@ -39,33 +37,16 @@ const cleanText = (text: string): string => {
 export const exportQuestionsToExcel = (questions: Question[], fileName: string) => {
   if (questions.length === 0) return;
 
-  // Header 19 Kolom sesuai permintaan
   const headers = [
-    'No', 
-    'Tipe Soal', 
-    'Level', 
-    'Materi', 
-    'Teks Soal', 
-    'Gambar Soal (URL)',
-    'Opsi A', 
-    'Gambar Opsi A (URL)',
-    'Opsi B', 
-    'Gambar Opsi B (URL)',
-    'Opsi C', 
-    'Gambar Opsi C (URL)',
-    'Opsi D', 
-    'Gambar Opsi D (URL)',
-    'Opsi E', 
-    'Gambar Opsi E (URL)',
-    'Kunci Jawaban', 
-    'Pembahasan',
-    'Token Paket'
+    'No', 'Tipe Soal', 'Level', 'Materi', 'Teks Soal', 'Gambar Soal (URL)',
+    'Opsi A', 'Gambar Opsi A (URL)', 'Opsi B', 'Gambar Opsi B (URL)',
+    'Opsi C', 'Gambar Opsi C (URL)', 'Opsi D', 'Gambar Opsi D (URL)',
+    'Opsi E', 'Gambar Opsi E (URL)', 'Kunci Jawaban', 'Pembahasan', 'Token Paket'
   ];
 
   const rows = questions.map((q, idx) => {
     const options = q.options || [];
     const optImages = q.optionImages || [];
-
     return [
       q.order || idx + 1,
       q.type,
@@ -84,7 +65,43 @@ export const exportQuestionsToExcel = (questions: Question[], fileName: string) 
     ].join(',');
   });
 
-  // UTF-8 BOM agar Excel mengenali karakter lokal dengan benar
+  const csvContent = "\uFEFF" + headers.join(',') + '\n' + rows.join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', `${fileName}.csv`);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
+export const exportSubmissionsToExcel = (submissions: any[], fileName: string) => {
+  if (!submissions || submissions.length === 0) return;
+
+  const headers = [
+    'No',
+    'Nama Lengkap',
+    'Kelas',
+    'Asal Sekolah',
+    'ID Token',
+    'Mata Pelajaran',
+    'Nilai'
+  ];
+
+  const rows = submissions.map((s, idx) => {
+    return [
+      idx + 1,
+      `"${s.student_name}"`,
+      `"${s.class_name}"`,
+      `"${s.school_origin || '-'}"`,
+      `"${s.subject}"`,
+      `"${s.subject}"`, // Menggunakan token sebagai identitas Mapel jika tidak ada kolom khusus
+      s.score.toFixed(1)
+    ].join(',');
+  });
+
   const csvContent = "\uFEFF" + headers.join(',') + '\n' + rows.join('\n');
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);

@@ -73,11 +73,13 @@ export const pushQuestionsToCloud = async (questions: Question[]) => {
 };
 
 export const updateLiveSettings = async (settings: AppSettings) => {
+  // Fix: changed settings.randomize_questions to settings.randomizeQuestions
+  // and settings.randomize_options to settings.randomizeOptions to match types.ts
   const payload: any = { 
     id: 1, 
     timer_minutes: Number(settings.timerMinutes) || 60,
-    randomize_questions: settings.randomizeQuestions || false,
-    randomize_options: settings.randomizeOptions || false
+    randomize_questions: settings.randomizeQuestions,
+    randomize_options: settings.randomizeOptions
   };
   if (settings.adminPassword) payload.admin_password = settings.adminPassword;
   const { error } = await supabase.from('active_settings').upsert(sanitizeData(payload), { onConflict: 'id' });
@@ -137,4 +139,15 @@ export const submitResultToCloud = async (result: QuizResult): Promise<{success:
     const { error } = await supabase.from('submissions').insert([payload]);
     return error ? { success: false, error: error.message } : { success: true };
   } catch (err: any) { return { success: false, error: err.message }; }
+};
+
+export const fetchSubmissionsByToken = async (token: string): Promise<any[]> => {
+  const { data, error } = await supabase
+    .from('submissions')
+    .select('*')
+    .eq('subject', token.toUpperCase())
+    .order('student_name', { ascending: true });
+
+  if (error) throw error;
+  return data || [];
 };

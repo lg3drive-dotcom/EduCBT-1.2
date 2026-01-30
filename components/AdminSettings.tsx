@@ -1,6 +1,8 @@
 
 import React, { useState, useRef, useMemo } from 'react';
 import { AppSettings, Question } from '../types';
+import { fetchSubmissionsByToken } from '../services/supabaseService';
+import { exportSubmissionsToExcel } from '../services/excelService';
 
 interface AdminSettingsProps {
   settings: AppSettings;
@@ -19,6 +21,7 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
 }) => {
   const [timer, setTimer] = useState(settings.timerMinutes.toString());
   const [selectedTokens, setSelectedTokens] = useState<string[]>([]);
+  const [isDownloading, setIsDownloading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const availableTokens = useMemo(() => {
@@ -86,6 +89,30 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
     link.download = `EduCBT_Backup_${tokenNames}_${new Date().toISOString().split('T')[0]}.json`;
     link.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadRecap = async () => {
+    if (selectedTokens.length === 0) {
+      alert("Pilih minimal satu paket (token) untuk mendownload rekap nilai.");
+      return;
+    }
+
+    setIsDownloading(true);
+    try {
+      for (const token of selectedTokens) {
+        const data = await fetchSubmissionsByToken(token);
+        if (data && data.length > 0) {
+          exportSubmissionsToExcel(data, `Rekap_Nilai_${token}_${new Date().toISOString().split('T')[0]}`);
+        } else {
+          console.warn(`Tidak ada data pengerjaan untuk token ${token}`);
+        }
+      }
+      alert("Proses download selesai. Jika file tidak muncul, pastikan browser tidak memblokir multiple download.");
+    } catch (err: any) {
+      alert(`Gagal mengambil data dari server: ${err.message}`);
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -175,31 +202,41 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
         </div>
       </div>
 
-      {/* BACKUP JSON */}
+      {/* BACKUP & REKAP NILAI */}
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
         <h2 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-purple-600" viewBox="0 0 20 20" fill="currentColor"><path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" /></svg>
-          Backup & Import
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-emerald-600" viewBox="0 0 20 20" fill="currentColor"><path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" /></svg>
+          Data & Hasil Ujian
         </h2>
 
         <div className="space-y-4">
           <div className="flex justify-between items-center px-1">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pilih Token</label>
-            <button onClick={selectAllTokens} className="text-[9px] font-black text-purple-600 uppercase">Semua</button>
+            <button onClick={selectAllTokens} className="text-[9px] font-black text-blue-600 uppercase">Semua</button>
           </div>
           
           <div className="max-h-32 overflow-y-auto border border-slate-100 rounded-2xl p-2 bg-slate-50 custom-scrollbar">
             {availableTokens.map(token => (
               <label key={token} className="flex items-center gap-3 p-2 hover:bg-white rounded-xl cursor-pointer">
-                <input type="checkbox" checked={selectedTokens.includes(token)} onChange={() => toggleToken(token)} className="w-4 h-4 accent-purple-600" />
+                <input type="checkbox" checked={selectedTokens.includes(token)} onChange={() => toggleToken(token)} className="w-4 h-4 accent-blue-600" />
                 <span className="text-[10px] font-black text-slate-500 uppercase">{token}</span>
               </label>
             ))}
           </div>
 
-          <button onClick={handleExportJSON} disabled={selectedTokens.length === 0} className="w-full bg-slate-900 disabled:opacity-20 text-white font-black py-4 rounded-2xl text-[10px] uppercase tracking-widest">Download Backup</button>
-          <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleFileChange} />
-          <button onClick={() => fileInputRef.current?.click()} className="w-full bg-white text-blue-600 font-bold py-4 rounded-2xl border-2 border-blue-100 text-[10px] uppercase tracking-widest">Upload .JSON</button>
+          <div className="grid grid-cols-1 gap-2">
+            <button 
+              onClick={handleDownloadRecap} 
+              disabled={selectedTokens.length === 0 || isDownloading} 
+              className="w-full bg-emerald-600 disabled:opacity-30 text-white font-black py-4 rounded-2xl text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-100 flex items-center justify-center gap-2"
+            >
+              {isDownloading ? 'Processing...' : 'Download Rekap Nilai (Excel)'}
+            </button>
+            
+            <button onClick={handleExportJSON} disabled={selectedTokens.length === 0} className="w-full bg-slate-900 disabled:opacity-20 text-white font-black py-4 rounded-2xl text-[10px] uppercase tracking-widest">Backup Soal (.JSON)</button>
+            <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleFileChange} />
+            <button onClick={() => fileInputRef.current?.click()} className="w-full bg-white text-blue-600 font-bold py-4 rounded-2xl border-2 border-blue-100 text-[10px] uppercase tracking-widest">Upload .JSON</button>
+          </div>
         </div>
       </div>
     </div>
