@@ -18,8 +18,8 @@ export const fetchAllQuestions = async (): Promise<Question[]> => {
     .from('questions')
     .select('*')
     .eq('is_deleted', false)
-    .order('quiz_token', { ascending: true }) // Sort by Token first
-    .order('order', { ascending: true });      // Then by Order
+    .order('quiz_token', { ascending: true })
+    .order('order', { ascending: true });
 
   if (error) throw error;
   
@@ -73,7 +73,12 @@ export const pushQuestionsToCloud = async (questions: Question[]) => {
 };
 
 export const updateLiveSettings = async (settings: AppSettings) => {
-  const payload: any = { id: 1, timer_minutes: Number(settings.timerMinutes) || 60 };
+  const payload: any = { 
+    id: 1, 
+    timer_minutes: Number(settings.timerMinutes) || 60,
+    randomize_questions: settings.randomizeQuestions || false,
+    randomize_options: settings.randomizeOptions || false
+  };
   if (settings.adminPassword) payload.admin_password = settings.adminPassword;
   const { error } = await supabase.from('active_settings').upsert(sanitizeData(payload), { onConflict: 'id' });
   if (error) throw new Error(`Gagal Update Settings: ${error.message}`);
@@ -82,7 +87,12 @@ export const updateLiveSettings = async (settings: AppSettings) => {
 export const getGlobalSettings = async () => {
   const { data, error } = await supabase.from('active_settings').select('*').eq('id', 1).maybeSingle();
   if (error) return null;
-  return data ? { timerMinutes: data.timer_minutes, adminPassword: data.admin_password } : null;
+  return data ? { 
+    timerMinutes: data.timer_minutes, 
+    adminPassword: data.admin_password,
+    randomizeQuestions: data.randomize_questions,
+    randomizeOptions: data.randomize_options
+  } : null;
 };
 
 export const getLiveExamData = async (studentToken: string) => {
@@ -101,7 +111,12 @@ export const getLiveExamData = async (studentToken: string) => {
     const { data: set } = await supabase.from('active_settings').select('*').eq('id', 1).maybeSingle();
 
     return {
-      settings: { timerMinutes: set?.timer_minutes || 60, activeSubject: questions[0].subject || 'Ujian Digital' },
+      settings: { 
+        timerMinutes: set?.timer_minutes || 60, 
+        activeSubject: questions[0].subject || 'Ujian Digital',
+        randomizeQuestions: set?.randomize_questions || false,
+        randomizeOptions: set?.randomize_options || false
+      },
       questions: questions.map(q => ({
         id: q.id, type: q.type, level: q.level, subject: q.subject, material: q.material, text: q.text,
         explanation: q.explanation, questionImage: q.question_image, options: q.options,

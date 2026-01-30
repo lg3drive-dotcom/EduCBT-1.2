@@ -21,7 +21,6 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
   const [selectedTokens, setSelectedTokens] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Mengambil daftar unik quizToken dari bank soal yang tersedia
   const availableTokens = useMemo(() => {
     const tokens = questions
       .filter(q => !q.isDeleted && q.quizToken)
@@ -29,12 +28,26 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
     return Array.from(new Set(tokens)).sort();
   }, [questions]);
 
-  const handleSave = () => {
+  const handleSaveTime = () => {
     onUpdateSettings({
       ...settings,
       timerMinutes: parseInt(timer) || 60
     });
     alert('Pengaturan waktu berhasil disimpan!');
+  };
+
+  const toggleRandomizeQuestions = () => {
+    onUpdateSettings({
+      ...settings,
+      randomizeQuestions: !settings.randomizeQuestions
+    });
+  };
+
+  const toggleRandomizeOptions = () => {
+    onUpdateSettings({
+      ...settings,
+      randomizeOptions: !settings.randomizeOptions
+    });
   };
 
   const toggleToken = (token: string) => {
@@ -56,16 +69,13 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
       alert("Pilih minimal satu paket (token) untuk di-backup.");
       return;
     }
-
     const filteredQs = questions.filter(q => 
       !q.isDeleted && q.quizToken && selectedTokens.includes(q.quizToken.toUpperCase())
     );
-
     if (filteredQs.length === 0) {
       alert("Tidak ada soal ditemukan pada token yang dipilih.");
       return;
     }
-
     const blob = new Blob([JSON.stringify(filteredQs, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -73,7 +83,6 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
     const tokenNames = selectedTokens.length > 2 
       ? `${selectedTokens.slice(0, 2).join('_')}_dst` 
       : selectedTokens.join('_');
-      
     link.download = `EduCBT_Backup_${tokenNames}_${new Date().toISOString().split('T')[0]}.json`;
     link.click();
     URL.revokeObjectURL(url);
@@ -82,7 +91,6 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
@@ -91,14 +99,12 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
           alert("Format file tidak valid. File harus berisi array soal.");
           return;
         }
-
         const userChoice = confirm(
           `Ditemukan ${imported.length} soal baru.\n\n` +
           `PILIH TINDAKAN:\n` +
           `OK = TAMBAH (Gabungkan soal baru dengan yang sudah ada)\n` +
           `BATAL = GANTI (Hapus semua soal lama dan ganti dengan yang baru)`
         );
-
         if (userChoice) {
           onImportQuestions(imported, 'append');
           alert(`BERHASIL: ${imported.length} soal baru telah ditambahkan ke bank soal.`);
@@ -109,9 +115,7 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
             alert(`BERHASIL: Bank soal telah diganti dengan ${imported.length} soal baru.`);
           }
         }
-        
         if (fileInputRef.current) fileInputRef.current.value = '';
-
       } catch(e) { 
         alert("Gagal membaca file. Pastikan file dalam format .json yang benar."); 
       }
@@ -121,91 +125,82 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* PENGATURAN WAKTU */}
+      {/* PENGATURAN DURASI & ACAK */}
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
         <h2 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" /></svg>
-          Durasi Ujian
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.533 1.533 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.533 1.533 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" /></svg>
+          Sistem Ujian
         </h2>
         
-        <div className="space-y-4">
+        <div className="space-y-6">
           <div>
-            <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Waktu Default (Menit)</label>
-            <input type="number" value={timer} onChange={(e) => setTimer(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-black outline-none focus:border-blue-600 transition-all" />
+            <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Waktu Ujian (Menit)</label>
+            <div className="flex gap-2">
+              <input type="number" value={timer} onChange={(e) => setTimer(e.target.value)} className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-black outline-none focus:border-blue-600 transition-all text-sm" />
+              <button onClick={handleSaveTime} className="bg-slate-900 text-white px-4 rounded-2xl text-[10px] font-black">SIMPAN</button>
+            </div>
           </div>
-          <button onClick={handleSave} className="w-full bg-slate-900 text-white font-black py-3 rounded-2xl shadow-lg hover:bg-black transition-all">SIMPAN WAKTU</button>
+
+          <div className="space-y-3">
+            <button 
+              onClick={toggleRandomizeQuestions}
+              className={`w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all ${settings.randomizeQuestions ? 'border-blue-600 bg-blue-50' : 'border-slate-100 bg-white'}`}
+            >
+              <div className="text-left">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Soal Acak</p>
+                <p className={`text-xs font-black ${settings.randomizeQuestions ? 'text-blue-700' : 'text-slate-400'}`}>
+                  {settings.randomizeQuestions ? 'AKTIF' : 'NON-AKTIF'}
+                </p>
+              </div>
+              <div className={`w-10 h-6 rounded-full relative transition-all ${settings.randomizeQuestions ? 'bg-blue-600' : 'bg-slate-200'}`}>
+                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${settings.randomizeQuestions ? 'right-1' : 'left-1'}`}></div>
+              </div>
+            </button>
+
+            <button 
+              onClick={toggleRandomizeOptions}
+              className={`w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all ${settings.randomizeOptions ? 'border-purple-600 bg-purple-50' : 'border-slate-100 bg-white'}`}
+            >
+              <div className="text-left">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Opsi Acak</p>
+                <p className={`text-xs font-black ${settings.randomizeOptions ? 'text-purple-700' : 'text-slate-400'}`}>
+                  {settings.randomizeOptions ? 'AKTIF' : 'NON-AKTIF'}
+                </p>
+              </div>
+              <div className={`w-10 h-6 rounded-full relative transition-all ${settings.randomizeOptions ? 'bg-purple-600' : 'bg-slate-200'}`}>
+                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${settings.randomizeOptions ? 'right-1' : 'left-1'}`}></div>
+              </div>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* BACKUP JSON DENGAN PILIH TOKEN */}
+      {/* BACKUP JSON */}
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
         <h2 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-2">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-purple-600" viewBox="0 0 20 20" fill="currentColor"><path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" /></svg>
-          Backup & Import JSON
+          Backup & Import
         </h2>
 
         <div className="space-y-4">
-          <div className="flex justify-between items-center px-1 mb-1">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pilih Token Paket</label>
-            <button 
-              onClick={selectAllTokens}
-              className="text-[9px] font-black text-purple-600 uppercase hover:underline"
-            >
-              {selectedTokens.length === availableTokens.length ? 'Hapus Semua' : 'Pilih Semua'}
-            </button>
+          <div className="flex justify-between items-center px-1">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pilih Token</label>
+            <button onClick={selectAllTokens} className="text-[9px] font-black text-purple-600 uppercase">Semua</button>
           </div>
           
-          <div className="max-h-40 overflow-y-auto border border-slate-100 rounded-2xl p-2 bg-slate-50 custom-scrollbar">
-            {availableTokens.length === 0 ? (
-              <p className="text-[10px] text-slate-400 text-center py-4 font-bold">Bank soal kosong.</p>
-            ) : (
-              availableTokens.map(token => (
-                <label key={token} className="flex items-center gap-3 p-2.5 hover:bg-white rounded-xl cursor-pointer transition-colors group">
-                  <input 
-                    type="checkbox" 
-                    checked={selectedTokens.includes(token)}
-                    onChange={() => toggleToken(token)}
-                    className="w-4 h-4 rounded accent-purple-600"
-                  />
-                  <span className={`text-[11px] font-black uppercase tracking-tight ${selectedTokens.includes(token) ? 'text-purple-700' : 'text-slate-500'}`}>
-                    {token}
-                  </span>
-                </label>
-              ))
-            )}
+          <div className="max-h-32 overflow-y-auto border border-slate-100 rounded-2xl p-2 bg-slate-50 custom-scrollbar">
+            {availableTokens.map(token => (
+              <label key={token} className="flex items-center gap-3 p-2 hover:bg-white rounded-xl cursor-pointer">
+                <input type="checkbox" checked={selectedTokens.includes(token)} onChange={() => toggleToken(token)} className="w-4 h-4 accent-purple-600" />
+                <span className="text-[10px] font-black text-slate-500 uppercase">{token}</span>
+              </label>
+            ))}
           </div>
 
-          <button 
-            onClick={handleExportJSON} 
-            disabled={selectedTokens.length === 0}
-            className="w-full bg-slate-900 disabled:bg-slate-200 text-white font-black py-4 rounded-2xl shadow-lg hover:bg-black transition-all uppercase text-[10px] tracking-widest flex items-center justify-center gap-2"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 0 002-2v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-            Download Backup ({selectedTokens.length})
-          </button>
-          
-          <div className="relative py-4">
-            <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-slate-100"></span></div>
-            <div className="relative flex justify-center"><span className="bg-white px-2 text-[8px] font-black text-slate-300 uppercase tracking-widest">Atau Unggah Data</span></div>
-          </div>
-
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            className="hidden" 
-            accept=".json" 
-            onChange={handleFileChange} 
-          />
-          
-          <button onClick={() => fileInputRef.current?.click()} className="w-full bg-white text-blue-600 font-bold py-4 rounded-2xl border-2 border-blue-100 hover:bg-blue-50 transition-all uppercase text-[10px] tracking-widest">Upload File .JSON</button>
+          <button onClick={handleExportJSON} disabled={selectedTokens.length === 0} className="w-full bg-slate-900 disabled:opacity-20 text-white font-black py-4 rounded-2xl text-[10px] uppercase tracking-widest">Download Backup</button>
+          <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleFileChange} />
+          <button onClick={() => fileInputRef.current?.click()} className="w-full bg-white text-blue-600 font-bold py-4 rounded-2xl border-2 border-blue-100 text-[10px] uppercase tracking-widest">Upload .JSON</button>
         </div>
-      </div>
-      
-      {/* TIPS & RESET */}
-      <div className="p-5 bg-blue-50 border border-blue-100 rounded-3xl">
-        <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-2">Tips Admin</p>
-        <p className="text-[11px] text-blue-800 leading-relaxed font-medium">Jangan lupa menekan tombol <b>Sinkronisasi Cloud</b> setelah melakukan Reset atau Import data agar perubahan aktif di sisi siswa.</p>
-        <button onClick={() => { if(confirm('Kosongkan semua soal di perangkat?')) onReset(); }} className="mt-4 w-full text-red-500 text-[9px] font-black uppercase tracking-[0.2em] border border-red-100 py-2 rounded-xl hover:bg-red-50">Reset Lokal</button>
       </div>
     </div>
   );

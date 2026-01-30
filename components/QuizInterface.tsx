@@ -1,25 +1,91 @@
 
-import React, { useState, useEffect, useRef } from 'react';
-import { Question, StudentIdentity, QuizResult, QuestionType } from '../types';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Question, StudentIdentity, QuizResult, QuestionType, AppSettings } from '../types';
 
 interface QuizInterfaceProps {
   questions: Question[];
   identity: StudentIdentity;
   timeLimitMinutes: number;
   subjectName: string;
+  settings?: AppSettings; // Menambahkan props settings
   onFinish: (result: QuizResult) => void;
   onViolation: (reason: string) => void; 
 }
 
-const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, timeLimitMinutes, subjectName, onFinish, onViolation }) => {
+const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, timeLimitMinutes, subjectName, settings, onFinish, onViolation }) => {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState<{ [key: string]: any }>({});
   const [doubtfuls, setDoubtfuls] = useState<{ [key: string]: boolean }>({});
   const [timeLeft, setTimeLeft] = useState(timeLimitMinutes * 60);
   const [fontSize, setFontSize] = useState(18);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  
+  // State untuk menyimpan soal yang sudah diproses (diacak)
+  const [processedQuestions, setProcessedQuestions] = useState<Question[]>([]);
+  
   const startTime = useRef(Date.now());
   const isSubmitting = useRef(false);
+
+  // Algoritma Shuffle Fisher-Yates
+  const shuffle = <T,>(array: T[]): T[] => {
+    const newArr = [...array];
+    for (let i = newArr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+    }
+    return newArr;
+  };
+
+  // Inisialisasi Soal (Acak Soal & Opsi jika diaktifkan)
+  useEffect(() => {
+    let finalQs = [...questions];
+
+    // 1. Acak Urutan Soal
+    if (settings?.randomizeQuestions) {
+      finalQs = shuffle(finalQs);
+    }
+
+    // 2. Acak Opsi untuk setiap soal
+    if (settings?.randomizeOptions) {
+      finalQs = finalQs.map(q => {
+        if (!q.options || q.options.length < 2) return q;
+        if (q.type === QuestionType.TRUE_FALSE_COMPLEX || q.type === QuestionType.COMPLEX_CATEGORY) return q;
+
+        // Buat pasangan opsi & gambar & index asli
+        const paired = q.options.map((opt, i) => ({
+          text: opt,
+          img: q.optionImages?.[i],
+          originalIdx: i
+        }));
+
+        // Explicitly type the result of shuffle to avoid 'unknown' type issues reported by TypeScript
+        const shuffledPairs: { text: string; img: string | undefined; originalIdx: number }[] = shuffle(paired);
+
+        // Map kembali ke struktur soal
+        const newOptions = shuffledPairs.map(p => p.text);
+        const newOptionImages = shuffledPairs.map(p => p.img);
+        
+        // Sesuaikan correctAnswer
+        let newCorrectAnswer = q.correctAnswer;
+        if (q.type === QuestionType.SINGLE) {
+          newCorrectAnswer = shuffledPairs.findIndex(p => p.originalIdx === q.correctAnswer);
+        } else if (q.type === QuestionType.MULTIPLE && Array.isArray(q.correctAnswer)) {
+          newCorrectAnswer = q.correctAnswer.map(oldIdx => 
+            shuffledPairs.findIndex(p => p.originalIdx === oldIdx)
+          );
+        }
+
+        return {
+          ...q,
+          options: newOptions,
+          optionImages: newOptionImages,
+          correctAnswer: newCorrectAnswer
+        };
+      });
+    }
+
+    setProcessedQuestions(finalQs);
+  }, [questions, settings]);
 
   // Protokol Keamanan Ketat
   useEffect(() => {
@@ -37,18 +103,10 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
       }
     };
 
-    const handleContextMenu = (e: MouseEvent) => {
-      e.preventDefault();
-    };
+    const handleContextMenu = (e: MouseEvent) => e.preventDefault();
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Blokir F12, Ctrl+Shift+I, Ctrl+U, Alt+Tab (sebagian)
-      if (
-        e.key === 'F12' || 
-        (e.ctrlKey && e.shiftKey && e.key === 'I') || 
-        (e.ctrlKey && e.key === 'u') ||
-        (e.altKey && e.key === 'Tab')
-      ) {
+      if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && e.key === 'I') || (e.ctrlKey && e.key === 'u') || (e.altKey && e.key === 'Tab')) {
         e.preventDefault();
         return false;
       }
@@ -74,21 +132,14 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
         onViolation("SISTEM: Anda terdeteksi meninggalkan halaman ujian (pindah tab).");
       }
     };
-    
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [onViolation]);
 
   useEffect(() => {
     const timer = setInterval(() => {
       setTimeLeft(prev => {
-        if (prev <= 1) { 
-          clearInterval(timer); 
-          handleSubmit(); 
-          return 0; 
-        }
+        if (prev <= 1) { clearInterval(timer); handleSubmit(); return 0; }
         return prev - 1;
       });
     }, 1000);
@@ -98,9 +149,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
   const requestFullscreen = () => {
     const elem = document.documentElement;
     if (elem.requestFullscreen) {
-      elem.requestFullscreen()
-        .then(() => setIsFullscreen(true))
-        .catch(() => alert("Gagal mengaktifkan mode ujian. Pastikan browser Anda mengizinkan Fullscreen."));
+      elem.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => alert("Gagal mengaktifkan mode ujian."));
     }
   };
 
@@ -109,9 +158,9 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
     isSubmitting.current = true;
 
     let correctCount = 0;
-    const totalQuestions = questions.length;
+    const totalQuestions = processedQuestions.length;
     
-    questions.forEach(q => {
+    processedQuestions.forEach(q => {
       const studentAns = answers[q.id];
       let isCorrect = false;
 
@@ -124,19 +173,13 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
       } else if (q.type === QuestionType.COMPLEX_CATEGORY || q.type === QuestionType.TRUE_FALSE_COMPLEX) {
         const correctArr = q.correctAnswer || [];
         const studentArr = studentAns || [];
-        isCorrect = correctArr.length > 0 && 
-                    correctArr.length === studentArr.length && 
-                    correctArr.every((v:any, i:number) => v === studentArr[i]);
+        isCorrect = correctArr.length > 0 && correctArr.length === studentArr.length && correctArr.every((v:any, i:number) => v === studentArr[i]);
       }
-
       if (isCorrect) correctCount++;
     });
 
     const finalScore = totalQuestions > 0 ? (correctCount / totalQuestions) * 100 : 0;
-
-    if (document.fullscreenElement) {
-      document.exitFullscreen().catch(() => {});
-    }
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
 
     onFinish({ 
       id: Date.now().toString(), 
@@ -156,9 +199,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 text-center">
         <div className="bg-white rounded-[2rem] p-10 max-w-lg w-full shadow-2xl">
           <div className="w-20 h-20 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
           </div>
           <h2 className="text-2xl font-black text-slate-800 mb-2">Siap Memulai Ujian?</h2>
           <p className="text-slate-500 mb-8 text-sm leading-relaxed font-medium">
@@ -171,12 +212,13 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
     );
   }
 
-  const q = questions[currentIdx];
+  const q = processedQuestions[currentIdx];
+  if (!q) return null; // Loading state jika pengacakan belum selesai
+  
   const currentAnswer = answers[q.id];
   const isDoubtful = doubtfuls[q.id] || false;
 
   const renderInput = () => {
-    if (!q) return null;
     const isTF = q.type === QuestionType.TRUE_FALSE_COMPLEX;
     const isComplex = q.type === QuestionType.COMPLEX_CATEGORY || isTF;
 
@@ -188,7 +230,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
              <thead className="bg-slate-800 text-white">
                <tr>
                  <th className="p-4 text-[10px] font-black uppercase tracking-widest">Pernyataan Analisis</th>
-                 <th className="p-4 text-center text-[10px] font-black uppercase tracking-widest w-64">Pilihan ({labels.true}/{labels.false})</th>
+                 <th className="p-4 text-center text-[10px] font-black uppercase tracking-widest w-64">Pilihan</th>
                </tr>
              </thead>
              <tbody className="divide-y divide-slate-200">
@@ -233,9 +275,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                 <span className={`w-10 h-10 flex items-center justify-center rounded-lg font-black mr-4 shrink-0 ${currentAnswer === idx ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-100 text-slate-400'}`}>{String.fromCharCode(65+idx)}</span>
                 <div className="flex-1 min-w-0">
                   <span className="font-bold text-slate-700 block" style={{ fontSize: `${fontSize - 2}px` }}>{opt}</span>
-                  {optImg && (
-                    <img src={optImg} className="mt-3 max-h-40 rounded-xl border border-slate-200 shadow-sm" alt={`Opsi ${idx}`} />
-                  )}
+                  {optImg && <img src={optImg} className="mt-3 max-h-40 rounded-xl border border-slate-200 shadow-sm" alt={`Opsi ${idx}`} />}
                 </div>
               </button>
             );
@@ -247,35 +287,23 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
     if (q.type === QuestionType.MULTIPLE) {
       return (
         <div className="space-y-4">
-          <p className="text-slate-500 italic font-bold text-sm mb-4">
-            (Soal MCMA – pilih lebih dari satu jawaban yang benar)
-          </p>
+          <p className="text-slate-500 italic font-bold text-sm mb-4">(Soal MCMA – pilih lebih dari satu jawaban yang benar)</p>
           <div className="space-y-3">
             {q.options?.map((opt, idx) => {
               const selected = (currentAnswer || []).includes(idx);
               const optImg = q.optionImages?.[idx];
               return (
-                <button 
-                  key={idx} 
-                  onClick={() => {
-                    const prev = currentAnswer || [];
-                    const next = selected ? prev.filter((i:any) => i !== idx) : [...prev, idx];
-                    setAnswers({...answers, [q.id]: next});
-                  }} 
-                  className={`w-full flex items-start p-4 text-left rounded-xl transition-all border-2 group ${selected ? 'border-blue-500 bg-blue-50/30' : 'border-slate-100 hover:bg-slate-50'}`}
-                >
+                <button key={idx} onClick={() => {
+                  const prev = currentAnswer || [];
+                  const next = selected ? prev.filter((i:any) => i !== idx) : [...prev, idx];
+                  setAnswers({...answers, [q.id]: next});
+                }} className={`w-full flex items-start p-4 text-left rounded-xl transition-all border-2 group ${selected ? 'border-blue-500 bg-blue-50/30' : 'border-slate-100 hover:bg-slate-50'}`}>
                   <div className={`w-6 h-6 border-2 rounded mr-4 shrink-0 flex items-center justify-center transition-all ${selected ? 'bg-blue-600 border-blue-600' : 'bg-white border-slate-400 group-hover:border-blue-400'}`}>
-                    {selected && (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    )}
+                    {selected && <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
                   </div>
                   <div className="flex-1 min-w-0">
                     <span className="font-bold text-slate-700 block" style={{ fontSize: `${fontSize - 2}px` }}>{opt}</span>
-                    {optImg && (
-                      <img src={optImg} className="mt-3 max-h-40 rounded-xl border border-slate-200 shadow-sm" alt={`Opsi ${idx}`} />
-                    )}
+                    {optImg && <img src={optImg} className="mt-3 max-h-40 rounded-xl border border-slate-200 shadow-sm" alt={`Opsi ${idx}`} />}
                   </div>
                 </button>
               );
@@ -313,7 +341,6 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                       <button onClick={() => setFontSize(prev => Math.min(prev + 2, 30))} className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-xs font-black hover:bg-slate-200 transition-all">A+</button>
                       <button onClick={() => setFontSize(prev => Math.max(prev - 2, 12))} className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-xs font-black hover:bg-slate-200 transition-all">A-</button>
                    </div>
-
                    <div className="flex justify-between items-center mb-8 border-b pb-6 border-slate-100">
                       <div className="flex items-center gap-3">
                          <span className="bg-blue-600 text-white w-14 h-14 rounded-2xl flex items-center justify-center font-black text-2xl shadow-lg shadow-blue-100">{currentIdx + 1}</span>
@@ -323,7 +350,6 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                          </div>
                       </div>
                    </div>
-                   
                    <div className="space-y-8">
                       {q?.questionImage && (
                         <div className="flex justify-center mb-6">
@@ -334,14 +360,13 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                       <div className="pt-4">{renderInput()}</div>
                    </div>
                 </div>
-
                 <div className="flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-3xl border-2 border-slate-300 shadow-md gap-3">
                    <button disabled={currentIdx === 0} onClick={() => setCurrentIdx(prev => prev-1)} className="w-full sm:w-auto px-8 py-4 bg-slate-100 text-slate-500 font-black rounded-2xl border-b-4 border-slate-300 uppercase text-xs disabled:opacity-30">Sebelumnya</button>
                    <label className="flex items-center gap-3 cursor-pointer px-6 py-4 bg-orange-50 rounded-2xl border-2 border-orange-200 hover:bg-orange-100 transition-all">
                       <input type="checkbox" checked={isDoubtful} onChange={e => setDoubtfuls({...doubtfuls, [q.id]: e.target.checked})} className="w-6 h-6 accent-orange-500 rounded" />
                       <span className="font-black text-orange-600 uppercase text-xs">Ragu-Ragu</span>
                    </label>
-                   {currentIdx === questions.length - 1 ? (
+                   {currentIdx === processedQuestions.length - 1 ? (
                      <button onClick={() => { if(confirm('Yakin ingin mengakhiri ujian?')) handleSubmit(); }} className="w-full sm:w-auto px-12 py-4 bg-green-600 text-white font-black rounded-2xl border-b-4 border-green-800 uppercase text-xs hover:bg-green-700 transition-all">Selesai</button>
                    ) : (
                      <button onClick={() => setCurrentIdx(prev => prev+1)} className="w-full sm:w-auto px-12 py-4 bg-blue-600 text-white font-black rounded-2xl border-b-4 border-blue-800 uppercase text-xs hover:bg-blue-700 transition-all">Berikutnya</button>
@@ -349,7 +374,6 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                 </div>
              </div>
           </main>
-
           <aside className="w-full lg:w-80 bg-white border-l-4 border-slate-300 overflow-y-auto p-6 shrink-0 custom-scrollbar lg:h-full">
              <div className="mb-6">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Informasi Peserta</p>
@@ -358,37 +382,17 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                    <p className="text-[10px] font-bold text-slate-400 uppercase">{identity.className}</p>
                 </div>
              </div>
-
              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Navigasi Soal</p>
              <div className="grid grid-cols-5 gap-2">
-                {questions.map((item, i) => {
+                {processedQuestions.map((item, i) => {
                    const hasAns = answers[item.id] !== undefined;
                    const isDbt = doubtfuls[item.id];
                    return (
-                     <button 
-                        key={item.id} 
-                        onClick={() => setCurrentIdx(i)} 
-                        className={`h-12 w-full flex items-center justify-center rounded-xl font-black text-sm border-b-4 transition-all active:scale-95 ${i === currentIdx ? 'scale-105 ring-4 ring-blue-100 z-10' : ''} ${isDbt ? 'bg-orange-500 text-white border-orange-700' : hasAns ? 'bg-blue-600 text-white border-blue-800' : 'bg-white text-slate-400 border-slate-200'}`}
-                      >
+                     <button key={item.id} onClick={() => setCurrentIdx(i)} className={`h-12 w-full flex items-center justify-center rounded-xl font-black text-sm border-b-4 transition-all active:scale-95 ${i === currentIdx ? 'scale-105 ring-4 ring-blue-100 z-10' : ''} ${isDbt ? 'bg-orange-500 text-white border-orange-700' : hasAns ? 'bg-blue-600 text-white border-blue-800' : 'bg-white text-slate-400 border-slate-200'}`}>
                        {i + 1}
                      </button>
                    );
                 })}
-             </div>
-             
-             <div className="mt-8 space-y-2">
-                <div className="flex items-center gap-3">
-                   <div className="w-4 h-4 bg-blue-600 rounded-md border-b-2 border-blue-800"></div>
-                   <span className="text-[10px] font-black text-slate-500 uppercase">Sudah Dijawab</span>
-                </div>
-                <div className="flex items-center gap-3">
-                   <div className="w-4 h-4 bg-orange-500 rounded-md border-b-2 border-orange-700"></div>
-                   <span className="text-[10px] font-black text-slate-500 uppercase">Ragu-Ragu</span>
-                </div>
-                <div className="flex items-center gap-3">
-                   <div className="w-4 h-4 bg-white border-2 border-slate-200"></div>
-                   <span className="text-[10px] font-black text-slate-500 uppercase">Belum Dijawab</span>
-                </div>
              </div>
           </aside>
        </div>

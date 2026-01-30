@@ -75,4 +75,6 @@ export interface AppSettings {
   timerMinutes: number;
   activeSubject?: string;
   adminPassword?: string;
+  randomizeQuestions?: boolean;
+  randomizeOptions?: boolean;
 }
