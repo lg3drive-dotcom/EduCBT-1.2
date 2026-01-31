@@ -2,28 +2,69 @@
 import { jsPDF } from 'jspdf';
 import { QuizResult, Question, QuestionType } from '../types';
 
+/**
+ * Fungsi untuk mengubah notasi LaTeX sederhana menjadi teks yang rapi untuk PDF
+ * jspdf tidak mendukung rendering math secara native, jadi kita lakukan sanitasi manual.
+ */
+const cleanMathForPDF = (text: string): string => {
+  if (!text) return "";
+  
+  return text
+    // Hapus pembungkus Math $...$ atau $$...$$
+    .replace(/\$\$(.*?)\$\$/g, '$1')
+    .replace(/\$(.*?)\$/g, '$1')
+    // Simbol Operasi
+    .replace(/\\times/g, '×')
+    .replace(/\\div/g, '÷')
+    .replace(/\\pm/g, '±')
+    .replace(/\\neq/g, '≠')
+    .replace(/\\le/g, '≤')
+    .replace(/\\ge/g, '≥')
+    .replace(/\\approx/g, '≈')
+    .replace(/\\infty/g, '∞')
+    // Pangkat & Akar
+    .replace(/\^2/g, '²')
+    .replace(/\^3/g, '³')
+    .replace(/\^1/g, '¹')
+    .replace(/\^0/g, '⁰')
+    .replace(/\\sqrt\{(.*?)\}/g, '√($1)')
+    // Pecahan sederhana: \frac{a}{b} -> a/b
+    .replace(/\\frac\{(.*?)\}\{(.*?)\}/g, '$1/$2')
+    // Simbol Yunani (opsional)
+    .replace(/\\alpha/g, 'α')
+    .replace(/\\beta/g, 'β')
+    .replace(/\\pi/g, 'π')
+    .replace(/\\degree/g, '°')
+    // Spasi LaTeX
+    .replace(/\\quad/g, '    ')
+    .replace(/\\ /g, ' ')
+    // Bersihkan sisa-sisa backslash jika ada format yang tidak terdeteksi
+    .replace(/\\/g, '');
+};
+
 const getFullAnswerText = (q: Question, answerValue?: any, isKey: boolean = false): string => {
   const targetAnswer = isKey ? q.correctAnswer : answerValue;
   if (targetAnswer === undefined || targetAnswer === null) return "-";
 
+  let rawText = "-";
   if (q.type === QuestionType.COMPLEX_CATEGORY || q.type === QuestionType.TRUE_FALSE_COMPLEX) {
     if (Array.isArray(targetAnswer)) {
       const labels = q.tfLabels || { true: 'Ya', false: 'Tidak' };
-      return q.options?.map((opt, i) => {
+      rawText = q.options?.map((opt, i) => {
         const val = targetAnswer[i];
         const textVal = val === true ? labels.true : val === false ? labels.false : '-';
         return `[${opt}: ${textVal}]`;
       }).join(", ") || "-";
     }
-    return "-";
   } else if (q.options) {
     if (Array.isArray(targetAnswer)) {
-      return targetAnswer.map(i => q.options?.[i]).join(", ");
+      rawText = targetAnswer.map(i => q.options?.[i]).join(", ");
     } else {
-      return q.options[targetAnswer] !== undefined ? q.options[targetAnswer] : "-";
+      rawText = q.options[targetAnswer] !== undefined ? q.options[targetAnswer] : "-";
     }
   }
-  return "-";
+
+  return cleanMathForPDF(rawText);
 };
 
 const checkCorrectness = (q: Question, studentAnswer: any): boolean => {
@@ -50,7 +91,7 @@ export const generateResultPDF = async (result: QuizResult, questions: Question[
   const marginX = 20;
   const contentWidth = pageWidth - (marginX * 2);
   const bodyFontSize = 10;
-  const lineSpacing = 5; // Spasi antar baris teks
+  const lineSpacing = 5;
 
   // --- HEADER ---
   doc.setFillColor(15, 23, 42); 
@@ -66,7 +107,7 @@ export const generateResultPDF = async (result: QuizResult, questions: Question[
   doc.text(`KELAS / ROMBEL : ${identity.className}`, marginX, 36);
   doc.text(`TANGGAL UJIAN : ${new Date(timestamp).toLocaleString('id-ID')}`, marginX, 42);
 
-  // Score Badge (Warna biru tetap digunakan)
+  // Score Badge
   doc.setFillColor(37, 99, 235);
   doc.roundedRect(pageWidth - 55, 12, 35, 22, 2, 2, 'F');
   doc.setFontSize(8);
@@ -79,20 +120,22 @@ export const generateResultPDF = async (result: QuizResult, questions: Question[
   for (const [idx, q] of questions.entries()) {
     const studentAns = answers[q.id];
     const isCorrect = checkCorrectness(q, studentAns);
+    
+    // Gunakan sanitizer untuk PDF
+    const cleanQText = cleanMathForPDF(q.text);
     const studentText = getFullAnswerText(q, studentAns, false);
     const keyText = getFullAnswerText(q, undefined, true);
-    const explanationText = q.explanation || "Tidak ada pembahasan.";
+    const explanationText = cleanMathForPDF(q.explanation || "Tidak ada pembahasan.");
 
     doc.setFontSize(bodyFontSize);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(15, 23, 42);
 
-    // Render Soal
-    const qLines = doc.splitTextToSize(`${idx + 1}. ${q.text}`, contentWidth);
+    // Render Soal yang sudah bersih
+    const qLines = doc.splitTextToSize(`${idx + 1}. ${cleanQText}`, contentWidth);
     const qHeight = qLines.length * lineSpacing;
 
-    // Cek Page Break
-    let estimatedHeight = qHeight + 30; 
+    let estimatedHeight = qHeight + 35; 
     if (q.questionImage) estimatedHeight += 50;
 
     if (y + estimatedHeight > pageHeight - 20) {
@@ -103,7 +146,6 @@ export const generateResultPDF = async (result: QuizResult, questions: Question[
     doc.text(qLines, marginX, y);
     y += qHeight + 4;
 
-    // Render Gambar jika ada
     if (q.questionImage) {
       try {
         const imgWidth = 80;
@@ -115,34 +157,31 @@ export const generateResultPDF = async (result: QuizResult, questions: Question[
       }
     }
 
-    // Detail Jawaban & Pembahasan
     const detailMargin = marginX + 5;
     const detailWidth = contentWidth - 5;
 
-    // Render Student Answer (Warna hijau/merah tetap digunakan)
+    // Jawaban Siswa
     if (isCorrect) doc.setTextColor(22, 163, 74); else doc.setTextColor(220, 38, 38);
     const ansLines = doc.splitTextToSize(`Jawaban Anda: ${studentText}`, detailWidth);
     doc.text(ansLines, detailMargin, y);
     y += (ansLines.length * lineSpacing);
 
-    // Render Key (Warna biru tetap digunakan)
+    // Kunci Jawaban
     doc.setTextColor(37, 99, 235);
     const keyLines = doc.splitTextToSize(`Kunci Jawaban: ${keyText}`, detailWidth);
     doc.text(keyLines, detailMargin, y);
     y += (keyLines.length * lineSpacing);
 
-    // Render Explanation (Warna abu-abu tetap digunakan)
+    // Pembahasan yang sudah bersih
     doc.setTextColor(100, 116, 139);
     const expLines = doc.splitTextToSize(`Pembahasan: ${explanationText}`, detailWidth);
     doc.text(expLines, detailMargin, y);
     y += (expLines.length * lineSpacing) + 8; 
 
-    // Garis Pemisah Tipis
     doc.setDrawColor(241, 245, 249);
     doc.line(marginX, y - 4, pageWidth - marginX, y - 4);
   }
 
-  // Branding Footer
   doc.setFontSize(8);
   doc.setTextColor(148, 163, 184);
   doc.text(`Dicetak melalui EduCBT Pro v1.2 • ${new Date().toLocaleString('id-ID')}`, marginX, pageHeight - 10);
@@ -160,7 +199,8 @@ export const generateQuestionBankPDF = (questions: Question[], mode: 'kisi' | 's
   doc.setFontSize(10);
 
   questions.forEach((q, i) => {
-    const textLines = doc.splitTextToSize(`${q.order}. ${q.text}`, 170);
+    const cleanQText = cleanMathForPDF(q.text);
+    const textLines = doc.splitTextToSize(`${q.order}. ${cleanQText}`, 170);
     const itemHeight = (textLines.length * 5) + 5;
 
     if (y + itemHeight > 270) { 
