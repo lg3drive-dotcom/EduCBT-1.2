@@ -73,7 +73,6 @@ export const pushQuestionsToCloud = async (questions: Question[]) => {
 };
 
 export const updateLiveSettings = async (settings: AppSettings) => {
-  // Payload lengkap termasuk external_links
   const fullPayload: any = { 
     id: 1, 
     timer_minutes: Number(settings.timerMinutes) || 60,
@@ -83,11 +82,7 @@ export const updateLiveSettings = async (settings: AppSettings) => {
 
   const { error } = await supabase.from('active_settings').upsert(sanitizeData(fullPayload), { onConflict: 'id' });
   
-  // Jika error karena kolom 'external_links' tidak ditemukan
   if (error && error.message.includes('external_links')) {
-    console.warn("Kolom 'external_links' tidak ditemukan di database. Menyimpan tanpa tautan eksternal...");
-    
-    // Kirim payload versi aman (tanpa kolom external_links)
     const safePayload: any = { 
       id: 1, 
       timer_minutes: Number(settings.timerMinutes) || 60
@@ -96,8 +91,7 @@ export const updateLiveSettings = async (settings: AppSettings) => {
     
     const { error: retryError } = await supabase.from('active_settings').upsert(sanitizeData(safePayload), { onConflict: 'id' });
     if (retryError) throw new Error(`Gagal Update Settings (Retry): ${retryError.message}`);
-    
-    return; // Berhasil dengan fallback
+    return;
   }
 
   if (error) throw new Error(`Gagal Update Settings: ${error.message}`);
@@ -146,7 +140,7 @@ export const getLiveExamData = async (studentToken: string) => {
 
 export const submitResultToCloud = async (result: QuizResult, subjectName?: string): Promise<{success: boolean, error?: string}> => {
   try {
-    const payload = sanitizeData({
+    const payload: any = {
       id: result.id, 
       student_name: result.identity.name, 
       class_name: result.identity.className,
@@ -157,8 +151,25 @@ export const submitResultToCloud = async (result: QuizResult, subjectName?: stri
       subject: result.identity.token.toUpperCase(),
       subject_token: result.identity.token.toUpperCase(),
       subject_name: subjectName || 'Ujian Digital' 
-    });
-    const { error } = await supabase.from('submissions').insert([payload]);
+    };
+
+    const cleanPayload = sanitizeData(payload);
+    const { error } = await supabase.from('submissions').insert([cleanPayload]);
+    
+    // Jika kolom subject_name atau subject_token tidak ditemukan (error schema cache)
+    if (error && (error.message.includes('subject_name') || error.message.includes('subject_token') || error.message.includes('school_origin'))) {
+        console.warn("Mendeteksi ketidakcocokan kolom database. Mencoba mengirim ulang tanpa kolom tambahan...");
+        
+        // Hapus kolom yang sering bermasalah jika belum dibuat di Supabase user
+        delete cleanPayload.subject_name;
+        delete cleanPayload.subject_token;
+        // Opsional: delete cleanPayload.school_origin; // Jika school_origin juga belum ada
+        
+        const { error: retryError } = await supabase.from('submissions').insert([cleanPayload]);
+        if (retryError) return { success: false, error: `Retry Gagal: ${retryError.message}` };
+        return { success: true };
+    }
+
     return error ? { success: false, error: error.message } : { success: true };
   } catch (err: any) { return { success: false, error: err.message }; }
 };
