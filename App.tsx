@@ -38,6 +38,7 @@ const App: React.FC = () => {
   
   // Quick Recap States
   const [quickDownloadToken, setQuickDownloadToken] = useState('');
+  const [quickDownloadSchool, setQuickDownloadSchool] = useState('');
   const [isQuickDownloading, setIsQuickDownloading] = useState(false);
 
   const [adminPassword, setAdminPassword] = useState(() => {
@@ -139,8 +140,25 @@ const App: React.FC = () => {
     }
   };
 
+  /**
+   * Fungsi Normalisasi Nama Sekolah Cerdas
+   * Mengonversi teks ke lowercase, menghapus prefix umum (sdn, sd negeri, sd), 
+   * dan menghapus semua simbol/spasi agar variasi penulisan tetap terdeteksi sama.
+   */
+  const normalizeSchoolName = (name: string): string => {
+    if (!name) return "";
+    return name.toLowerCase()
+      .replace(/sd\s*negeri/g, '')
+      .replace(/sdn/g, '')
+      .replace(/sd/g, '')
+      .replace(/[^a-z0-9]/g, '') // Menghapus simbol dan spasi
+      .trim();
+  };
+
   const handleQuickDownloadRecap = async () => {
     const token = quickDownloadToken.trim().toUpperCase();
+    const inputSchool = quickDownloadSchool.trim();
+
     if (!token) {
       alert("Silakan masukkan Token paket soal terlebih dahulu.");
       return;
@@ -150,9 +168,26 @@ const App: React.FC = () => {
     try {
       const data = await fetchSubmissionsByToken(token);
       if (data && data.length > 0) {
-        exportSubmissionsToExcel(data, `Rekap_Nilai_Cepat_${token}_${new Date().toISOString().split('T')[0]}`, questions);
-        alert(`Berhasil mengunduh rekap untuk token ${token}.`);
-        setQuickDownloadToken('');
+        let filteredData = data;
+        
+        // Filter Cerdas Berdasarkan Nama Sekolah jika diinput oleh guru
+        if (inputSchool) {
+          const normalizedInput = normalizeSchoolName(inputSchool);
+          filteredData = data.filter(s => {
+            const studentSchool = s.school_origin || "";
+            return normalizeSchoolName(studentSchool) === normalizedInput;
+          });
+        }
+
+        if (filteredData.length > 0) {
+          const fileName = `Rekap_Nilai_Cepat_${token}_${new Date().toISOString().split('T')[0]}`;
+          exportSubmissionsToExcel(filteredData, fileName, questions);
+          alert(`Berhasil mengunduh rekap untuk token ${token}${inputSchool ? ' di sekolah ' + inputSchool : ''}.`);
+          setQuickDownloadToken('');
+          setQuickDownloadSchool('');
+        } else {
+          alert(`Tidak ada data pengerjaan ditemukan untuk token "${token}" dengan kriteria sekolah "${inputSchool}".`);
+        }
       } else {
         alert(`Tidak ada data pengerjaan ditemukan untuk token "${token}". Pastikan token sudah benar.`);
       }
@@ -502,18 +537,27 @@ const App: React.FC = () => {
                   </div>
                 </form>
 
-                {/* AREA REKAP - DIPINDAHKAN KE BAWAH LOGIN PESERTA */}
+                {/* AREA REKAP - DIPERBARUI DENGAN FILTER NAMA SEKOLAH CERDAS */}
                 <hr className="my-10 border-slate-100" />
                 <div className="max-w-xs mx-auto">
                    <div className="bg-slate-900 p-6 rounded-[2rem] border border-slate-800 shadow-xl space-y-3">
                       <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] text-center mb-1">Download Rekap Cepat (Guru)</p>
-                      <input 
-                       type="text" 
-                       placeholder="Masukan Token" 
-                       className="w-full bg-slate-950 border border-white/10 p-3 rounded-xl text-center text-[10px] font-black uppercase tracking-widest outline-none focus:border-blue-500 text-blue-400"
-                       value={quickDownloadToken}
-                       onChange={(e) => setQuickDownloadToken(e.target.value)}
-                      />
+                      <div className="space-y-2">
+                        <input 
+                         type="text" 
+                         placeholder="Masukan Token" 
+                         className="w-full bg-slate-950 border border-white/10 p-3 rounded-xl text-center text-[10px] font-black uppercase tracking-widest outline-none focus:border-blue-500 text-blue-400"
+                         value={quickDownloadToken}
+                         onChange={(e) => setQuickDownloadToken(e.target.value)}
+                        />
+                        <input 
+                         type="text" 
+                         placeholder="Nama Sekolah (Opsional)" 
+                         className="w-full bg-slate-950 border border-white/10 p-3 rounded-xl text-center text-[10px] font-black uppercase tracking-widest outline-none focus:border-emerald-500 text-emerald-400"
+                         value={quickDownloadSchool}
+                         onChange={(e) => setQuickDownloadSchool(e.target.value)}
+                        />
+                      </div>
                       <button 
                        onClick={handleQuickDownloadRecap}
                        disabled={isQuickDownloading}
