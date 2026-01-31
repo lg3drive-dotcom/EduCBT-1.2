@@ -145,20 +145,45 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
       const isMultiple = q.type === QuestionType.MULTIPLE;
       return (
         <div className="space-y-4">
-          {isMultiple && <p className="text-slate-500 italic font-bold text-sm mb-4">(Pilih lebih dari satu jawaban yang benar)</p>}
+          {isMultiple && (
+            <div className="flex items-center gap-2 mb-4 bg-blue-50 p-3 rounded-xl border border-blue-100">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+              </svg>
+              <p className="text-blue-700 font-bold text-xs uppercase tracking-tight">Soal MCMA — Pilih lebih dari satu jawaban yang benar</p>
+            </div>
+          )}
           {q.options?.map((opt, idx) => {
             const isSelected = isMultiple ? (currentAnswer || []).includes(idx) : currentAnswer === idx;
             const optImg = q.optionImages?.[idx];
             return (
-              <button key={idx} onClick={() => {
-                if (isMultiple) {
-                  const prev = currentAnswer || [];
-                  setAnswers({...answers, [q.id]: isSelected ? prev.filter((i:any) => i !== idx) : [...prev, idx]});
-                } else setAnswers({...answers, [q.id]: idx});
-              }} className={`w-full flex items-start p-4 text-left border-2 rounded-xl transition-all ${isSelected ? 'border-blue-600 bg-blue-50 shadow-inner' : 'border-slate-200 hover:bg-slate-50'}`}>
-                <span className={`w-10 h-10 flex items-center justify-center rounded-lg font-black mr-4 shrink-0 ${isSelected ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-100 text-slate-400'}`}>{String.fromCharCode(65+idx)}</span>
+              <button 
+                key={idx} 
+                onClick={() => {
+                  if (isMultiple) {
+                    const prev = currentAnswer || [];
+                    setAnswers({...answers, [q.id]: isSelected ? prev.filter((i:any) => i !== idx) : [...prev, idx]});
+                  } else setAnswers({...answers, [q.id]: idx});
+                }} 
+                className={`w-full flex items-start p-4 text-left border-2 rounded-xl transition-all ${isSelected ? 'border-blue-600 bg-blue-50 shadow-inner' : 'border-slate-200 hover:bg-slate-50'}`}
+              >
+                {/* ICON HANDLER: Square for Multiple, Circle for Single */}
+                <div className={`w-10 h-10 flex items-center justify-center mr-4 shrink-0 transition-all ${isMultiple ? 'rounded-lg' : 'rounded-full'} ${isSelected ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-100 text-slate-400'}`}>
+                  {isMultiple ? (
+                    isSelected ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : (
+                      <div className="w-5 h-5 border-2 border-slate-300 rounded-sm"></div>
+                    )
+                  ) : (
+                    <span className="font-black text-xs">{String.fromCharCode(65+idx)}</span>
+                  )}
+                </div>
+                
                 <div className="flex-1 min-w-0">
-                  <MathText text={opt} className="font-bold text-slate-700 block" style={{ fontSize: `${fontSize - 2}px` }} />
+                  <MathText text={opt} className={`font-bold block ${isSelected ? 'text-blue-800' : 'text-slate-700'}`} style={{ fontSize: `${fontSize - 2}px` }} />
                   {optImg && <img src={optImg} className="mt-3 max-h-40 rounded-xl border border-slate-200 shadow-sm" />}
                 </div>
               </button>
