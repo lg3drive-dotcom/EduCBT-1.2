@@ -3,17 +3,39 @@ import { jsPDF } from 'jspdf';
 import { QuizResult, Question, QuestionType } from '../types';
 
 /**
+ * Fungsi utilitas untuk mengubah URL gambar menjadi Base64 secara asinkron
+ * Penting agar jsPDF bisa merender gambar dari URL eksternal.
+ */
+const getImageBase64 = async (url: string): Promise<string | null> => {
+  if (!url) return null;
+  // Jika sudah base64, langsung kembalikan
+  if (url.startsWith('data:')) return url;
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Gagal mengambil gambar dari server');
+    const blob = await response.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch (err) {
+    console.error("PDF Image Fetch Error:", url, err);
+    return null;
+  }
+};
+
+/**
  * Fungsi untuk mengubah notasi LaTeX sederhana menjadi teks yang rapi untuk PDF
- * jspdf tidak mendukung rendering math secara native, jadi kita lakukan sanitasi manual.
  */
 const cleanMathForPDF = (text: string): string => {
   if (!text) return "";
   
   return text
-    // Hapus pembungkus Math $...$ atau $$...$$
     .replace(/\$\$(.*?)\$\$/g, '$1')
     .replace(/\$(.*?)\$/g, '$1')
-    // Simbol Operasi
     .replace(/\\times/g, '×')
     .replace(/\\div/g, '÷')
     .replace(/\\pm/g, '±')
@@ -22,23 +44,18 @@ const cleanMathForPDF = (text: string): string => {
     .replace(/\\ge/g, '≥')
     .replace(/\\approx/g, '≈')
     .replace(/\\infty/g, '∞')
-    // Pangkat & Akar
     .replace(/\^2/g, '²')
     .replace(/\^3/g, '³')
     .replace(/\^1/g, '¹')
     .replace(/\^0/g, '⁰')
     .replace(/\\sqrt\{(.*?)\}/g, '√($1)')
-    // Pecahan sederhana: \frac{a}{b} -> a/b
     .replace(/\\frac\{(.*?)\}\{(.*?)\}/g, '$1/$2')
-    // Simbol Yunani (opsional)
     .replace(/\\alpha/g, 'α')
     .replace(/\\beta/g, 'β')
     .replace(/\\pi/g, 'π')
     .replace(/\\degree/g, '°')
-    // Spasi LaTeX
     .replace(/\\quad/g, '    ')
     .replace(/\\ /g, ' ')
-    // Bersihkan sisa-sisa backslash jika ada format yang tidak terdeteksi
     .replace(/\\/g, '');
 };
 
@@ -121,7 +138,6 @@ export const generateResultPDF = async (result: QuizResult, questions: Question[
     const studentAns = answers[q.id];
     const isCorrect = checkCorrectness(q, studentAns);
     
-    // Gunakan sanitizer untuk PDF
     const cleanQText = cleanMathForPDF(q.text);
     const studentText = getFullAnswerText(q, studentAns, false);
     const keyText = getFullAnswerText(q, undefined, true);
@@ -131,11 +147,10 @@ export const generateResultPDF = async (result: QuizResult, questions: Question[
     doc.setFont("helvetica", "normal");
     doc.setTextColor(15, 23, 42);
 
-    // Render Soal yang sudah bersih
     const qLines = doc.splitTextToSize(`${idx + 1}. ${cleanQText}`, contentWidth);
     const qHeight = qLines.length * lineSpacing;
 
-    let estimatedHeight = qHeight + 35; 
+    let estimatedHeight = qHeight + 40; 
     if (q.questionImage) estimatedHeight += 50;
 
     if (y + estimatedHeight > pageHeight - 20) {
@@ -146,14 +161,24 @@ export const generateResultPDF = async (result: QuizResult, questions: Question[
     doc.text(qLines, marginX, y);
     y += qHeight + 4;
 
+    // FIX: Penanganan Gambar dengan Await Base64
     if (q.questionImage) {
       try {
-        const imgWidth = 80;
-        const imgHeight = 45;
-        doc.addImage(q.questionImage, 'JPEG', marginX, y, imgWidth, imgHeight);
-        y += imgHeight + 6;
+        const base64Img = await getImageBase64(q.questionImage);
+        if (base64Img) {
+          const imgWidth = 80;
+          const imgHeight = 45;
+          const format = base64Img.toLowerCase().includes('png') ? 'PNG' : 'JPEG';
+          doc.addImage(base64Img, format, marginX, y, imgWidth, imgHeight);
+          y += imgHeight + 6;
+        } else {
+          doc.setFontSize(8);
+          doc.setTextColor(150, 150, 150);
+          doc.text("[Gambar gagal dimuat]", marginX, y);
+          y += 6;
+        }
       } catch (e) {
-        console.warn("PDF Image Load Error", e);
+        console.warn("PDF Image Error:", e);
       }
     }
 
@@ -161,18 +186,20 @@ export const generateResultPDF = async (result: QuizResult, questions: Question[
     const detailWidth = contentWidth - 5;
 
     // Jawaban Siswa
+    doc.setFont("helvetica", "bold");
     if (isCorrect) doc.setTextColor(22, 163, 74); else doc.setTextColor(220, 38, 38);
     const ansLines = doc.splitTextToSize(`Jawaban Anda: ${studentText}`, detailWidth);
     doc.text(ansLines, detailMargin, y);
     y += (ansLines.length * lineSpacing);
 
     // Kunci Jawaban
+    doc.setFont("helvetica", "normal");
     doc.setTextColor(37, 99, 235);
     const keyLines = doc.splitTextToSize(`Kunci Jawaban: ${keyText}`, detailWidth);
     doc.text(keyLines, detailMargin, y);
     y += (keyLines.length * lineSpacing);
 
-    // Pembahasan yang sudah bersih
+    // Pembahasan
     doc.setTextColor(100, 116, 139);
     const expLines = doc.splitTextToSize(`Pembahasan: ${explanationText}`, detailWidth);
     doc.text(expLines, detailMargin, y);
@@ -189,7 +216,7 @@ export const generateResultPDF = async (result: QuizResult, questions: Question[
   doc.save(`Hasil_Ujian_${identity.name.replace(/\s+/g, '_')}.pdf`);
 };
 
-export const generateQuestionBankPDF = (questions: Question[], mode: 'kisi' | 'soal' | 'lengkap', subject?: string, token?: string) => {
+export const generateQuestionBankPDF = async (questions: Question[], mode: 'kisi' | 'soal' | 'lengkap', subject?: string, token?: string) => {
   const doc = new jsPDF('p', 'mm', 'a4');
   doc.setFontSize(14);
   doc.setFont("helvetica", "normal");
@@ -198,19 +225,29 @@ export const generateQuestionBankPDF = (questions: Question[], mode: 'kisi' | 's
   let y = 35;
   doc.setFontSize(10);
 
-  questions.forEach((q, i) => {
+  for (const q of questions) {
     const cleanQText = cleanMathForPDF(q.text);
     const textLines = doc.splitTextToSize(`${q.order}. ${cleanQText}`, 170);
-    const itemHeight = (textLines.length * 5) + 5;
+    const itemHeight = (textLines.length * 5) + (q.questionImage ? 55 : 10);
 
-    if (y + itemHeight > 270) { 
+    if (y + itemHeight > 275) { 
       doc.addPage(); 
       y = 25; 
     }
 
     doc.text(textLines, 20, y);
-    y += itemHeight;
-  });
+    y += (textLines.length * 5) + 2;
+
+    if (q.questionImage) {
+      const base64 = await getImageBase64(q.questionImage);
+      if (base64) {
+        const format = base64.toLowerCase().includes('png') ? 'PNG' : 'JPEG';
+        doc.addImage(base64, format, 20, y, 80, 45);
+        y += 50;
+      }
+    }
+    y += 5;
+  }
   
   doc.save(`BankSoal_${token || 'Export'}.pdf`);
 };
