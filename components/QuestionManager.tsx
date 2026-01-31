@@ -135,10 +135,14 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
           <div className="grid grid-cols-1 gap-3">
             {q.options?.map((opt, idx) => {
               const isCorrect = q.type === QuestionType.SINGLE ? q.correctAnswer === idx : (q.correctAnswer || []).includes(idx);
+              const optImg = q.optionImages?.[idx];
               return (
-                <div key={idx} className={`flex items-start p-4 border-2 rounded-xl ${isCorrect ? 'border-green-500 bg-green-50' : 'border-slate-100 bg-white'}`}>
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs mr-4 shrink-0 ${isCorrect ? 'bg-green-600 text-white' : 'bg-slate-100 text-slate-400'}`}>{String.fromCharCode(65+idx)}</div>
-                  <MathText text={opt} className={`text-xs font-bold block ${isCorrect ? 'text-green-800' : 'text-slate-600'}`} />
+                <div key={idx} className={`flex flex-col p-4 border-2 rounded-xl ${isCorrect ? 'border-green-500 bg-green-50' : 'border-slate-100 bg-white'}`}>
+                  <div className="flex items-start">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs mr-4 shrink-0 ${isCorrect ? 'bg-green-600 text-white' : 'bg-slate-100 text-slate-400'}`}>{String.fromCharCode(65+idx)}</div>
+                    <MathText text={opt} className={`text-xs font-bold block ${isCorrect ? 'text-green-800' : 'text-slate-600'}`} />
+                  </div>
+                  {optImg && <img src={optImg} className="mt-3 ml-12 max-h-32 rounded-lg border border-slate-200" />}
                 </div>
               );
             })}
@@ -215,36 +219,55 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                       <textarea value={formData.text} onChange={e => setFormData({...formData, text: e.target.value})} className="w-full p-4 border bg-slate-50 rounded-2xl h-40 font-mono text-sm outline-none focus:border-blue-500 focus:bg-white transition-all" placeholder="Tulis soal di sini... Gunakan $ untuk rumus." />
                    </div>
 
+                   <div className="space-y-1">
+                      <label className="text-[10px] font-black text-emerald-600 uppercase">URL Gambar Soal (Opsional)</label>
+                      <input type="text" value={formData.questionImage} onChange={e => setFormData({...formData, questionImage: e.target.value})} className="w-full p-3 border border-emerald-100 bg-emerald-50/30 rounded-xl text-xs font-mono outline-none focus:border-emerald-500 focus:bg-white transition-all" placeholder="Tempel URL gambar (https://...)" />
+                   </div>
+
                    <div className="space-y-3">
                       <div className="flex justify-between items-center">
                          <label className="text-[10px] font-black text-slate-400 uppercase">Opsi Jawaban & Pernyataan</label>
                          <button onClick={() => setFormData(prev => ({ ...prev, options: [...prev.options, ''], optionImages: [...prev.optionImages, undefined], correctAnswer: Array.isArray(prev.correctAnswer) ? [...prev.correctAnswer, false] : prev.correctAnswer }))} className="text-[9px] font-black text-blue-600 uppercase">+ Tambah Opsi</button>
                       </div>
-                      <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
+                      <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
                          {formData.options.map((opt, idx) => (
-                           <div key={idx} className="flex gap-3 items-start group">
-                              <div className="pt-2">
+                           <div key={idx} className="p-4 bg-slate-50 border rounded-2xl space-y-3 group transition-all hover:border-blue-200">
+                              <div className="flex gap-3 items-start">
+                                 <div className="pt-2">
+                                    <input 
+                                      type={formData.type === QuestionType.SINGLE ? 'radio' : 'checkbox'} 
+                                      checked={formData.type === QuestionType.SINGLE ? formData.correctAnswer === idx : (formData.correctAnswer || []).includes(idx)} 
+                                      onChange={() => {
+                                        if(formData.type === QuestionType.SINGLE) setFormData({...formData, correctAnswer: idx});
+                                        else {
+                                          const cur = formData.correctAnswer || [];
+                                          const next = cur.includes(idx) ? cur.filter((i:any) => i !== idx) : [...cur, idx];
+                                          setFormData({...formData, correctAnswer: next});
+                                        }
+                                      }}
+                                      className="w-4 h-4 cursor-pointer accent-blue-600"
+                                    />
+                                 </div>
+                                 <div className="flex-1">
+                                    <textarea value={opt} onChange={e => {
+                                       const next = [...formData.options]; next[idx] = e.target.value;
+                                       setFormData({...formData, options: next});
+                                    }} className="w-full p-3 bg-white border rounded-xl text-xs font-mono h-16 outline-none focus:border-blue-500 transition-all" placeholder={`Teks Opsi ${String.fromCharCode(65+idx)}...`} />
+                                 </div>
+                                 <button onClick={() => setFormData(prev => ({ ...prev, options: prev.options.filter((_, i) => i !== idx), optionImages: prev.optionImages.filter((_, i) => i !== idx) }))} className="p-2 text-red-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">×</button>
+                              </div>
+                              <div className="pl-7">
                                  <input 
-                                   type={formData.type === QuestionType.SINGLE ? 'radio' : 'checkbox'} 
-                                   checked={formData.type === QuestionType.SINGLE ? formData.correctAnswer === idx : (formData.correctAnswer || []).includes(idx)} 
-                                   onChange={() => {
-                                     if(formData.type === QuestionType.SINGLE) setFormData({...formData, correctAnswer: idx});
-                                     else {
-                                       const cur = formData.correctAnswer || [];
-                                       const next = cur.includes(idx) ? cur.filter((i:any) => i !== idx) : [...cur, idx];
-                                       setFormData({...formData, correctAnswer: next});
-                                     }
-                                   }}
-                                   className="w-4 h-4 cursor-pointer accent-blue-600"
+                                    type="text" 
+                                    value={formData.optionImages[idx] || ''} 
+                                    onChange={e => {
+                                       const next = [...formData.optionImages]; next[idx] = e.target.value || undefined;
+                                       setFormData({...formData, optionImages: next});
+                                    }}
+                                    className="w-full p-2 bg-white border border-slate-200 rounded-lg text-[10px] font-mono outline-none focus:border-emerald-500" 
+                                    placeholder="URL Gambar Opsi (Opsional)" 
                                  />
                               </div>
-                              <div className="flex-1">
-                                 <textarea value={opt} onChange={e => {
-                                    const next = [...formData.options]; next[idx] = e.target.value;
-                                    setFormData({...formData, options: next});
-                                 }} className="w-full p-3 bg-slate-50 border rounded-xl text-xs font-mono h-20 outline-none focus:border-blue-500 focus:bg-white transition-all" placeholder={`Opsi ${String.fromCharCode(65+idx)}...`} />
-                              </div>
-                              <button onClick={() => setFormData(prev => ({ ...prev, options: prev.options.filter((_, i) => i !== idx) }))} className="p-2 text-red-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">×</button>
                            </div>
                          ))}
                       </div>
@@ -255,7 +278,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                 <div className="bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200 p-8 flex flex-col sticky top-20 h-fit max-h-[80vh] overflow-y-auto custom-scrollbar">
                    <div className="flex items-center gap-2 mb-6 text-slate-400">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                      <span className="text-[10px] font-black uppercase tracking-[0.2em]">Pratinjau Visual (Siswa)</span>
+                      <span className="text-[10px] font-black uppercase tracking-[0.2em]">Pratinjau Visual (Tampilan Siswa)</span>
                    </div>
                    
                    <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
@@ -265,16 +288,26 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                       </div>
                       
                       <div className="space-y-6">
+                         {formData.questionImage && (
+                            <div className="flex justify-center mb-4">
+                               <img src={formData.questionImage} alt="Preview Soal" className="max-w-full h-auto rounded-2xl border-4 border-slate-50 shadow-md" />
+                            </div>
+                         )}
+                         
                          <MathText text={formData.text || "Tulis pertanyaan untuk melihat pratinjau..."} className={`block text-slate-800 font-medium leading-relaxed ${!formData.text ? 'italic opacity-30' : ''}`} />
                          
                          <div className="space-y-3">
                             {formData.options.map((opt, i) => {
                                const isCorrect = formData.type === QuestionType.SINGLE ? formData.correctAnswer === i : (formData.correctAnswer || []).includes(i);
+                               const optImg = formData.optionImages[i];
                                return (
-                                 <div key={i} className={`flex items-start p-4 border-2 rounded-2xl transition-all ${isCorrect ? 'border-green-500 bg-green-50' : 'border-slate-100 bg-white'}`}>
-                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs mr-4 shrink-0 ${isCorrect ? 'bg-green-600 text-white' : 'bg-slate-100 text-slate-400'}`}>{String.fromCharCode(65+i)}</div>
-                                    <MathText text={opt || "..."} className={`flex-1 text-xs font-bold ${isCorrect ? 'text-green-800' : 'text-slate-600'}`} />
-                                    {isCorrect && <span className="text-[8px] font-black text-green-600 uppercase ml-2">Kunci</span>}
+                                 <div key={i} className={`flex flex-col p-4 border-2 rounded-2xl transition-all ${isCorrect ? 'border-green-500 bg-green-50' : 'border-slate-100 bg-white'}`}>
+                                    <div className="flex items-start">
+                                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs mr-4 shrink-0 ${isCorrect ? 'bg-green-600 text-white' : 'bg-slate-100 text-slate-400'}`}>{String.fromCharCode(65+i)}</div>
+                                       <MathText text={opt || "..."} className={`flex-1 text-xs font-bold ${isCorrect ? 'text-green-800' : 'text-slate-600'}`} />
+                                       {isCorrect && <span className="text-[8px] font-black text-green-600 uppercase ml-2">Kunci</span>}
+                                    </div>
+                                    {optImg && <img src={optImg} className="mt-3 ml-12 max-h-32 w-auto object-contain rounded-lg border border-slate-100" />}
                                  </div>
                                );
                             })}
@@ -287,7 +320,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
                       </div>
                       <p className="text-[9px] text-amber-700 font-bold leading-relaxed uppercase tracking-wide">
-                        Pesan: Notasi matematika hanya akan muncul di area "Pratinjau Visual" ini. Input teks tetap dalam format kode agar mudah diedit.
+                        Informasi: Pastikan URL gambar yang Anda tempel bersifat publik agar siswa dapat melihatnya dengan lancar.
                       </p>
                    </div>
                 </div>
