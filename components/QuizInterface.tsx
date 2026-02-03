@@ -19,6 +19,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
   const [timeLeft, setTimeLeft] = useState(timeLimitMinutes * 60);
   const [fontSize, setFontSize] = useState(18);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [zoomImage, setZoomImage] = useState<string | null>(null);
   
   const startTime = useRef(Date.now());
   const isSubmitting = useRef(false);
@@ -157,18 +158,19 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
             const isSelected = isMultiple ? (currentAnswer || []).includes(idx) : currentAnswer === idx;
             const optImg = q.optionImages?.[idx];
             return (
-              <button 
+              <div 
                 key={idx} 
-                onClick={() => {
-                  if (isMultiple) {
-                    const prev = currentAnswer || [];
-                    setAnswers({...answers, [q.id]: isSelected ? prev.filter((i:any) => i !== idx) : [...prev, idx]});
-                  } else setAnswers({...answers, [q.id]: idx});
-                }} 
                 className={`w-full flex items-start p-4 text-left border-2 rounded-xl transition-all ${isSelected ? 'border-blue-600 bg-blue-50 shadow-inner' : 'border-slate-200 hover:bg-slate-50'}`}
               >
-                {/* ICON HANDLER: Square for Multiple, Circle for Single */}
-                <div className={`w-10 h-10 flex items-center justify-center mr-4 shrink-0 transition-all ${isMultiple ? 'rounded-lg' : 'rounded-full'} ${isSelected ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-100 text-slate-400'}`}>
+                <div 
+                  onClick={() => {
+                    if (isMultiple) {
+                      const prev = currentAnswer || [];
+                      setAnswers({...answers, [q.id]: isSelected ? prev.filter((i:any) => i !== idx) : [...prev, idx]});
+                    } else setAnswers({...answers, [q.id]: idx});
+                  }}
+                  className={`w-10 h-10 flex items-center justify-center mr-4 shrink-0 transition-all cursor-pointer ${isMultiple ? 'rounded-lg' : 'rounded-full'} ${isSelected ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-100 text-slate-400'}`}
+                >
                   {isMultiple ? (
                     isSelected ? (
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -183,10 +185,34 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                 </div>
                 
                 <div className="flex-1 min-w-0">
-                  <MathText text={opt} className={`font-bold block ${isSelected ? 'text-blue-800' : 'text-slate-700'}`} style={{ fontSize: `${fontSize - 2}px` }} />
-                  {optImg && <img src={optImg} className="mt-3 max-h-40 rounded-xl border border-slate-200 shadow-sm" />}
+                  <div 
+                    onClick={() => {
+                      if (isMultiple) {
+                        const prev = currentAnswer || [];
+                        setAnswers({...answers, [q.id]: isSelected ? prev.filter((i:any) => i !== idx) : [...prev, idx]});
+                      } else setAnswers({...answers, [q.id]: idx});
+                    }}
+                    className="cursor-pointer"
+                  >
+                    <MathText text={opt} className={`font-bold block ${isSelected ? 'text-blue-800' : 'text-slate-700'}`} style={{ fontSize: `${fontSize - 2}px` }} />
+                  </div>
+                  {optImg && (
+                    <div className="relative mt-3 group w-fit">
+                      <img 
+                        src={optImg} 
+                        onClick={() => setZoomImage(optImg)}
+                        className="max-h-40 rounded-xl border border-slate-200 shadow-sm cursor-zoom-in hover:brightness-90 transition-all" 
+                        alt={`Opsi ${String.fromCharCode(65+idx)}`}
+                      />
+                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                        <div className="bg-slate-900/60 text-white p-1.5 rounded-lg">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" /></svg>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>
@@ -235,7 +261,19 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                       <p className="text-sm font-black text-slate-800 uppercase tracking-tighter">{q?.type}</p>
                    </div>
                    <div className="space-y-8">
-                      {q?.questionImage && <div className="flex justify-center mb-6"><img src={q.questionImage} className="max-w-full h-auto rounded-[1.5rem] border-4 border-white shadow-xl" /></div>}
+                      {q?.questionImage && (
+                        <div className="flex justify-center mb-6 relative group w-fit mx-auto">
+                          <img 
+                            src={q.questionImage} 
+                            onClick={() => setZoomImage(q.questionImage!)}
+                            className="max-w-full h-auto rounded-[1.5rem] border-4 border-white shadow-xl cursor-zoom-in hover:brightness-95 transition-all" 
+                            alt="Gambar Soal"
+                          />
+                          <div className="absolute top-4 right-4 bg-slate-900/40 text-white p-2 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" /></svg>
+                          </div>
+                        </div>
+                      )}
                       <MathText text={q?.text} className="leading-relaxed text-slate-800 font-medium block" style={{ fontSize: `${fontSize}px` }} />
                       <div className="pt-4">{renderInput()}</div>
                    </div>
@@ -264,6 +302,37 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
              </div>
           </aside>
        </div>
+
+       {/* LIGHTBOX OVERLAY UNTUK PERBESAR GAMBAR */}
+       {zoomImage && (
+         <div 
+          className="fixed inset-0 z-[999] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4 md:p-12 animate-in fade-in duration-300"
+          onClick={() => setZoomImage(null)}
+         >
+           <button 
+             className="absolute top-6 right-6 w-12 h-12 bg-white/20 hover:bg-white/40 text-white rounded-full flex items-center justify-center font-black transition-all z-10"
+             onClick={() => setZoomImage(null)}
+           >
+             ✕
+           </button>
+           <div className="relative max-w-full max-h-full flex flex-col items-center gap-6" onClick={e => e.stopPropagation()}>
+             <img 
+               src={zoomImage} 
+               className="max-w-full max-h-[80vh] rounded-[2rem] border-4 border-white/20 shadow-[0_0_50px_rgba(0,0,0,0.5)] object-contain" 
+               alt="Zoomed View" 
+             />
+             <div className="bg-white/10 px-8 py-3 rounded-full border border-white/20 backdrop-blur-sm">
+                <p className="text-white text-xs font-black uppercase tracking-[0.2em]">Mode Pratinjau Detail</p>
+             </div>
+             <button 
+               onClick={() => setZoomImage(null)}
+               className="bg-white text-slate-900 font-black px-10 py-3 rounded-2xl uppercase text-[10px] tracking-widest shadow-xl hover:bg-blue-50 transition-all"
+             >
+               TUTUP GAMBAR
+             </button>
+           </div>
+         </div>
+       )}
     </div>
   );
 };
