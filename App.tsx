@@ -485,10 +485,13 @@ const App: React.FC = () => {
               <div className="relative z-10 text-center md:text-left">
                 <div className="flex items-center justify-center md:justify-start gap-3 mb-12"><div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-black text-xl shadow-lg">C</div><div className="font-black text-2xl tracking-tighter text-white">EduCBT Pro</div></div>
                 <h1 className="text-4xl font-black mb-6 leading-tight">Computer Based Test</h1>
-                <div className="bg-white/5 p-5 rounded-3xl border border-white/10 backdrop-blur-sm"><p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em] mb-2">Sistem</p><p className="text-xl font-black text-white italic">Full Dynamic Partitioning</p></div>
+                {/* JARAK DITAMBAHKAN DI SINI DENGAN mb-14 */}
+                <div className="bg-white/5 p-5 rounded-3xl border border-white/10 backdrop-blur-sm mb-14">
+                  <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em] mb-2">Sistem</p>
+                  <p className="text-xl font-black text-white italic">Full Dynamic Partitioning</p>
+                </div>
               </div>
-              {/* MEMBERIKAN MARGIN ATAS MINIMAL AGAR TIDAK TERLALU RAPAT */}
-              <div className="mt-auto mt-12 flex flex-col items-center">
+              <div className="mt-auto flex flex-col items-center">
                 <button onClick={() => setView('admin-auth')} className="w-full bg-white/5 hover:bg-white/10 p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/5 transition-all mb-4 text-white">Administrator</button>
                 <a href={currentLinks.passwordHelp} target="_blank" rel="noopener noreferrer" className="mb-4 block text-[10px] text-center font-bold text-slate-400 hover:text-blue-600 transition-colors uppercase tracking-widest leading-relaxed">klik di sini untuk mendapatkan<br/>password administrator</a>
                 
