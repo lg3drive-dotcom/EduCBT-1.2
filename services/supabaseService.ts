@@ -129,10 +129,21 @@ export const getLiveExamData = async (studentToken: string) => {
         externalLinks: set?.external_links
       },
       questions: questions.map(q => ({
-        id: q.id, type: q.type, level: q.level, subject: q.subject, material: q.material, text: q.text,
-        explanation: q.explanation, questionImage: q.question_image, options: q.options,
-        correctAnswer: q.correct_answer, isDeleted: q.is_deleted, order: q.order,
-        quizToken: q.quiz_token, tfLabels: q.tf_labels
+        id: q.id, 
+        type: q.type, 
+        level: q.level, 
+        subject: q.subject, 
+        material: q.material, 
+        text: q.text,
+        explanation: q.explanation, 
+        questionImage: q.question_image, 
+        options: q.options,
+        optionImages: q.option_images, // Menambahkan kolom ini agar gambar opsi muncul di sisi siswa
+        correctAnswer: q.correct_answer, 
+        isDeleted: q.is_deleted, 
+        order: q.order,
+        quizToken: q.quiz_token, 
+        tfLabels: q.tf_labels
       }))
     };
   } catch (err: any) { throw new Error(err.message); }
