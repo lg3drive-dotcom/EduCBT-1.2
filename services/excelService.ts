@@ -91,7 +91,8 @@ export const exportSubmissionsToExcel = (submissions: any[], fileName: string, q
     'Asal Sekolah',
     'ID Token',
     'Mata Pelajaran',
-    'Nilai'
+    'Nilai',
+    'Waktu Selesai'
   ];
 
   const rows = submissions.map((s, idx) => {
@@ -108,6 +109,11 @@ export const exportSubmissionsToExcel = (submissions: any[], fileName: string, q
       }
     }
 
+    // Format waktu pengerjaan menjadi HH:mm:ss
+    const finishTime = s.timestamp 
+      ? new Date(s.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      : '-';
+
     return [
       idx + 1,
       `"${s.student_name}"`,
@@ -115,7 +121,8 @@ export const exportSubmissionsToExcel = (submissions: any[], fileName: string, q
       `"${s.school_origin || '-'}"`,
       `"${token}"`,
       `"${realSubjectName || 'Ujian Digital'}"`,
-      s.score.toFixed(1).replace('.', ',')
+      s.score.toFixed(1).replace('.', ','),
+      `"${finishTime}"`
     ].join(';');
   });
 
