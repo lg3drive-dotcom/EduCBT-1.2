@@ -37,7 +37,7 @@ const ConfirmIdentity: React.FC<ConfirmIdentityProps> = ({ identity, settings, o
               <p className="text-lg font-black text-slate-800">{identity.birthDate || '-'}</p>
             </div>
             <div className="p-5 bg-blue-50 rounded-3xl border border-blue-100">
-              <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Mata Pelajaran</p>
+              <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Mapel</p>
               <p className="text-lg font-black text-blue-700">{settings.activeSubject || 'Ujian Digital'}</p>
             </div>
             <div className="p-5 bg-orange-50 rounded-3xl border border-orange-100">

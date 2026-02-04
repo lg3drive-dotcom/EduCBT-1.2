@@ -89,7 +89,7 @@ export const exportSubmissionsToExcel = (submissions: any[], fileName: string, q
     'Kelas',
     'Asal Sekolah',
     'ID Token',
-    'Mata Pelajaran',
+    'Mapel',
     'Nilai',
     'Tanggal',
     'Waktu Selesai'
@@ -128,7 +128,7 @@ export const exportSubmissionsToExcel = (submissions: any[], fileName: string, q
       `"${s.class_name}"`,
       `"${s.school_origin || '-'}"`,
       `"${token}"`,
-      `"${realSubjectName}"`, // Sekarang akan menampilkan nama asli mapel
+      `"${realSubjectName}"`,
       s.score.toFixed(1).replace('.', ','),
       `"${formattedDate}"`,
       `"${formattedTime}"`
