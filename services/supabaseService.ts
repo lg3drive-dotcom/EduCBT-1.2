@@ -190,7 +190,7 @@ export const fetchSubmissionsByToken = async (token: string): Promise<any[]> => 
     .from('submissions')
     .select('*')
     .eq('subject', token.toUpperCase())
-    .order('timestamp', { ascending: true }); // DIUBAH: Dari student_name menjadi timestamp agar urutan berdasarkan waktu input
+    .order('student_name', { ascending: true }); // DIKEMBALIKAN: Urutan berdasarkan nama siswa (A-Z)
 
   if (error) throw error;
   return data || [];
