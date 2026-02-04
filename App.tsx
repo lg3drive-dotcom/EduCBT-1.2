@@ -141,18 +141,78 @@ const App: React.FC = () => {
   };
 
   /**
-   * Fungsi Normalisasi Nama Sekolah Cerdas
-   * Mengonversi teks ke lowercase, menghapus prefix umum (sdn, sd negeri, sd), 
-   * dan menghapus semua simbol/spasi agar variasi penulisan tetap terdeteksi sama.
+   * Mengukur kemiripan antara dua teks (Levenshtein Distance)
    */
-  const normalizeSchoolName = (name: string): string => {
-    if (!name) return "";
-    return name.toLowerCase()
+  const getSimilarity = (s1: string, s2: string): number => {
+    let longer = s1;
+    let shorter = s2;
+    if (s1.length < s2.length) {
+      longer = s2;
+      shorter = s1;
+    }
+    const longerLength = longer.length;
+    if (longerLength === 0) return 1.0;
+    
+    const editDistance = (s1: string, s2: string): number => {
+      const costs: number[] = [];
+      for (let i = 0; i <= s1.length; i++) {
+        let lastValue = i;
+        for (let j = 0; j <= s2.length; j++) {
+          if (i === 0) costs[j] = j;
+          else {
+            if (j > 0) {
+              let newValue = costs[j - 1];
+              if (s1.charAt(i - 1) !== s2.charAt(j - 1))
+                newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
+              costs[j - 1] = lastValue;
+              lastValue = newValue;
+            }
+          }
+        }
+        if (i > 0) costs[s2.length] = lastValue;
+      }
+      return costs[s2.length];
+    };
+
+    return (longerLength - editDistance(longer, shorter)) / longerLength;
+  };
+
+  /**
+   * Ekstrak angka dari string
+   */
+  const extractNumbers = (text: string): string => {
+    return (text.match(/\d+/g) || []).join("");
+  };
+
+  /**
+   * Fungsi Normalisasi Nama Sekolah Cerdas dengan Fuzzy Matching
+   */
+  const isSchoolMatch = (input: string, target: string): boolean => {
+    if (!input || !target) return false;
+    
+    // 1. Normalisasi dasar: lowercase, buang sdn/sd, buang spasi & simbol
+    const clean = (t: string) => t.toLowerCase()
       .replace(/sd\s*negeri/g, '')
       .replace(/sdn/g, '')
       .replace(/sd/g, '')
-      .replace(/[^a-z0-9]/g, '') // Menghapus simbol dan spasi
+      .replace(/[^a-z0-9]/g, '')
       .trim();
+
+    const normalizedInput = clean(input);
+    const normalizedTarget = clean(target);
+
+    // 2. Cek angka (Proteksi Sensitif)
+    // Jika input mengandung angka (misal "3"), target juga harus mengandung angka yang sama.
+    const numInput = extractNumbers(input);
+    const numTarget = extractNumbers(target);
+    
+    if (numInput && numTarget && numInput !== numTarget) {
+      return false; // Berbeda sekolah bernomor (misal 3 vs 5), meskipun nama mirip
+    }
+
+    // 3. Cek kemiripan teks (Fuzzy Matching)
+    // Gunakan ambang batas 0.8 (80% mirip)
+    return normalizedInput === normalizedTarget || getSimilarity(normalizedInput, normalizedTarget) > 0.8;
   };
 
   const handleQuickDownloadRecap = async () => {
@@ -172,17 +232,16 @@ const App: React.FC = () => {
         
         // Filter Cerdas Berdasarkan Nama Sekolah jika diinput oleh guru
         if (inputSchool) {
-          const normalizedInput = normalizeSchoolName(inputSchool);
           filteredData = data.filter(s => {
             const studentSchool = s.school_origin || "";
-            return normalizeSchoolName(studentSchool) === normalizedInput;
+            return isSchoolMatch(inputSchool, studentSchool);
           });
         }
 
         if (filteredData.length > 0) {
           const fileName = `Rekap_Nilai_Cepat_${token}_${new Date().toISOString().split('T')[0]}`;
           exportSubmissionsToExcel(filteredData, fileName, questions);
-          alert(`Berhasil mengunduh rekap untuk token ${token}${inputSchool ? ' di sekolah ' + inputSchool : ''}.`);
+          alert(`Berhasil mengunduh rekap untuk token ${token}${inputSchool ? ' di sekolah ' + inputSchool : ''}. Terdeteksi ${filteredData.length} siswa.`);
           setQuickDownloadToken('');
           setQuickDownloadSchool('');
         } else {
