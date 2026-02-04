@@ -65,7 +65,6 @@ export const exportQuestionsToExcel = (questions: Question[], fileName: string) 
     ].join(';');
   });
 
-  // Menambahkan sep=; agar Excel otomatis mengenali pemisah kolom
   const csvContent = "sep=;\n" + "\uFEFF" + headers.join(';') + '\n' + rows.join('\n');
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -79,7 +78,7 @@ export const exportQuestionsToExcel = (questions: Question[], fileName: string) 
 };
 
 /**
- * Ekspor hasil pengerjaan siswa ke Excel.
+ * Ekspor hasil pengerjaan siswa ke Excel dengan perbaikan Mapel vs Token.
  */
 export const exportSubmissionsToExcel = (submissions: any[], fileName: string, questionBank: Question[] = []) => {
   if (!submissions || submissions.length === 0) return;
@@ -99,20 +98,26 @@ export const exportSubmissionsToExcel = (submissions: any[], fileName: string, q
   const rows = submissions.map((s, idx) => {
     const token = (s.subject_token || s.subject || '-').toUpperCase();
     
-    let realSubjectName = s.subject_name || s.subject;
-    if (!realSubjectName || realSubjectName === token) {
+    // LOGIKA PERBAIKAN: 
+    // Jika subject_name di DB kosong atau isinya sama dengan token, cari nama asli di bank soal
+    let realSubjectName = s.subject_name;
+    
+    if (!realSubjectName || realSubjectName.toUpperCase() === token) {
       const matchInBank = questionBank.find(q => q.quizToken?.toUpperCase() === token);
-      if (matchInBank) realSubjectName = matchInBank.subject;
+      if (matchInBank) {
+        realSubjectName = matchInBank.subject;
+      } else {
+        // Jika tetap tidak ketemu di bank soal, tampilkan subject yang ada tapi bersihkan
+        realSubjectName = s.subject_name || s.subject || 'Ujian Digital';
+      }
     }
 
     const dateObj = s.timestamp ? new Date(s.timestamp) : null;
     
-    // Format Tanggal (DD/MM/YYYY)
     const formattedDate = dateObj 
       ? dateObj.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' })
       : '-';
 
-    // Format Waktu (HH:mm:ss)
     const formattedTime = dateObj 
       ? dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
       : '-';
@@ -123,14 +128,13 @@ export const exportSubmissionsToExcel = (submissions: any[], fileName: string, q
       `"${s.class_name}"`,
       `"${s.school_origin || '-'}"`,
       `"${token}"`,
-      `"${realSubjectName || 'Ujian Digital'}"`,
+      `"${realSubjectName}"`, // Sekarang akan menampilkan nama asli mapel
       s.score.toFixed(1).replace('.', ','),
       `"${formattedDate}"`,
       `"${formattedTime}"`
     ].join(';');
   });
 
-  // "sep=;" adalah kunci agar Excel langsung membagi kolom dengan benar
   const csvContent = "sep=;\n" + "\uFEFF" + headers.join(';') + '\n' + rows.join('\n');
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
