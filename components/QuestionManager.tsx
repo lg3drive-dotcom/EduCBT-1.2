@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { Question, Subject, QuestionType, CognitiveLevel } from '../types.ts';
-import { SUBJECT_LIST, BLOOM_LEVELS, PUSPENDIK_LEVELS } from '../constants.ts';
+import { SUBJECT_LIST, BLOOM_LEVELS, PUSPENDIK_LEVELS, COGNITIVE_LEVELS } from '../constants.ts';
 import { generateQuestionBankPDF } from '../services/pdfService.ts';
 import MathText from './MathText.tsx';
 
@@ -214,6 +214,38 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                       <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase">Mapel</label><input type="text" value={formData.subject} onChange={e => setFormData({...formData, subject: e.target.value})} className="w-full p-3 border bg-slate-50 rounded-xl font-bold outline-none" /></div>
                    </div>
 
+                   {/* BARIS BARU: TIPE SOAL & LEVEL KOGNITIF */}
+                   <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-400 uppercase">Tipe Soal</label>
+                        <select 
+                          value={formData.type} 
+                          onChange={e => {
+                            const newType = e.target.value as QuestionType;
+                            let newAns: any = 0;
+                            if (newType === QuestionType.MULTIPLE) newAns = [];
+                            if (newType === QuestionType.COMPLEX_CATEGORY || newType === QuestionType.TRUE_FALSE_COMPLEX) {
+                              newAns = formData.options.map(() => false);
+                            }
+                            setFormData({...formData, type: newType, correctAnswer: newAns});
+                          }} 
+                          className="w-full p-3 border bg-slate-50 rounded-xl font-bold outline-none text-xs"
+                        >
+                          {Object.values(QuestionType).map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-400 uppercase">Level Kognitif</label>
+                        <select 
+                          value={formData.level} 
+                          onChange={e => setFormData({...formData, level: e.target.value})} 
+                          className="w-full p-3 border bg-slate-50 rounded-xl font-bold outline-none text-xs"
+                        >
+                          {COGNITIVE_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+                        </select>
+                      </div>
+                   </div>
+
                    <div className="space-y-1">
                       <label className="text-[10px] font-black text-slate-400 uppercase">Isi Butir Pertanyaan</label>
                       <textarea value={formData.text} onChange={e => setFormData({...formData, text: e.target.value})} className="w-full p-4 border bg-slate-50 rounded-2xl h-40 font-mono text-sm outline-none focus:border-blue-500 focus:bg-white transition-all" placeholder="Tulis soal di sini... Gunakan $ untuk rumus." />
@@ -239,9 +271,13 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                                       checked={formData.type === QuestionType.SINGLE ? formData.correctAnswer === idx : (formData.correctAnswer || []).includes(idx)} 
                                       onChange={() => {
                                         if(formData.type === QuestionType.SINGLE) setFormData({...formData, correctAnswer: idx});
-                                        else {
+                                        else if (formData.type === QuestionType.MULTIPLE) {
                                           const cur = formData.correctAnswer || [];
                                           const next = cur.includes(idx) ? cur.filter((i:any) => i !== idx) : [...cur, idx];
+                                          setFormData({...formData, correctAnswer: next});
+                                        } else {
+                                          const next = [...(formData.correctAnswer || formData.options.map(() => false))];
+                                          next[idx] = !next[idx];
                                           setFormData({...formData, correctAnswer: next});
                                         }
                                       }}
@@ -298,7 +334,12 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                          
                          <div className="space-y-3">
                             {formData.options.map((opt, i) => {
-                               const isCorrect = formData.type === QuestionType.SINGLE ? formData.correctAnswer === i : (formData.correctAnswer || []).includes(i);
+                               const isCorrect = formData.type === QuestionType.SINGLE 
+                                 ? formData.correctAnswer === i 
+                                 : (formData.type === QuestionType.MULTIPLE 
+                                    ? (formData.correctAnswer || []).includes(i)
+                                    : (formData.correctAnswer?.[i] === true));
+                               
                                const optImg = formData.optionImages[i];
                                return (
                                  <div key={i} className={`flex flex-col p-4 border-2 rounded-2xl transition-all ${isCorrect ? 'border-green-500 bg-green-50' : 'border-slate-100 bg-white'}`}>
