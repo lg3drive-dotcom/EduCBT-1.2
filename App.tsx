@@ -21,6 +21,7 @@ import {
 } from './services/supabaseService.ts';
 
 type ViewMode = 'login' | 'confirm-data' | 'quiz' | 'result' | 'admin-auth' | 'admin-panel' | 'analysis-panel';
+type AdminSubView = 'bank-soal' | 'admin-pusat';
 
 const DEFAULT_LINKS: ExternalLinks = {
   passwordHelp: 'https://lynk.id/edupreneur25/n3yqk5e4er64',
@@ -30,6 +31,7 @@ const DEFAULT_LINKS: ExternalLinks = {
 
 const App: React.FC = () => {
   const [view, setView] = useState<ViewMode>('login');
+  const [adminSubView, setAdminSubView] = useState<AdminSubView>('bank-soal');
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [pullStatus, setPullStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -106,20 +108,30 @@ const App: React.FC = () => {
   }, []);
 
   const handleCloudSync = async () => {
-    if (questions.length === 0) {
+    if (questions.length === 0 && adminSubView === 'bank-soal') {
       const confirmClear = confirm("Bank soal lokal kosong. Kirim data kosong ke Cloud (Akan menghapus semua soal di server)?");
       if (!confirmClear) return;
     }
 
     setSyncStatus('loading');
     try {
-      await pushQuestionsToCloud(questions);
+      if (adminSubView === 'bank-soal') {
+        await pushQuestionsToCloud(questions);
+      }
       await updateLiveSettings({ ...settings, adminPassword });
       setSyncStatus('success');
       setTimeout(() => setSyncStatus('idle'), 3000);
     } catch (err: any) {
       setSyncStatus('error');
       alert(`GAGAL SINKRONISASI!\n\nPesan: ${err.message}`);
+      setTimeout(() => setSyncStatus('idle'), 3000);
+    }
+  };
+
+  const handleUpdateSettings = (newSettings: AppSettings) => {
+    setSettings(newSettings);
+    if (newSettings.adminPassword) {
+      setAdminPassword(newSettings.adminPassword);
     }
   };
 
@@ -249,7 +261,18 @@ const App: React.FC = () => {
           <aside className={`${isMobileMenuOpen ? 'flex' : 'hidden'} lg:flex w-full lg:w-72 bg-slate-900 text-white flex-col p-6 lg:sticky top-0 lg:h-screen z-40 transition-all`}>
             <div className="hidden lg:flex font-black text-2xl mb-12 items-center gap-2"><div className="w-8 h-8 bg-blue-600 rounded-lg"></div>CBT SERVER</div>
             <nav className="space-y-2 flex-1">
-              <button className="w-full text-left p-4 bg-white/10 rounded-xl font-bold border-l-4 border-blue-500 uppercase text-[10px] tracking-widest">Bank Soal</button>
+              <button 
+                onClick={() => {setAdminSubView('bank-soal'); setIsMobileMenuOpen(false);}}
+                className={`w-full text-left p-4 rounded-xl font-bold uppercase text-[10px] tracking-widest transition-all ${adminSubView === 'bank-soal' ? 'bg-white/10 border-l-4 border-blue-500 text-white' : 'text-slate-400 hover:bg-white/5'}`}
+              >
+                Bank Soal
+              </button>
+              <button 
+                onClick={() => {setAdminSubView('admin-pusat'); setIsMobileMenuOpen(false);}}
+                className={`w-full text-left p-4 rounded-xl font-bold uppercase text-[10px] tracking-widest transition-all ${adminSubView === 'admin-pusat' ? 'bg-white/10 border-l-4 border-emerald-500 text-white' : 'text-slate-400 hover:bg-white/5'}`}
+              >
+                Admin Pusat
+              </button>
               <a href={currentLinks.aiGenerator} target="_blank" rel="noopener noreferrer" className="w-full flex items-center gap-3 p-4 hover:bg-white/5 rounded-xl font-bold uppercase text-[10px] tracking-widest text-purple-400 border border-transparent hover:border-purple-500/20 transition-all group">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg> Generate Soal AI ✨
               </a>
@@ -257,22 +280,56 @@ const App: React.FC = () => {
             </nav>
             <div className="mt-8 lg:mt-auto space-y-4">
               <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-3">
-                 <button onClick={handleCloudPull} className="w-full py-3 rounded-xl font-black text-[10px] uppercase tracking-widest bg-white/5 hover:bg-white/10 text-white">TARIK DATA SERVER</button>
-                 <button onClick={handleCloudSync} className="w-full py-3 rounded-xl font-black text-[10px] uppercase tracking-widest bg-blue-600 hover:bg-blue-700 text-white">KIRIM KE CLOUD</button>
+                 <button 
+                   onClick={handleCloudPull} 
+                   disabled={pullStatus === 'loading'}
+                   className={`w-full py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
+                     pullStatus === 'loading' ? 'bg-slate-700 cursor-wait' : 
+                     pullStatus === 'success' ? 'bg-emerald-500' : 
+                     'bg-white/5 hover:bg-white/10'
+                   } text-white`}
+                 >
+                   {pullStatus === 'loading' && <div className="w-2 h-2 bg-white rounded-full animate-ping"></div>}
+                   {pullStatus === 'loading' ? 'MENARIK...' : pullStatus === 'success' ? '✓ DATA DIAMBIL' : 'TARIK DATA SERVER'}
+                 </button>
+                 
+                 <button 
+                   onClick={handleCloudSync} 
+                   disabled={syncStatus === 'loading'}
+                   className={`w-full py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
+                     syncStatus === 'loading' ? 'bg-blue-400 cursor-wait' : 
+                     syncStatus === 'success' ? 'bg-emerald-500' : 
+                     syncStatus === 'error' ? 'bg-red-500' : 
+                     'bg-blue-600 hover:bg-blue-700'
+                   } text-white`}
+                 >
+                   {syncStatus === 'loading' && <div className="w-2 h-2 bg-white rounded-full animate-bounce"></div>}
+                   {syncStatus === 'loading' ? 'MENGIRIM...' : syncStatus === 'success' ? '✓ BERHASIL TERKIRIM' : syncStatus === 'error' ? '⚠ GAGAL' : 'KIRIM KE CLOUD'}
+                 </button>
               </div>
               <button onClick={() => setView('login')} className="w-full p-4 text-red-400 font-bold hover:bg-red-500/10 rounded-xl transition-all text-left uppercase text-[10px] tracking-widest">Keluar</button>
             </div>
           </aside>
           <main className="flex-1 p-4 lg:p-8 overflow-y-auto">
-            <QuestionManager 
-              questions={questions} 
-              activeToken="" 
-              onAdd={(q) => setQuestions(prev => [...prev, { ...q, id: Date.now().toString(), isDeleted: false }])} 
-              onUpdate={(updated) => setQuestions(prev => prev.map(q => q.id === updated.id ? updated : q))} 
-              onSoftDelete={(id) => setQuestions(prev => prev.map(item => item.id === id ? { ...item, isDeleted: true } : item))} 
-              onPermanentDelete={(id) => setQuestions(prev => prev.filter(item => item.id !== id))} 
-              onRestore={(id) => setQuestions(prev => prev.map(item => item.id === id ? { ...item, isDeleted: false } : item))} 
-            />
+            {adminSubView === 'bank-soal' ? (
+              <QuestionManager 
+                questions={questions} 
+                activeToken="" 
+                onAdd={(q) => setQuestions(prev => [...prev, { ...q, id: Date.now().toString(), isDeleted: false }])} 
+                onUpdate={(updated) => setQuestions(prev => prev.map(q => q.id === updated.id ? updated : q))} 
+                onSoftDelete={(id) => setQuestions(prev => prev.map(item => item.id === id ? { ...item, isDeleted: true } : item))} 
+                onPermanentDelete={(id) => setQuestions(prev => prev.filter(item => item.id !== id))} 
+                onRestore={(id) => setQuestions(prev => prev.map(item => item.id === id ? { ...item, isDeleted: false } : item))} 
+              />
+            ) : (
+              <AdminSettings 
+                settings={settings}
+                questions={questions}
+                onUpdateSettings={handleUpdateSettings}
+                onImportQuestions={(imported) => setQuestions(prev => [...prev, ...imported])}
+                onReset={() => setQuestions([])}
+              />
+            )}
           </main>
         </div>
       )}
@@ -302,7 +359,6 @@ const App: React.FC = () => {
                 </div>
                 <input required type="text" placeholder="Asal Sekolah" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold" value={identity.schoolOrigin} onChange={e => setIdentity({...identity, schoolOrigin: e.target.value})} />
                 
-                {/* PERBAIKAN: Input Tanggal Lahir dengan Label Visual yang lebih kuat untuk Mobile */}
                 <div className="relative">
                   <span className="absolute left-4 -top-2.5 px-2 bg-white text-[10px] font-black text-blue-600 uppercase tracking-widest z-10 border border-slate-100 rounded-full">Tanggal Lahir</span>
                   <input 

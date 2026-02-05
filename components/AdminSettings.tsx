@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useMemo } from 'react';
-import { AppSettings, Question } from '../types';
+import { AppSettings, Question, ExternalLinks } from '../types';
 import { fetchSubmissionsByToken } from '../services/supabaseService';
 import { exportSubmissionsToExcel } from '../services/excelService';
 
@@ -20,6 +20,15 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
   onReset
 }) => {
   const [timer, setTimer] = useState(settings.timerMinutes.toString());
+  const [newAdminPass, setNewAdminPass] = useState(settings.adminPassword || '');
+  
+  // External Links States
+  const [links, setLinks] = useState<ExternalLinks>(settings.externalLinks || {
+    passwordHelp: '',
+    aiGenerator: '',
+    adminEmailDisplay: ''
+  });
+
   const [selectedTokens, setSelectedTokens] = useState<string[]>([]);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isPasteModalOpen, setIsPasteModalOpen] = useState(false);
@@ -33,12 +42,14 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
     return Array.from(new Set(tokens)).sort();
   }, [questions]);
 
-  const handleSaveTime = () => {
+  const handleSaveAllSettings = () => {
     onUpdateSettings({
       ...settings,
-      timerMinutes: parseInt(timer) || 60
+      timerMinutes: parseInt(timer) || 60,
+      adminPassword: newAdminPass,
+      externalLinks: links
     });
-    alert('Pengaturan waktu berhasil disimpan!');
+    alert('SELURUH PENGATURAN BERHASIL DISIMPAN!\n\nKlik tombol "KIRIM KE CLOUD" di sidebar untuk menyinkronkan ke server.');
   };
 
   const toggleToken = (token: string) => {
@@ -157,101 +168,155 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
   };
 
   return (
-    <div className="space-y-6">
-      {/* PENGATURAN DURASI */}
-      <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
-        <h2 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" /></svg>
-          Waktu Ujian
-        </h2>
-        
-        <div className="space-y-4">
-          <div>
-            <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Durasi (Menit)</label>
-            <div className="flex gap-2">
-              <input type="number" value={timer} onChange={(e) => setTimer(e.target.value)} className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-black outline-none focus:border-blue-600 transition-all text-sm" />
-              <button onClick={handleSaveTime} className="bg-slate-900 text-white px-4 rounded-2xl text-[10px] font-black uppercase">Simpan</button>
+    <div className="space-y-6 max-w-4xl mx-auto pb-12">
+      {/* HEADER SECTION */}
+      <div className="bg-emerald-600 p-8 rounded-[2.5rem] text-white shadow-xl shadow-emerald-100 mb-8">
+        <h2 className="text-2xl font-black uppercase tracking-tight">Admin Pusat — Konfigurasi Sistem</h2>
+        <p className="text-emerald-100 text-xs font-medium mt-2">Kelola durasi ujian, keamanan password, dan link bantuan eksternal di sini.</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* PENGATURAN KEAMANAN & DURASI */}
+        <div className="space-y-6">
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+            <h2 className="text-sm font-black text-slate-800 mb-6 flex items-center gap-2 uppercase tracking-widest">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M2.166 4.9L10 .303 17.834 4.9a1 1 0 01.5 1.075l-1.334 8a1 1 0 01-.504.743l-6 3.5a1 1 0 01-.992 0l-6-3.5a1 1 0 01-.504-.743l-1.334-8a1 1 0 01.5-1.075zm2.131 2.22l.774 4.648L10 14.12l4.929-2.353.774-4.648L10 9.303 4.297 7.12z" clipRule="evenodd" /></svg>
+              Keamanan & Akun
+            </h2>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Password Baru Admin</label>
+                <input 
+                  type="text" 
+                  value={newAdminPass} 
+                  onChange={(e) => setNewAdminPass(e.target.value)} 
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-black outline-none focus:border-blue-600 transition-all text-xs" 
+                  placeholder="Password Dashboard"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Alokasi Waktu (Menit)</label>
+                <input 
+                  type="number" 
+                  value={timer} 
+                  onChange={(e) => setTimer(e.target.value)} 
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-black outline-none focus:border-blue-600 transition-all text-xs" 
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+            <h2 className="text-sm font-black text-slate-800 mb-6 flex items-center gap-2 uppercase tracking-widest">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-emerald-600" viewBox="0 0 20 20" fill="currentColor"><path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" /></svg>
+              Backup & Restore Lokal
+            </h2>
+            <div className="space-y-4">
+              <div className="max-h-32 overflow-y-auto border border-slate-100 rounded-2xl p-2 bg-slate-50 custom-scrollbar">
+                {availableTokens.map(token => (
+                  <label key={token} className="flex items-center gap-3 p-2 hover:bg-white rounded-xl cursor-pointer">
+                    <input type="checkbox" checked={selectedTokens.includes(token)} onChange={() => toggleToken(token)} className="w-4 h-4 accent-blue-600" />
+                    <span className="text-[10px] font-black text-slate-500 uppercase">{token}</span>
+                  </label>
+                ))}
+              </div>
+              <div className="grid grid-cols-1 gap-2">
+                <button onClick={handleExportJSON} disabled={selectedTokens.length === 0} className="w-full bg-slate-900 disabled:opacity-20 text-white font-black py-3 rounded-xl text-[10px] uppercase tracking-widest transition-all">Export (.JSON)</button>
+                <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleFileChange} />
+                <button onClick={() => fileInputRef.current?.click()} className="w-full bg-blue-50 text-blue-600 font-bold py-3 rounded-xl border border-blue-100 text-[10px] uppercase tracking-widest transition-all">Upload .JSON</button>
+                <button onClick={handleResetData} className="w-full text-red-500 font-bold py-2 text-[9px] uppercase tracking-widest hover:bg-red-50 rounded-lg">Reset Data Lokal</button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* BACKUP & REKAP NILAI */}
-      <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
-        <h2 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-emerald-600" viewBox="0 0 20 20" fill="currentColor"><path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" /></svg>
-          Data & Hasil
-        </h2>
-
-        <div className="space-y-4">
-          <div className="flex justify-between items-center px-1">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pilih Token</label>
-            <button onClick={selectAllTokens} className="text-[9px] font-black text-blue-600 uppercase">Semua</button>
+        {/* KONFIGURASI LINK EKSTERNAL */}
+        <div className="space-y-6">
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+            <h2 className="text-sm font-black text-slate-800 mb-6 flex items-center gap-2 uppercase tracking-widest">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-purple-600" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clipRule="evenodd" /></svg>
+              Link Eksternal
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Link Bantuan Password</label>
+                <input 
+                  type="text" 
+                  value={links.passwordHelp} 
+                  onChange={(e) => setLinks({...links, passwordHelp: e.target.value})} 
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium outline-none focus:border-blue-600 transition-all text-xs" 
+                  placeholder="URL Website / Lynk.id"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Link AI Generator Lab</label>
+                <input 
+                  type="text" 
+                  value={links.aiGenerator} 
+                  onChange={(e) => setLinks({...links, aiGenerator: e.target.value})} 
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium outline-none focus:border-blue-600 transition-all text-xs" 
+                  placeholder="URL AI Studio App"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Tampilan Email Admin</label>
+                <input 
+                  type="text" 
+                  value={links.adminEmailDisplay} 
+                  onChange={(e) => setLinks({...links, adminEmailDisplay: e.target.value})} 
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium outline-none focus:border-blue-600 transition-all text-xs" 
+                  placeholder="Email yang muncul di login"
+                />
+              </div>
+            </div>
           </div>
-          
-          <div className="max-h-32 overflow-y-auto border border-slate-100 rounded-2xl p-2 bg-slate-50 custom-scrollbar">
-            {availableTokens.map(token => (
-              <label key={token} className="flex items-center gap-3 p-2 hover:bg-white rounded-xl cursor-pointer">
-                <input type="checkbox" checked={selectedTokens.includes(token)} onChange={() => toggleToken(token)} className="w-4 h-4 accent-blue-600" />
-                <span className="text-[10px] font-black text-slate-500 uppercase">{token}</span>
-              </label>
-            ))}
-          </div>
 
-          <div className="grid grid-cols-1 gap-2 pt-2">
-            <button 
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+             <h2 className="text-sm font-black text-slate-800 mb-4 flex items-center gap-2 uppercase tracking-widest">Aksi Evaluasi</h2>
+             <button 
               onClick={handleDownloadRecap} 
               disabled={selectedTokens.length === 0 || isDownloading} 
-              className="w-full bg-emerald-600 disabled:opacity-30 text-white font-black py-4 rounded-2xl text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-100 flex items-center justify-center gap-2"
+              className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-30 text-white font-black py-4 rounded-xl text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-100 flex items-center justify-center gap-2 transition-all"
             >
-              {isDownloading ? 'Processing...' : 'Download Rekap Nilai (Excel)'}
+              {isDownloading ? 'MEMPROSES...' : 'Download Rekap Nilai (Excel)'}
             </button>
-            
-            <button onClick={handleExportJSON} disabled={selectedTokens.length === 0} className="w-full bg-slate-900 disabled:opacity-20 text-white font-black py-4 rounded-2xl text-[10px] uppercase tracking-widest">Backup Soal (.JSON)</button>
-            
-            <div className="grid grid-cols-2 gap-2">
-               <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleFileChange} />
-               <button onClick={() => fileInputRef.current?.click()} className="w-full bg-white text-blue-600 font-bold py-4 rounded-2xl border-2 border-blue-100 text-[10px] uppercase tracking-widest shadow-sm">Upload .JSON</button>
-               <button onClick={() => setIsPasteModalOpen(true)} className="w-full bg-blue-50 text-blue-700 font-bold py-4 rounded-2xl border-2 border-blue-200 text-[10px] uppercase tracking-widest shadow-sm">Paste .JSON</button>
-            </div>
-            <button onClick={handleResetData} className="w-full bg-white text-red-500 font-bold py-4 rounded-2xl border-2 border-red-100 text-[10px] uppercase tracking-widest">Reset Lokal</button>
+            <p className="text-[9px] text-slate-400 font-bold mt-4 italic text-center uppercase tracking-widest">Pastikan sinkronisasi Cloud sudah aktif sebelum mendownload rekap.</p>
           </div>
         </div>
       </div>
 
-      {/* MODAL PASTE JSON */}
+      {/* FOOTER SAVE BUTTON */}
+      <div className="mt-10 p-4 sticky bottom-4 z-10">
+        <button 
+          onClick={handleSaveAllSettings} 
+          className="w-full max-w-md mx-auto block bg-blue-600 hover:bg-blue-700 text-white font-black py-5 rounded-[2rem] shadow-2xl shadow-blue-300 transition-all active:scale-95 uppercase tracking-[0.2em] text-xs"
+        >
+          Simpan Seluruh Konfigurasi
+        </button>
+      </div>
+
+      {/* MODAL PASTE JSON (Tetap ada seperti sebelumnya) */}
       {isPasteModalOpen && (
         <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-md z-[200] flex items-center justify-center p-4">
           <div className="bg-white rounded-[2.5rem] w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
             <div className="p-8 bg-slate-900 text-white flex justify-between items-center shrink-0">
               <div>
                 <h3 className="text-xl font-black uppercase tracking-tight">Paste Bank Soal</h3>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Tempel teks JSON dari AI Lab ke sini</p>
               </div>
               <button onClick={() => setIsPasteModalOpen(false)} className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center font-black">×</button>
             </div>
             <div className="p-8 flex-1 overflow-y-auto">
               <textarea 
-                className="w-full h-80 p-6 bg-slate-50 border-2 border-slate-100 rounded-3xl font-mono text-xs text-slate-600 outline-none focus:border-blue-500 transition-all custom-scrollbar"
-                placeholder='Tempel kumpulan soal di sini. Contoh: [{"text": "Soal 1", ...}, ...]'
+                className="w-full h-80 p-6 bg-slate-50 border-2 border-slate-100 rounded-3xl font-mono text-xs outline-none focus:border-blue-500 transition-all"
+                placeholder='Tempel kumpulan soal di sini...'
                 value={pasteContent}
                 onChange={(e) => setPasteContent(e.target.value)}
               />
-              <div className="mt-6 bg-blue-50 p-4 rounded-2xl border border-blue-100 flex gap-3">
-                <div className="text-blue-500 shrink-0">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <p className="text-[10px] text-blue-700 font-bold leading-relaxed uppercase tracking-wide">
-                  Pastikan format JSON yang Anda tempel sesuai dengan standar ekspor EduCBT AI Lab. 
-                  Sistem akan mengabaikan soal dengan ID yang sudah ada di lokal.
-                </p>
-              </div>
             </div>
             <div className="p-8 border-t bg-slate-50 flex gap-4">
               <button onClick={() => setIsPasteModalOpen(false)} className="flex-1 py-4 font-black text-slate-400 uppercase tracking-widest text-[10px]">Tutup</button>
-              <button onClick={handlePasteImport} className="flex-[2] bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl shadow-xl transition-all active:scale-95 uppercase tracking-widest text-[10px]">Import Sekarang</button>
+              <button onClick={handlePasteImport} className="flex-[2] bg-blue-600 text-white font-black py-4 rounded-2xl shadow-xl uppercase tracking-widest text-[10px]">Import</button>
             </div>
           </div>
         </div>
