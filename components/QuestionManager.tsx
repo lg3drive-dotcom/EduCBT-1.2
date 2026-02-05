@@ -25,7 +25,6 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [previewQuestion, setPreviewQuestion] = useState<Question | null>(null);
-  const [zoomImage, setZoomImage] = useState<string | null>(null);
   
   // State untuk Import/Export
   const [isPasteModalOpen, setIsPasteModalOpen] = useState(false);
@@ -158,7 +157,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     const labels = q.tfLabels || { true: 'Ya', false: 'Tidak' };
     return (
       <div className="space-y-6">
-        {q.questionImage && <div className="w-full flex justify-center mb-4"><img src={q.questionImage} onClick={() => setZoomImage(q.questionImage!)} className="max-w-full h-auto rounded-2xl border-4 border-white shadow-lg cursor-zoom-in" /></div>}
+        {q.questionImage && <div className="w-full flex justify-center mb-4"><img src={q.questionImage} className="max-w-full h-auto rounded-2xl border-4 border-white shadow-lg" /></div>}
         <MathText text={q.text} className="text-sm font-medium text-slate-700 block bg-slate-50 p-6 rounded-2xl border border-slate-100" />
         {isComplex ? (
           <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
@@ -186,7 +185,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs mr-4 shrink-0 ${isCorrect ? 'bg-green-600 text-white' : 'bg-slate-100 text-slate-400'}`}>{String.fromCharCode(65+idx)}</div>
                     <MathText text={opt} className={`text-xs font-bold block ${isCorrect ? 'text-green-800' : 'text-slate-600'}`} />
                   </div>
-                  {optImg && <img src={optImg} onClick={() => setZoomImage(optImg)} className="mt-3 ml-12 max-h-32 rounded-lg border border-slate-200 cursor-zoom-in hover:brightness-90 transition-all" />}
+                  {optImg && <img src={optImg} className="mt-3 ml-12 max-h-32 rounded-lg border border-slate-200" />}
                 </div>
               );
             })}
@@ -275,13 +274,6 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
              <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">{renderPreviewContent(previewQuestion)}</div>
              <div className="p-6 border-t bg-slate-50 flex justify-center"><button onClick={() => setPreviewQuestion(null)} className="px-10 py-3 bg-slate-900 text-white font-black rounded-xl text-[10px] uppercase shadow-xl">TUTUP</button></div>
           </div>
-        </div>
-      )}
-
-      {zoomImage && (
-        <div className="fixed inset-0 z-[1000] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-12 animate-in fade-in duration-300" onClick={() => setZoomImage(null)}>
-           <button className="absolute top-8 right-8 w-12 h-12 bg-white/10 rounded-full flex items-center justify-center text-white font-black">✕</button>
-           <img src={zoomImage} className="max-w-full max-h-full rounded-3xl border-4 border-white/20 shadow-2xl object-contain" onClick={e => e.stopPropagation()} />
         </div>
       )}
 
@@ -392,12 +384,6 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                                     className="w-full p-2 bg-white border border-slate-200 rounded-lg text-[10px] font-mono outline-none focus:border-emerald-500" 
                                     placeholder="URL Gambar Opsi (Opsional)" 
                                  />
-                                 {formData.optionImages[idx] && (
-                                   <div className="mt-2 flex items-center gap-2">
-                                      <img src={formData.optionImages[idx]} className="w-10 h-10 object-cover rounded-lg border cursor-zoom-in" onClick={() => setZoomImage(formData.optionImages[idx]!)} />
-                                      <span className="text-[8px] font-black text-slate-400 uppercase">Klik untuk zoom</span>
-                                   </div>
-                                 )}
                               </div>
                            </div>
                          ))}
@@ -419,11 +405,8 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                       
                       <div className="space-y-6">
                          {formData.questionImage && (
-                            <div className="flex justify-center mb-4 relative group">
-                               <img src={formData.questionImage} alt="Preview Soal" className="max-w-full h-auto rounded-2xl border-4 border-slate-50 shadow-md cursor-zoom-in hover:brightness-95 transition-all" onClick={() => setZoomImage(formData.questionImage)} />
-                               <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                                  <div className="bg-slate-900/40 text-white p-2 rounded-full"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" /></svg></div>
-                               </div>
+                            <div className="flex justify-center mb-4">
+                               <img src={formData.questionImage} alt="Preview Soal" className="max-w-full h-auto rounded-2xl border-4 border-slate-50 shadow-md" />
                             </div>
                          )}
                          
@@ -439,19 +422,13 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                                
                                const optImg = formData.optionImages[i];
                                return (
-                                 <div key={i} className={`flex flex-col p-4 border-2 rounded-2xl transition-all ${isCorrect ? 'border-blue-500 bg-blue-50' : 'border-slate-100 bg-white'}`}>
+                                 <div key={i} className={`flex flex-col p-4 border-2 rounded-2xl transition-all ${isCorrect ? 'border-green-500 bg-green-50' : 'border-slate-100 bg-white'}`}>
                                     <div className="flex items-start">
-                                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs mr-4 shrink-0 ${isCorrect ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-400'}`}>{String.fromCharCode(65+i)}</div>
-                                       <MathText text={opt || "..."} className={`flex-1 text-xs font-bold ${isCorrect ? 'text-blue-800' : 'text-slate-600'}`} />
+                                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs mr-4 shrink-0 ${isCorrect ? 'bg-green-600 text-white' : 'bg-slate-100 text-slate-400'}`}>{String.fromCharCode(65+i)}</div>
+                                       <MathText text={opt || "..."} className={`flex-1 text-xs font-bold ${isCorrect ? 'text-green-800' : 'text-slate-600'}`} />
+                                       {isCorrect && <span className="text-[8px] font-black text-green-600 uppercase ml-2">Kunci</span>}
                                     </div>
-                                    {optImg && (
-                                       <div className="relative group mt-3 ml-12 w-fit">
-                                          <img src={optImg} className="max-h-32 w-auto object-contain rounded-lg border border-slate-100 cursor-zoom-in hover:brightness-95 transition-all" onClick={() => setZoomImage(optImg)} />
-                                          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900/30 p-1 rounded-md text-white pointer-events-none">
-                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                                          </div>
-                                       </div>
-                                    )}
+                                    {optImg && <img src={optImg} className="mt-3 ml-12 max-h-32 w-auto object-contain rounded-lg border border-slate-100" />}
                                  </div>
                                );
                             })}
