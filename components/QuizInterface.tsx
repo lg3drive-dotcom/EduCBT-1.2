@@ -13,7 +13,7 @@ interface QuizInterfaceProps {
 }
 
 const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, timeLimitMinutes, subjectName, onFinish, onViolation }) => {
-  // Identifikasi unik untuk sesi siswa agar tidak tertukar dengan siswa lain di perangkat yang sama
+  // Identifikasi unik untuk sesi siswa
   const sessionKey = useMemo(() => {
     const clean = (str: string) => str.toLowerCase().replace(/[^a-z0-9]/g, '');
     return `educbt_session_${clean(identity.name)}_${clean(identity.className)}_${clean(identity.token)}`;
@@ -57,8 +57,20 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
   const startTime = useRef(Date.now());
   const isSubmitting = useRef(false);
 
+  // CRITICAL: Gunakan useRef untuk menghindari stale closure saat auto-submit (waktu habis)
+  const answersRef = useRef(answers);
+  const doubtfulsRef = useRef(doubtfuls);
+
+  // Sinkronkan ref dengan state setiap kali ada perubahan
+  useEffect(() => {
+    answersRef.current = answers;
+  }, [answers]);
+
+  useEffect(() => {
+    doubtfulsRef.current = doubtfuls;
+  }, [doubtfuls]);
+
   // Efek untuk menyimpan progres secara real-time ke LocalStorage
-  // HANYA simpan jika ujian sudah dimulai (isFullscreen = true)
   useEffect(() => {
     if (!isFullscreen) return;
 
@@ -100,7 +112,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
     };
   }, [isFullscreen, onViolation]);
 
-  // Timer hanya berjalan jika siswa sudah masuk mode fullscreen (memulai ujian)
+  // Timer
   useEffect(() => {
     if (!isFullscreen) return;
 
@@ -108,7 +120,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
       setTimeLeft(prev => {
         if (prev <= 1) { 
           clearInterval(timer); 
-          handleSubmit(); 
+          handleSubmit(); // Memanggil submit otomatis saat waktu habis
           return 0; 
         }
         return prev - 1;
@@ -127,16 +139,18 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
   const handleSubmit = () => {
     if (isSubmitting.current) return;
     
-    // Aktifkan overlay pelindung segera
     setIsAutoSubmitting(true);
     isSubmitting.current = true;
 
-    // Bersihkan data pemulihan karena ujian sudah selesai secara resmi
     localStorage.removeItem(sessionKey);
 
     let correctCount = 0;
+    // Menggunakan answersRef.current untuk memastikan data terbaru yang diambil, 
+    // meskipun dipanggil dari closure setInterval yang lama.
+    const latestAnswers = answersRef.current;
+
     questions.forEach(q => {
-      const studentAns = answers[q.id];
+      const studentAns = latestAnswers[q.id];
       let isCorrect = false;
       if (q.type === QuestionType.SINGLE) isCorrect = studentAns === q.correctAnswer;
       else if (q.type === QuestionType.MULTIPLE) {
@@ -158,9 +172,15 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
     }
 
     onFinish({ 
-      id: Date.now().toString(), identity, score: finalScore, totalQuestions: questions.length, 
-      answers, manualCorrections: {}, timestamp: Date.now(), 
-      duration: Math.round((Date.now() - startTime.current) / 1000), isCorrected: false 
+      id: Date.now().toString(), 
+      identity, 
+      score: finalScore, 
+      totalQuestions: questions.length, 
+      answers: latestAnswers, 
+      manualCorrections: {}, 
+      timestamp: Date.now(), 
+      duration: Math.round((Date.now() - startTime.current) / 1000), 
+      isCorrected: false 
     });
   };
 
@@ -412,7 +432,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
           </aside>
        </div>
 
-       {/* OVERLAY PROTEKSI SAAT SINKRONISASI (WAKTU HABIS / SELESAI) */}
+       {/* OVERLAY PROTEKSI SAAT SINKRONISASI */}
        {isAutoSubmitting && (
          <div className="fixed inset-0 z-[1000] bg-slate-900/80 backdrop-blur-xl flex items-center justify-center p-6 animate-in fade-in duration-500">
            <div className="bg-white rounded-[3rem] p-10 max-lg w-full shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)] text-center space-y-6">
