@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Question, StudentIdentity, QuizResult, QuestionType } from '../types';
 import MathText from './MathText.tsx';
 
@@ -13,10 +13,42 @@ interface QuizInterfaceProps {
 }
 
 const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, timeLimitMinutes, subjectName, onFinish, onViolation }) => {
+  // Identifikasi unik untuk sesi siswa agar tidak tertukar dengan siswa lain di perangkat yang sama
+  const sessionKey = useMemo(() => {
+    const clean = (str: string) => str.toLowerCase().replace(/[^a-z0-9]/g, '');
+    return `educbt_session_${clean(identity.name)}_${clean(identity.className)}_${clean(identity.token)}`;
+  }, [identity]);
+
   const [currentIdx, setCurrentIdx] = useState(0);
-  const [answers, setAnswers] = useState<{ [key: string]: any }>({});
-  const [doubtfuls, setDoubtfuls] = useState<{ [key: string]: boolean }>({});
-  const [timeLeft, setTimeLeft] = useState(timeLimitMinutes * 60);
+  
+  // Inisialisasi state dari localStorage jika ada progres tersimpan
+  const [answers, setAnswers] = useState<{ [key: string]: any }>(() => {
+    const saved = localStorage.getItem(sessionKey);
+    if (saved) {
+      try { return JSON.parse(saved).answers || {}; } catch (e) { return {}; }
+    }
+    return {};
+  });
+
+  const [doubtfuls, setDoubtfuls] = useState<{ [key: string]: boolean }>(() => {
+    const saved = localStorage.getItem(sessionKey);
+    if (saved) {
+      try { return JSON.parse(saved).doubtfuls || {}; } catch (e) { return {}; }
+    }
+    return {};
+  });
+
+  const [timeLeft, setTimeLeft] = useState(() => {
+    const saved = localStorage.getItem(sessionKey);
+    if (saved) {
+      try { 
+        const parsed = JSON.parse(saved);
+        return typeof parsed.timeLeft === 'number' ? parsed.timeLeft : timeLimitMinutes * 60; 
+      } catch (e) { return timeLimitMinutes * 60; }
+    }
+    return timeLimitMinutes * 60;
+  });
+
   const [fontSize, setFontSize] = useState(18);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [zoomImage, setZoomImage] = useState<string | null>(null);
@@ -24,6 +56,17 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
   
   const startTime = useRef(Date.now());
   const isSubmitting = useRef(false);
+
+  // Efek untuk menyimpan progres secara real-time ke LocalStorage
+  useEffect(() => {
+    const sessionData = {
+      answers,
+      doubtfuls,
+      timeLeft,
+      lastUpdate: Date.now()
+    };
+    localStorage.setItem(sessionKey, JSON.stringify(sessionData));
+  }, [answers, doubtfuls, timeLeft, sessionKey]);
 
   useEffect(() => {
     if (!isFullscreen) return;
@@ -57,7 +100,11 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
   useEffect(() => {
     const timer = setInterval(() => {
       setTimeLeft(prev => {
-        if (prev <= 1) { clearInterval(timer); handleSubmit(); return 0; }
+        if (prev <= 1) { 
+          clearInterval(timer); 
+          handleSubmit(); 
+          return 0; 
+        }
         return prev - 1;
       });
     }, 1000);
@@ -77,6 +124,9 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
     // Aktifkan overlay pelindung segera
     setIsAutoSubmitting(true);
     isSubmitting.current = true;
+
+    // Bersihkan data pemulihan karena ujian sudah selesai secara resmi
+    localStorage.removeItem(sessionKey);
 
     let correctCount = 0;
     questions.forEach(q => {
@@ -232,15 +282,24 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
   };
 
   if (!isFullscreen) {
+    const hasSavedSession = localStorage.getItem(sessionKey) !== null;
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 text-center">
         <div className="bg-white rounded-[2rem] p-10 max-w-lg w-full shadow-2xl">
           <div className="w-20 h-20 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
           </div>
-          <h2 className="text-2xl font-black text-slate-800 mb-2">Siap Memulai Ujian?</h2>
-          <p className="text-slate-500 mb-8 text-sm leading-relaxed font-medium">Sistem akan mengunci layar browser Anda ke Mode Ujian.</p>
-          <button onClick={requestFullscreen} className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl uppercase tracking-widest shadow-xl active:scale-95 transition-all">MASUK MODE UJIAN</button>
+          <h2 className="text-2xl font-black text-slate-800 mb-2">
+            {hasSavedSession ? "Lanjutkan Ujian?" : "Siap Memulai Ujian?"}
+          </h2>
+          <p className="text-slate-500 mb-8 text-sm leading-relaxed font-medium">
+            {hasSavedSession 
+              ? "Kami mendeteksi Anda sempat keluar. Sistem akan memulihkan jawaban dan waktu Anda yang tersisa." 
+              : "Sistem akan mengunci layar browser Anda ke Mode Ujian."}
+          </p>
+          <button onClick={requestFullscreen} className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl uppercase tracking-widest shadow-xl active:scale-95 transition-all">
+            {hasSavedSession ? "PULIHKAN & LANJUTKAN" : "MASUK MODE UJIAN"}
+          </button>
         </div>
       </div>
     );
@@ -316,7 +375,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
        {/* OVERLAY PROTEKSI SAAT SINKRONISASI (WAKTU HABIS / SELESAI) */}
        {isAutoSubmitting && (
          <div className="fixed inset-0 z-[1000] bg-slate-900/80 backdrop-blur-xl flex items-center justify-center p-6 animate-in fade-in duration-500">
-           <div className="bg-white rounded-[3rem] p-10 max-w-lg w-full shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)] text-center space-y-6">
+           <div className="bg-white rounded-[3rem] p-10 max-lg w-full shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)] text-center space-y-6">
               <div className="relative w-24 h-24 mx-auto">
                 <div className="absolute inset-0 border-8 border-blue-100 rounded-full"></div>
                 <div className="absolute inset-0 border-8 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
