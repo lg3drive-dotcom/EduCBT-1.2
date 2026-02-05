@@ -13,10 +13,11 @@ interface QuestionManagerProps {
   onSoftDelete: (id: string) => void;
   onPermanentDelete: (id: string) => void;
   onRestore: (id: string) => void;
+  onImportQuestions: (newQuestions: Question[]) => void;
 }
 
 const QuestionManager: React.FC<QuestionManagerProps> = ({ 
-  questions, activeToken, onAdd, onUpdate, onSoftDelete, onPermanentDelete, onRestore 
+  questions, activeToken, onAdd, onUpdate, onSoftDelete, onPermanentDelete, onRestore, onImportQuestions
 }) => {
   const [activeTab, setActiveTab] = useState<'active' | 'trash'>('active');
   const [subjectFilter, setSubjectFilter] = useState<string>('');
@@ -25,6 +26,11 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [previewQuestion, setPreviewQuestion] = useState<Question | null>(null);
   
+  // State untuk Import/Export
+  const [isPasteModalOpen, setIsPasteModalOpen] = useState(false);
+  const [pasteContent, setPasteContent] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [formData, setFormData] = useState<{
     text: string;
     material: string;
@@ -109,6 +115,43 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     closeForm();
   };
 
+  const handleExportJSON = () => {
+    if (processedQuestions.length === 0) return alert("Tidak ada soal yang bisa diekspor.");
+    const blob = new Blob([JSON.stringify(processedQuestions, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Export_CBT_${tokenFilter || 'Filter'}_${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+  };
+
+  const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const imported = JSON.parse(event.target?.result as string);
+        if (!Array.isArray(imported)) return alert("Format JSON tidak valid.");
+        onImportQuestions(imported);
+        alert(`Berhasil mengimpor ${imported.length} soal.`);
+      } catch (e) { alert("Gagal membaca file JSON."); }
+    };
+    reader.readAsText(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handlePasteImport = () => {
+    try {
+      const imported = JSON.parse(pasteContent);
+      if (!Array.isArray(imported)) return alert("Data harus berupa kumpulan soal (Array).");
+      onImportQuestions(imported);
+      alert(`Berhasil mengimpor ${imported.length} soal.`);
+      setIsPasteModalOpen(false);
+      setPasteContent('');
+    } catch (e) { alert("Teks JSON tidak valid."); }
+  };
+
   const renderPreviewContent = (q: Question) => {
     const isComplex = q.type === QuestionType.COMPLEX_CATEGORY || q.type === QuestionType.TRUE_FALSE_COMPLEX;
     const labels = q.tfLabels || { true: 'Ya', false: 'Tidak' };
@@ -161,9 +204,23 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
             <button onClick={() => setActiveTab('trash')} className={`px-4 py-2 rounded-lg text-[10px] font-black ${activeTab === 'trash' ? 'bg-red-500 text-white' : 'text-slate-400'}`}>SAMPAH</button>
           </div>
           <input type="text" value={tokenFilter} onChange={(e) => setTokenFilter(e.target.value)} placeholder="Ketik Token..." className="w-24 bg-white border rounded-xl px-3 py-1.5 text-[10px] font-bold outline-none uppercase" />
+          
+          <div className="flex gap-1 border-l pl-3 ml-2 border-slate-300">
+             <input type="file" ref={fileInputRef} onChange={handleFileImport} className="hidden" accept=".json" />
+             <button onClick={() => fileInputRef.current?.click()} className="p-2 hover:bg-slate-200 rounded-lg text-slate-500 transition-colors" title="Upload JSON">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+             </button>
+             <button onClick={() => setIsPasteModalOpen(true)} className="p-2 hover:bg-slate-200 rounded-lg text-slate-500 transition-colors" title="Paste JSON">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+             </button>
+             <button onClick={handleExportJSON} className="p-2 hover:bg-slate-200 rounded-lg text-slate-500 transition-colors" title="Export JSON">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+             </button>
+          </div>
         </div>
         <button onClick={() => { closeForm(); setShowForm(true); }} className="bg-slate-900 text-white px-5 py-2 rounded-xl text-[10px] font-black">TAMBAH</button>
       </div>
+
       <div className="flex-1 overflow-y-auto bg-slate-50/30 p-4 space-y-4">
         {processedQuestions.map((q) => (
           <div key={q.id} className="bg-white p-4 border rounded-2xl group flex gap-4 items-start shadow-sm hover:shadow-md transition-shadow">
@@ -182,6 +239,31 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
           </div>
         ))}
       </div>
+
+      {isPasteModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[200] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+            <div className="p-6 bg-slate-900 text-white flex justify-between items-center shrink-0">
+              <h3 className="text-lg font-black uppercase tracking-tight">Paste Data Soal</h3>
+              <button onClick={() => setIsPasteModalOpen(false)} className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center font-black">×</button>
+            </div>
+            <div className="p-6 flex-1 overflow-hidden flex flex-col">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Tempel teks JSON kumpulan soal di bawah ini:</p>
+              <textarea 
+                value={pasteContent}
+                onChange={e => setPasteContent(e.target.value)}
+                className="flex-1 w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-mono text-xs outline-none focus:border-blue-500"
+                placeholder='[{"text": "Soal...", ...}]'
+              />
+            </div>
+            <div className="p-6 border-t bg-slate-50 flex gap-3">
+               <button onClick={() => setIsPasteModalOpen(false)} className="flex-1 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Batal</button>
+               <button onClick={handlePasteImport} className="flex-[2] bg-blue-600 text-white font-black py-3 rounded-xl shadow-lg uppercase text-[10px] tracking-widest">Import Sekarang</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {previewQuestion && (
         <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
           <div className="bg-white rounded-[2.5rem] w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
@@ -194,6 +276,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
           </div>
         </div>
       )}
+
       {showForm && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4">
           <div className="bg-white rounded-[2rem] w-full max-w-7xl p-8 shadow-2xl overflow-y-auto max-h-[95vh] custom-scrollbar flex flex-col">
@@ -206,7 +289,6 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
              </div>
              
              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 flex-1">
-                {/* PANEL KIRI: INPUT EDITOR */}
                 <div className="space-y-6">
                    <div className="grid grid-cols-3 gap-4">
                       <div className="space-y-1"><label className="text-[10px] font-black text-blue-600 uppercase">Token</label><input type="text" value={formData.quizToken} onChange={e => setFormData({...formData, quizToken: e.target.value.toUpperCase()})} className="w-full p-3 border-2 border-blue-50 bg-blue-50 rounded-xl font-black text-blue-700 outline-none" /></div>
@@ -214,7 +296,6 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                       <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase">Mapel</label><input type="text" value={formData.subject} onChange={e => setFormData({...formData, subject: e.target.value})} className="w-full p-3 border bg-slate-50 rounded-xl font-bold outline-none" /></div>
                    </div>
 
-                   {/* BARIS BARU: TIPE SOAL & LEVEL KOGNITIF */}
                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
                         <label className="text-[10px] font-black text-slate-400 uppercase">Tipe Soal</label>
@@ -310,7 +391,6 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                    </div>
                 </div>
 
-                {/* PANEL KANAN: LIVE VISUAL PREVIEW */}
                 <div className="bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200 p-8 flex flex-col sticky top-20 h-fit max-h-[80vh] overflow-y-auto custom-scrollbar">
                    <div className="flex items-center gap-2 mb-6 text-slate-400">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
@@ -354,15 +434,6 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                             })}
                          </div>
                       </div>
-                   </div>
-
-                   <div className="mt-8 p-4 bg-amber-50 rounded-2xl border border-amber-100 flex gap-3">
-                      <div className="text-amber-500 shrink-0">
-                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
-                      </div>
-                      <p className="text-[9px] text-amber-700 font-bold leading-relaxed uppercase tracking-wide">
-                        Informasi: Pastikan URL gambar yang Anda tempel bersifat publik agar siswa dapat melihatnya dengan lancar.
-                      </p>
                    </div>
                 </div>
              </div>

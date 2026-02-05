@@ -279,6 +279,17 @@ const App: React.FC = () => {
     setIsSyncing(false);
   };
 
+  const handleImportQuestions = (imported: Question[]) => {
+    // Memberikan ID unik jika tidak ada, serta memastikan isDeleted false
+    const sanitized = imported.map(q => ({
+      ...q,
+      id: q.id || Date.now().toString() + Math.random().toString(36).substr(2, 5),
+      isDeleted: false,
+      createdAt: q.createdAt || Date.now()
+    }));
+    setQuestions(prev => [...prev, ...sanitized]);
+  };
+
   const currentLinks = settings.externalLinks || DEFAULT_LINKS;
 
   return (
@@ -289,7 +300,6 @@ const App: React.FC = () => {
         <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row relative">
           {showGuide && <AdminGuide onClose={() => setShowGuide(false)} />}
           
-          {/* MODAL KODE AKSES RAHASIA ADMIN PUSAT */}
           {showPusatLock && (
             <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-xl flex items-center justify-center p-6">
               <div className="bg-white rounded-[3rem] p-10 max-w-md w-full shadow-2xl border border-slate-200 text-center animate-in zoom-in duration-300">
@@ -382,13 +392,14 @@ const App: React.FC = () => {
                 onSoftDelete={(id) => setQuestions(prev => prev.map(item => item.id === id ? { ...item, isDeleted: true } : item))} 
                 onPermanentDelete={(id) => setQuestions(prev => prev.filter(item => item.id !== id))} 
                 onRestore={(id) => setQuestions(prev => prev.map(item => item.id === id ? { ...item, isDeleted: false } : item))} 
+                onImportQuestions={handleImportQuestions}
               />
             ) : (
               <AdminSettings 
                 settings={settings}
                 questions={questions}
                 onUpdateSettings={handleUpdateSettings}
-                onImportQuestions={(imported) => setQuestions(prev => [...prev, ...imported])}
+                onImportQuestions={handleImportQuestions}
                 onReset={() => setQuestions([])}
               />
             )}
@@ -450,7 +461,6 @@ const App: React.FC = () => {
                 <p className="text-slate-500 mb-12 text-sm font-medium italic">Pusat pengolahan hasil ujian dan analisis kognitif siswa.</p>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-                   {/* KARTU 1: REKAP RINGKAS */}
                    <div className="bg-slate-50 p-8 rounded-[2.5rem] border-2 border-slate-100 text-left space-y-6">
                       <div>
                          <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mb-4">
@@ -468,7 +478,6 @@ const App: React.FC = () => {
                       </div>
                    </div>
 
-                   {/* KARTU 2: DATA LENGKAP ANALISIS */}
                    <div className="bg-slate-50 p-8 rounded-[2.5rem] border-2 border-slate-100 text-left space-y-6">
                       <div>
                          <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mb-4">
@@ -488,7 +497,6 @@ const App: React.FC = () => {
                    </div>
                 </div>
 
-                {/* BLOK ANALISIS AI */}
                 <div className="bg-blue-600 p-8 rounded-[3rem] text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl shadow-blue-200">
                    <div className="text-left">
                       <h4 className="font-black text-xl flex items-center gap-2">
