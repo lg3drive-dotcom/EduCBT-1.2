@@ -283,8 +283,8 @@ const App: React.FC = () => {
             <div className="md:w-5/12 bg-slate-900 p-12 text-white flex flex-col justify-between">
               <div>
                 <div className="flex items-center gap-3 mb-12"><div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-black">C</div><div className="font-black text-2xl">EduCBT Pro</div></div>
-                <h1 className="text-4xl font-black mb-6">Computer Based Test</h1>
-                <p className="text-slate-400 font-medium italic">Sistem Ujian Digital Masa Kini</p>
+                <h1 className="text-4xl font-black mb-6 leading-tight">Computer Based Test</h1>
+                <p className="text-slate-400 font-medium italic">Sistem Ujian Digital</p>
               </div>
               <div className="space-y-4">
                 <button onClick={() => setView('admin-auth')} className="w-full bg-white/5 hover:bg-white/10 p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/5 transition-all text-white">Administrator</button>
@@ -292,16 +292,28 @@ const App: React.FC = () => {
                 <p className="text-[10px] text-center font-bold text-slate-500 uppercase">{currentLinks.adminEmailDisplay}</p>
               </div>
             </div>
-            <div className="md:w-7/12 p-12 bg-white flex flex-col justify-center">
+            <div className="md:w-7/12 p-8 lg:p-12 bg-white flex flex-col justify-center">
               <h2 className="text-3xl font-black text-slate-800 mb-2">Login Peserta</h2>
               <p className="text-slate-400 font-medium mb-10 italic">Lengkapi identitas untuk memulai pengerjaan.</p>
-              <form onSubmit={handleStartQuiz} className="space-y-4">
+              <form onSubmit={handleStartQuiz} className="space-y-5">
                 <div className="grid grid-cols-2 gap-4">
                   <input required type="text" placeholder="Nama Peserta" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold" value={identity.name} onChange={e => setIdentity({...identity, name: e.target.value})} />
                   <input required type="text" placeholder="Kelas" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold" value={identity.className} onChange={e => setIdentity({...identity, className: e.target.value})} />
                 </div>
                 <input required type="text" placeholder="Asal Sekolah" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold" value={identity.schoolOrigin} onChange={e => setIdentity({...identity, schoolOrigin: e.target.value})} />
-                <input required type="date" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold" value={identity.birthDate} onChange={e => setIdentity({...identity, birthDate: e.target.value})} />
+                
+                {/* PERBAIKAN: Input Tanggal Lahir dengan Label Visual yang lebih kuat untuk Mobile */}
+                <div className="relative">
+                  <span className="absolute left-4 -top-2.5 px-2 bg-white text-[10px] font-black text-blue-600 uppercase tracking-widest z-10 border border-slate-100 rounded-full">Tanggal Lahir</span>
+                  <input 
+                    required 
+                    type="date" 
+                    className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold text-slate-700 min-h-[60px]" 
+                    value={identity.birthDate} 
+                    onChange={e => setIdentity({...identity, birthDate: e.target.value})} 
+                  />
+                </div>
+
                 <input required type="text" placeholder="KODE TOKEN" className="w-full p-5 bg-blue-50 border-2 border-blue-200 rounded-2xl font-black text-blue-700 text-center uppercase tracking-[0.3em] outline-none" value={identity.token} onChange={e => setIdentity({...identity, token: e.target.value})} />
                 <button disabled={isSyncing} className="w-full font-black py-4 rounded-[2rem] text-lg bg-blue-600 hover:bg-blue-700 text-white shadow-xl transition-all">MASUK KE UJIAN</button>
               </form>
