@@ -364,16 +364,50 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                 </div>
              </div>
           </main>
-          <aside className="w-full lg:w-80 bg-white border-l-4 border-slate-300 overflow-y-auto p-6 shrink-0 custom-scrollbar lg:h-full">
-             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Navigasi Soal</p>
-             <div className="grid grid-cols-5 gap-2">
-                {questions.map((item, i) => {
-                   const hasAns = answers[item.id] !== undefined;
-                   const isDbt = doubtfuls[item.id];
-                   return (
-                     <button key={item.id} onClick={() => setCurrentIdx(i)} className={`h-12 w-full flex items-center justify-center rounded-xl font-black text-sm border-b-4 transition-all ${i === currentIdx ? 'scale-105 ring-4 ring-blue-100 z-10' : ''} ${isDbt ? 'bg-orange-500 text-white border-orange-700' : hasAns ? 'bg-blue-600 text-white border-blue-800' : 'bg-white text-slate-400 border-slate-200'}`}>{i + 1}</button>
-                   );
-                })}
+          <aside className="w-full lg:w-80 bg-white border-l-4 border-slate-300 overflow-y-auto p-6 shrink-0 custom-scrollbar lg:h-full flex flex-col">
+             <div className="flex-1">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Navigasi Soal</p>
+                <div className="grid grid-cols-5 gap-2 mb-10">
+                   {questions.map((item, i) => {
+                      const hasAns = answers[item.id] !== undefined;
+                      const isDbt = doubtfuls[item.id];
+                      return (
+                        <button key={item.id} onClick={() => setCurrentIdx(i)} className={`h-12 w-full flex items-center justify-center rounded-xl font-black text-sm border-b-4 transition-all ${i === currentIdx ? 'scale-105 ring-4 ring-blue-100 z-10' : ''} ${isDbt ? 'bg-orange-500 text-white border-orange-700' : hasAns ? 'bg-blue-600 text-white border-blue-800' : 'bg-white text-slate-400 border-slate-200'}`}>{i + 1}</button>
+                      );
+                   })}
+                </div>
+             </div>
+
+             {/* PANEL IDENTITAS SISWA */}
+             <div className="mt-auto border-t-2 border-slate-100 pt-6">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Identitas Peserta</p>
+                <div className="bg-slate-50 p-5 rounded-[2rem] border border-slate-200 space-y-4">
+                   <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center shrink-0">
+                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" /></svg>
+                      </div>
+                      <div className="min-w-0">
+                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Nama Peserta</p>
+                         <p className="text-xs font-black text-slate-800 truncate uppercase">{identity.name}</p>
+                      </div>
+                   </div>
+                   
+                   <div className="grid grid-cols-1 gap-3">
+                      <div className="bg-white p-3 rounded-xl border border-slate-100">
+                         <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Kelas / Rombel</p>
+                         <p className="text-[11px] font-black text-slate-700">{identity.className}</p>
+                      </div>
+                      <div className="bg-white p-3 rounded-xl border border-slate-100">
+                         <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Asal Sekolah</p>
+                         <p className="text-[11px] font-black text-slate-700 truncate">{identity.schoolOrigin || '-'}</p>
+                      </div>
+                   </div>
+
+                   <div className="flex items-center justify-center gap-2 pt-2">
+                      <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                      <p className="text-[9px] font-black text-green-600 uppercase tracking-widest">Status: Sesi Aktif</p>
+                   </div>
+                </div>
              </div>
           </aside>
        </div>
