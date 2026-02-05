@@ -36,9 +36,8 @@ const App: React.FC = () => {
   const [view, setView] = useState<ViewMode>('login');
   const [adminSubView, setAdminSubView] = useState<AdminSubView>('bank-soal');
   const [isSyncing, setIsSyncing] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<'idle' | 'loading' | 'success' | 'error' | 'dirty'>('idle');
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [pullStatus, setPullStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   
@@ -85,13 +84,10 @@ const App: React.FC = () => {
 
   useEffect(() => {
     localStorage.setItem('cbt_questions', JSON.stringify(questions));
-    // Jika data berubah (bukan dari sync), set status dirty
-    if (syncStatus === 'success') setSyncStatus('dirty');
   }, [questions]);
 
   useEffect(() => {
     localStorage.setItem('cbt_settings', JSON.stringify(settings));
-    if (syncStatus === 'success') setSyncStatus('dirty');
   }, [settings]);
 
   useEffect(() => {
@@ -114,8 +110,6 @@ const App: React.FC = () => {
               ...(cloudSettings.externalLinks || {})
             }
           }));
-          setSyncStatus('success');
-          setLastSyncedAt(new Date().toLocaleTimeString());
         }
       } catch (err) {
         console.warn("Cloud Initialization Warning:", err);
@@ -137,10 +131,11 @@ const App: React.FC = () => {
       }
       await updateLiveSettings({ ...settings, adminPassword });
       setSyncStatus('success');
-      setLastSyncedAt(new Date().toLocaleTimeString());
+      setTimeout(() => setSyncStatus('idle'), 3000);
     } catch (err: any) {
       setSyncStatus('error');
       alert(`GAGAL SINKRONISASI!\n\nPesan: ${err.message}`);
+      setTimeout(() => setSyncStatus('idle'), 3000);
     }
   };
 
@@ -157,8 +152,6 @@ const App: React.FC = () => {
       const cloudQs = await fetchAllQuestions();
       setQuestions(cloudQs);
       setPullStatus('success');
-      setSyncStatus('success');
-      setLastSyncedAt(new Date().toLocaleTimeString());
       setTimeout(() => setPullStatus('idle'), 3000);
     } catch (err: any) {
       console.error("Gagal menarik data:", err);
@@ -188,6 +181,72 @@ const App: React.FC = () => {
       alert("KODE AKSES SALAH!");
       setPusatInputCode('');
     }
+  };
+
+  const getSimilarity = (s1: string, s2: string): number => {
+    let longer = s1;
+    let shorter = s2;
+    if (s1.length < s2.length) { longer = s2; shorter = s1; }
+    const longerLength = longer.length;
+    if (longerLength === 0) return 1.0;
+    const editDistance = (s1: string, s2: string): number => {
+      const costs: number[] = [];
+      for (let i = 0; i <= s1.length; i++) {
+        let lastValue = i;
+        for (let j = 0; j <= s2.length; j++) {
+          if (i === 0) costs[j] = j;
+          else {
+            if (j > 0) {
+              let newValue = costs[j - 1];
+              if (s1.charAt(i - 1) !== s2.charAt(j - 1))
+                newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
+              costs[j - 1] = lastValue; lastValue = newValue;
+            }
+          }
+        }
+        if (i > 0) costs[s2.length] = lastValue;
+      }
+      return costs[s2.length];
+    };
+    return (longerLength - editDistance(longer, shorter)) / longerLength;
+  };
+
+  const isSchoolMatch = (input: string, target: string): boolean => {
+    if (!input || !target) return false;
+    const clean = (t: string) => t.toLowerCase().replace(/sd\s*negeri/g, '').replace(/sdn/g, '').replace(/sd/g, '').replace(/[^a-z0-9]/g, '').trim();
+    const normalizedInput = clean(input);
+    const normalizedTarget = clean(target);
+    return normalizedInput === normalizedTarget || getSimilarity(normalizedInput, normalizedTarget) > 0.8;
+  };
+
+  const handleQuickDownloadRecap = async () => {
+    const token = quickDownloadToken.trim().toUpperCase();
+    const inputSchool = quickDownloadSchool.trim();
+    if (!token) return alert("Silakan masukkan Token paket soal.");
+    setIsQuickDownloading(true);
+    try {
+      const data = await fetchSubmissionsByToken(token);
+      if (data && data.length > 0) {
+        let filteredData = inputSchool ? data.filter(s => isSchoolMatch(inputSchool, s.school_origin || "")) : data;
+        if (filteredData.length > 0) {
+          exportSubmissionsToExcel(filteredData, `Rekap_Ringkas_${token}`, questions);
+        } else alert("Tidak ada data ditemukan untuk sekolah tersebut.");
+      } else alert("Token tidak ditemukan.");
+    } catch (err: any) { alert(`Error: ${err.message}`); }
+    finally { setIsQuickDownloading(false); }
+  };
+
+  const handleFullDataDownload = async () => {
+    const token = fullDownloadToken.trim().toUpperCase();
+    if (!token) return alert("Silakan masukkan Token paket soal untuk data lengkap.");
+    setIsFullDownloading(true);
+    try {
+      const data = await fetchSubmissionsByToken(token);
+      if (data && data.length > 0) {
+        exportFullSubmissionsToCSV(data, `Data_Lengkap_Analisis_${token}`);
+      } else alert("Token tidak ditemukan.");
+    } catch (err: any) { alert(`Error: ${err.message}`); }
+    finally { setIsFullDownloading(false); }
   };
 
   const handleStartQuiz = async (e: React.FormEvent) => {
@@ -220,31 +279,8 @@ const App: React.FC = () => {
     setIsSyncing(false);
   };
 
-  const handleQuickDownloadRecap = async () => {
-    if (!quickDownloadToken.trim()) return alert("Silakan masukkan token.");
-    setIsQuickDownloading(true);
-    try {
-      const data = await fetchSubmissionsByToken(quickDownloadToken.toUpperCase());
-      if (data && data.length > 0) {
-        exportSubmissionsToExcel(data, `Rekap_Ringkas_${quickDownloadToken.toUpperCase()}`, questions);
-      } else alert("Data tidak ditemukan.");
-    } catch (err: any) { alert(`Error: ${err.message}`); }
-    finally { setIsQuickDownloading(false); }
-  };
-
-  const handleFullDataDownload = async () => {
-    if (!fullDownloadToken.trim()) return alert("Silakan masukkan token.");
-    setIsFullDownloading(true);
-    try {
-      const data = await fetchSubmissionsByToken(fullDownloadToken.toUpperCase());
-      if (data && data.length > 0) {
-        exportFullSubmissionsToCSV(data, `Data_Lengkap_Analisis_${fullDownloadToken.toUpperCase()}`);
-      } else alert("Data tidak ditemukan.");
-    } catch (err: any) { alert(`Error: ${err.message}`); }
-    finally { setIsFullDownloading(false); }
-  };
-
   const handleImportQuestions = (imported: Question[]) => {
+    // Memberikan ID unik jika tidak ada, serta memastikan isDeleted false
     const sanitized = imported.map(q => ({
       ...q,
       id: q.id || Date.now().toString() + Math.random().toString(36).substr(2, 5),
@@ -257,7 +293,7 @@ const App: React.FC = () => {
   const currentLinks = settings.externalLinks || DEFAULT_LINKS;
 
   return (
-    <div className="min-h-screen bg-slate-50 font-inter text-slate-800">
+    <div className="min-h-screen bg-slate-50 font-inter">
       {view === 'admin-auth' && <AdminLogin onLogin={() => setView('admin-panel')} correctPassword={adminPassword} helpLink={currentLinks.passwordHelp} />}
       
       {view === 'admin-panel' && (
@@ -266,7 +302,7 @@ const App: React.FC = () => {
           
           {showPusatLock && (
             <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-xl flex items-center justify-center p-6">
-              <div className="bg-white rounded-[3rem] p-10 max-md w-full shadow-2xl border border-slate-200 text-center animate-in zoom-in duration-300">
+              <div className="bg-white rounded-[3rem] p-10 max-w-md w-full shadow-2xl border border-slate-200 text-center animate-in zoom-in duration-300">
                 <div className="w-16 h-16 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
                 </div>
@@ -294,7 +330,6 @@ const App: React.FC = () => {
             <div className="font-black text-xl flex items-center gap-2"><div className="w-6 h-6 bg-blue-600 rounded"></div>CBT SERVER</div>
             <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 bg-white/10 rounded-lg">Menu</button>
           </header>
-
           <aside className={`${isMobileMenuOpen ? 'flex' : 'hidden'} lg:flex w-full lg:w-72 bg-slate-900 text-white flex-col p-6 lg:sticky top-0 lg:h-screen z-40 transition-all`}>
             <div className="hidden lg:flex font-black text-2xl mb-12 items-center gap-2"><div className="w-8 h-8 bg-blue-600 rounded-lg"></div>CBT SERVER</div>
             <nav className="space-y-2 flex-1">
@@ -315,35 +350,7 @@ const App: React.FC = () => {
               </a>
               <button onClick={() => setShowGuide(true)} className="w-full flex items-center gap-3 p-4 hover:bg-white/5 rounded-xl font-bold uppercase text-[10px] tracking-widest text-emerald-400 border border-transparent hover:border-emerald-500/20 transition-all">Panduan</button>
             </nav>
-
             <div className="mt-8 lg:mt-auto space-y-4">
-              {/* STATUS INDICATOR SECTION */}
-              <div className="p-4 bg-white/5 border border-white/10 rounded-2xl mb-2">
-                 <div className="flex items-center justify-between mb-3">
-                    <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Server Status</span>
-                    <div className="flex items-center gap-1.5">
-                       <div className={`w-2 h-2 rounded-full ${
-                          syncStatus === 'loading' ? 'bg-blue-400 animate-pulse' :
-                          syncStatus === 'success' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' :
-                          syncStatus === 'dirty' ? 'bg-yellow-500 animate-pulse' :
-                          syncStatus === 'error' ? 'bg-red-500' : 'bg-slate-600'
-                       }`}></div>
-                       <span className={`text-[8px] font-black uppercase ${
-                          syncStatus === 'success' ? 'text-green-500' : 
-                          syncStatus === 'dirty' ? 'text-yellow-500' : 'text-slate-400'
-                       }`}>
-                          {syncStatus === 'loading' ? 'Syncing...' : 
-                           syncStatus === 'success' ? 'Synced' : 
-                           syncStatus === 'dirty' ? 'Local Changes' : 
-                           syncStatus === 'error' ? 'Error' : 'Offline'}
-                       </span>
-                    </div>
-                 </div>
-                 {lastSyncedAt && (
-                    <p className="text-[7px] text-slate-500 font-bold uppercase text-center">Last Sync: {lastSyncedAt}</p>
-                 )}
-              </div>
-
               <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-3">
                  <button 
                    onClick={handleCloudPull} 
@@ -354,6 +361,7 @@ const App: React.FC = () => {
                      'bg-white/5 hover:bg-white/10'
                    } text-white`}
                  >
+                   {pullStatus === 'loading' && <div className="w-2 h-2 bg-white rounded-full animate-ping"></div>}
                    {pullStatus === 'loading' ? 'MENARIK...' : pullStatus === 'success' ? '✓ DATA DIAMBIL' : 'TARIK DATA SERVER'}
                  </button>
                  
@@ -363,17 +371,17 @@ const App: React.FC = () => {
                    className={`w-full py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
                      syncStatus === 'loading' ? 'bg-blue-400 cursor-wait' : 
                      syncStatus === 'success' ? 'bg-emerald-500' : 
-                     syncStatus === 'dirty' ? 'bg-blue-600 shadow-lg' : 
-                     'bg-white/10 hover:bg-white/20'
+                     syncStatus === 'error' ? 'bg-red-500' : 
+                     'bg-blue-600 hover:bg-blue-700'
                    } text-white`}
                  >
-                   {syncStatus === 'loading' ? 'MENGIRIM...' : syncStatus === 'success' ? '✓ BERHASIL TERKIRIM' : syncStatus === 'dirty' ? 'KIRIM KE CLOUD' : 'KIRIM KE CLOUD'}
+                   {syncStatus === 'loading' && <div className="w-2 h-2 bg-white rounded-full animate-bounce"></div>}
+                   {syncStatus === 'loading' ? 'MENGIRIM...' : syncStatus === 'success' ? '✓ BERHASIL TERKIRIM' : syncStatus === 'error' ? '⚠ GAGAL' : 'KIRIM KE CLOUD'}
                  </button>
               </div>
               <button onClick={() => { setView('login'); setIsPusatUnlocked(false); }} className="w-full p-4 text-red-400 font-bold hover:bg-red-500/10 rounded-xl transition-all text-left uppercase text-[10px] tracking-widest">Keluar</button>
             </div>
           </aside>
-
           <main className="flex-1 p-4 lg:p-8 overflow-y-auto">
             {adminSubView === 'bank-soal' ? (
               <QuestionManager 
@@ -423,10 +431,18 @@ const App: React.FC = () => {
                   <input required type="text" placeholder="Kelas" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold" value={identity.className} onChange={e => setIdentity({...identity, className: e.target.value})} />
                 </div>
                 <input required type="text" placeholder="Asal Sekolah" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold" value={identity.schoolOrigin} onChange={e => setIdentity({...identity, schoolOrigin: e.target.value})} />
+                
                 <div className="relative">
                   <span className="absolute left-4 -top-2.5 px-2 bg-white text-[10px] font-black text-blue-600 uppercase tracking-widest z-10 border border-slate-100 rounded-full">Tanggal Lahir</span>
-                  <input required type="date" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold text-slate-700 min-h-[60px]" value={identity.birthDate} onChange={e => setIdentity({...identity, birthDate: e.target.value})} />
+                  <input 
+                    required 
+                    type="date" 
+                    className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold text-slate-700 min-h-[60px]" 
+                    value={identity.birthDate} 
+                    onChange={e => setIdentity({...identity, birthDate: e.target.value})} 
+                  />
                 </div>
+
                 <input required type="text" placeholder="KODE TOKEN" className="w-full p-5 bg-blue-50 border-2 border-blue-200 rounded-2xl font-black text-blue-700 text-center uppercase tracking-[0.3em] outline-none" value={identity.token} onChange={e => setIdentity({...identity, token: e.target.value})} />
                 <button disabled={isSyncing} className="w-full font-black py-4 rounded-[2rem] text-lg bg-blue-600 hover:bg-blue-700 text-white shadow-xl transition-all">MASUK KE UJIAN</button>
               </form>
@@ -438,29 +454,68 @@ const App: React.FC = () => {
       {view === 'analysis-panel' && (
         <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 text-center">
           <div className="bg-white rounded-[4rem] p-12 max-w-4xl w-full shadow-2xl overflow-hidden relative">
+             <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50 rounded-full -mr-32 -mt-32 opacity-50"></div>
+             
              <div className="relative">
                 <h2 className="text-3xl font-black text-slate-800 mb-2 uppercase tracking-tight">Panel Evaluasi & Analisis</h2>
+                <p className="text-slate-500 mb-12 text-sm font-medium italic">Pusat pengolahan hasil ujian dan analisis kognitif siswa.</p>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
                    <div className="bg-slate-50 p-8 rounded-[2.5rem] border-2 border-slate-100 text-left space-y-6">
-                      <h3 className="font-black text-slate-800 uppercase text-xs tracking-widest">Rekap Nilai Cepat</h3>
+                      <div>
+                         <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mb-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                         </div>
+                         <h3 className="font-black text-slate-800 uppercase text-xs tracking-widest">Rekap Nilai Cepat</h3>
+                         <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase">Output: Nama & Skor Saja</p>
+                      </div>
                       <div className="space-y-3">
                          <input type="text" placeholder="Input Token Rekap" className="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs font-black uppercase tracking-widest outline-none focus:border-emerald-500" value={quickDownloadToken} onChange={e => setQuickDownloadToken(e.target.value)} />
+                         <input type="text" placeholder="Nama Sekolah (Opsional)" className="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs font-black uppercase tracking-widest outline-none focus:border-emerald-500" value={quickDownloadSchool} onChange={e => setQuickDownloadSchool(e.target.value)} />
                          <button onClick={handleQuickDownloadRecap} disabled={isQuickDownloading} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3 rounded-xl text-[10px] uppercase tracking-widest transition-all">
                             {isQuickDownloading ? 'MEMPROSES...' : 'DOWNLOAD REKAP RINGKAS'}
                          </button>
                       </div>
                    </div>
+
                    <div className="bg-slate-50 p-8 rounded-[2.5rem] border-2 border-slate-100 text-left space-y-6">
-                      <h3 className="font-black text-slate-800 uppercase text-xs tracking-widest">Data Lengkap (CSV)</h3>
+                      <div>
+                         <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mb-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2 1.5 3 3.5 3s3.5-1 3.5-3V7c0-2-1.5-3-3.5-3S4 5 4 7zM14 7v10c0 2 1.5 3 3.5 3s3.5-1 3.5-3V7c0-2-1.5-3-3.5-3S14 5 14 7z" /></svg>
+                         </div>
+                         <h3 className="font-black text-slate-800 uppercase text-xs tracking-widest">Data Lengkap (CSV)</h3>
+                         <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase">Output: Full Raw Data & Jawaban</p>
+                      </div>
                       <div className="space-y-3">
                          <input type="text" placeholder="Input Token Data Lengkap" className="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs font-black uppercase tracking-widest outline-none focus:border-blue-500" value={fullDownloadToken} onChange={e => setFullDownloadToken(e.target.value)} />
+                         <p className="text-[10px] text-slate-500 font-medium leading-relaxed italic">Download seluruh data jawaban siswa untuk analisis butir soal mendalam.</p>
                          <button onClick={handleFullDataDownload} disabled={isFullDownloading} className="w-full bg-slate-900 hover:bg-black text-white font-black py-3 rounded-xl text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                             {isFullDownloading ? 'MENGEKSTRAK...' : 'DOWNLOAD DATA LENGKAP'}
                          </button>
                       </div>
                    </div>
                 </div>
-                <button onClick={() => setView('login')} className="text-slate-400 hover:text-slate-600 font-black text-xs uppercase tracking-widest">Kembali ke Login</button>
+
+                <div className="bg-blue-600 p-8 rounded-[3rem] text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl shadow-blue-200">
+                   <div className="text-left">
+                      <h4 className="font-black text-xl flex items-center gap-2">
+                         Analisis Cerdas AI ✨
+                         <span className="bg-white/20 text-[9px] px-2 py-0.5 rounded-full uppercase">Experimental</span>
+                      </h4>
+                      <p className="text-blue-100 text-xs font-medium mt-2">Gunakan asisten kecerdasan buatan untuk menganalisis butir soal secara otomatis melalui sistem AI Lab.</p>
+                   </div>
+                   <a href={currentLinks.aiAnalysis} target="_blank" rel="noopener noreferrer" className="bg-white text-blue-600 font-black px-8 py-4 rounded-2xl text-[10px] uppercase tracking-widest shadow-xl hover:bg-blue-50 transition-all active:scale-95 whitespace-nowrap">
+                      BUKA ANALISIS AI
+                   </a>
+                </div>
+
+                <div className="mt-12 pt-8 border-t border-slate-100">
+                   <button onClick={() => setView('login')} className="text-slate-400 hover:text-slate-600 font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 mx-auto">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                      KEMBALI KE LOGIN
+                   </button>
+                </div>
              </div>
           </div>
         </div>
@@ -479,8 +534,8 @@ const App: React.FC = () => {
                 <p className="text-7xl font-black text-white">{lastResult.score.toFixed(1)}</p>
              </div>
              <div className="space-y-4">
-                <button onClick={() => generateResultPDF(lastResult, questions.filter(q => !q.isDeleted))} className="w-full bg-blue-50 text-blue-600 font-black py-4 rounded-2xl border-2 border-blue-200 uppercase text-[10px] tracking-widest">DOWNLOAD HASIL PDF</button>
-                <button onClick={() => window.location.reload()} className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl transition-all uppercase tracking-widest text-[10px]">KEMBALI KE LOGIN</button>
+                <button onClick={() => generateResultPDF(lastResult, questions.filter(q => !q.isDeleted))} className="w-full bg-blue-50 text-blue-600 font-black py-4 rounded-2xl border-2 border-blue-200 hover:bg-blue-100 transition-all uppercase text-[10px] tracking-widest">DOWNLOAD HASIL PDF</button>
+                <button onClick={() => window.location.reload()} className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl transition-all hover:bg-black uppercase tracking-widest text-[10px]">KEMBALI KE LOGIN</button>
              </div>
           </div>
         </div>

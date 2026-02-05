@@ -221,7 +221,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
         <button onClick={() => { closeForm(); setShowForm(true); }} className="bg-slate-900 text-white px-5 py-2 rounded-xl text-[10px] font-black">TAMBAH</button>
       </div>
 
-      <div className="flex-1 overflow-y-auto bg-slate-50/30 p-4 space-y-4 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto bg-slate-50/30 p-4 space-y-4">
         {processedQuestions.map((q) => (
           <div key={q.id} className="bg-white p-4 border rounded-2xl group flex gap-4 items-start shadow-sm hover:shadow-md transition-shadow">
             <div className="w-10 h-10 flex items-center justify-center bg-blue-50 text-blue-700 rounded-xl font-black text-xs shrink-0">{q.order}</div>
@@ -359,12 +359,6 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                                     className="w-full p-2 bg-white border border-slate-200 rounded-lg text-[10px] font-mono outline-none focus:border-emerald-500" 
                                     placeholder="URL Gambar Opsi (Opsional)" 
                                  />
-                                 {formData.optionImages[idx] && (
-                                   <div className="mt-2 flex items-center gap-2">
-                                      <img src={formData.optionImages[idx]} className="w-10 h-10 object-cover rounded-lg border cursor-zoom-in" onClick={() => setZoomImage(formData.optionImages[idx]!)} />
-                                      <span className="text-[8px] font-bold text-slate-400">Klik untuk zoom</span>
-                                   </div>
-                                 )}
                               </div>
                            </div>
                          ))}
