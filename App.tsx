@@ -20,7 +20,7 @@ import {
   fetchSubmissionsByToken
 } from './services/supabaseService.ts';
 
-type ViewMode = 'login' | 'confirm-data' | 'quiz' | 'result' | 'admin-auth' | 'admin-panel';
+type ViewMode = 'login' | 'confirm-data' | 'quiz' | 'result' | 'admin-auth' | 'admin-panel' | 'analysis-panel';
 
 const DEFAULT_LINKS: ExternalLinks = {
   passwordHelp: 'https://lynk.id/edupreneur25/n3yqk5e4er64',
@@ -202,16 +202,14 @@ const App: React.FC = () => {
     const normalizedTarget = clean(target);
 
     // 2. Cek angka (Proteksi Sensitif)
-    // Jika input mengandung angka (misal "3"), target juga harus mengandung angka yang sama.
     const numInput = extractNumbers(input);
     const numTarget = extractNumbers(target);
     
     if (numInput && numTarget && numInput !== numTarget) {
-      return false; // Berbeda sekolah bernomor (misal 3 vs 5), meskipun nama mirip
+      return false; 
     }
 
     // 3. Cek kemiripan teks (Fuzzy Matching)
-    // Gunakan ambang batas 0.8 (80% mirip)
     return normalizedInput === normalizedTarget || getSimilarity(normalizedInput, normalizedTarget) > 0.8;
   };
 
@@ -230,7 +228,6 @@ const App: React.FC = () => {
       if (data && data.length > 0) {
         let filteredData = data;
         
-        // Filter Cerdas Berdasarkan Nama Sekolah jika diinput oleh guru
         if (inputSchool) {
           filteredData = data.filter(s => {
             const studentSchool = s.school_origin || "";
@@ -297,10 +294,7 @@ const App: React.FC = () => {
       setLastResult(result);
       setView('result');
     } else {
-      alert(
-        `GAGAL MENGIRIM KE SERVER!\n\n` +
-        `Pesan Error: ${response.error}`
-      );
+      alert(`GAGAL MENGIRIM KE SERVER!\n\n` + `Pesan Error: ${response.error}`);
     }
     setIsSyncing(false);
   };
@@ -328,7 +322,7 @@ const App: React.FC = () => {
             await updateLiveSettings({ ...settings, adminPassword: trimmedPass });
             alert("BERHASIL: Password diperbarui di Cloud.");
           } catch (e: any) {
-            alert("Berhasil simpan di perangkat ini. (Gagal sinkron cloud: pastikan internet stabil)");
+            alert("Berhasil simpan di perangkat ini.");
           }
         }
       } else if (choice === "2") {
@@ -376,25 +370,15 @@ const App: React.FC = () => {
         '(Sesuai/Tidak Sesuai)': QuestionType.TRUE_FALSE_COMPLEX
       };
 
-      if (typeMap[type]) {
-        type = typeMap[type];
-      }
+      if (typeMap[type]) type = typeMap[type];
 
       const levelMap: { [key: string]: string } = {
-        'L1': CognitiveLevel.L1,
-        'L2': CognitiveLevel.L2,
-        'L3': CognitiveLevel.L3,
-        'C1': CognitiveLevel.C1,
-        'C2': CognitiveLevel.C2,
-        'C3': CognitiveLevel.C3,
-        'C4': CognitiveLevel.C4,
-        'C5': CognitiveLevel.C5,
-        'C6': CognitiveLevel.C6,
+        'L1': CognitiveLevel.L1, 'L2': CognitiveLevel.L2, 'L3': CognitiveLevel.L3,
+        'C1': CognitiveLevel.C1, 'C2': CognitiveLevel.C2, 'C3': CognitiveLevel.C3,
+        'C4': CognitiveLevel.C4, 'C5': CognitiveLevel.C5, 'C6': CognitiveLevel.C6,
       };
 
-      if (levelMap[level]) {
-        level = levelMap[level];
-      }
+      if (levelMap[level]) level = levelMap[level];
 
       let correctAnswer = q.correctAnswer;
       if (type === QuestionType.TRUE_FALSE_COMPLEX || type === QuestionType.COMPLEX_CATEGORY) {
@@ -421,7 +405,6 @@ const App: React.FC = () => {
 
   const handleImportQuestions = (newQs: any[], mode: 'replace' | 'append') => {
     const normalized = normalizeImportedQuestions(newQs);
-    
     if (mode === 'replace') {
       setQuestions(normalized);
     } else {
@@ -507,14 +490,7 @@ const App: React.FC = () => {
                   onAdd={(q) => {
                     const sameToken = questions.filter(item => item.quizToken === q.quizToken && !item.isDeleted);
                     const nextOrder = q.order || (sameToken.length > 0 ? Math.max(...sameToken.map(i => i.order)) + 1 : 1);
-                    
-                    setQuestions(prev => [...prev, { 
-                      ...q, 
-                      id: Date.now().toString()+Math.random(), 
-                      createdAt: Date.now(), 
-                      isDeleted: false, 
-                      order: nextOrder 
-                    }]);
+                    setQuestions(prev => [...prev, { ...q, id: Date.now().toString()+Math.random(), createdAt: Date.now(), isDeleted: false, order: nextOrder }]);
                   }} 
                   onUpdate={(updated) => setQuestions(prev => prev.map(q => q.id === updated.id ? updated : q))} 
                   onSoftDelete={(id) => setQuestions(prev => prev.map(item => item.id === id ? { ...item, isDeleted: true } : item))} 
@@ -523,13 +499,7 @@ const App: React.FC = () => {
                 />
               </div>
               <div className="w-full lg:w-80">
-                <AdminSettings 
-                  settings={settings} 
-                  questions={questions} 
-                  onUpdateSettings={(newSettings) => { setSettings(newSettings); updateLiveSettings({ ...newSettings, adminPassword }).catch(() => {}); }} 
-                  onImportQuestions={handleImportQuestions} 
-                  onReset={() => setQuestions([])} 
-                />
+                <AdminSettings settings={settings} questions={questions} onUpdateSettings={(newSettings) => { setSettings(newSettings); updateLiveSettings({ ...newSettings, adminPassword }).catch(() => {}); }} onImportQuestions={handleImportQuestions} onReset={() => setQuestions([])} />
               </div>
             </div>
           </main>
@@ -544,7 +514,6 @@ const App: React.FC = () => {
               <div className="relative z-10 text-center md:text-left">
                 <div className="flex items-center justify-center md:justify-start gap-3 mb-12"><div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-black text-xl shadow-lg">C</div><div className="font-black text-2xl tracking-tighter text-white">EduCBT Pro</div></div>
                 <h1 className="text-4xl font-black mb-6 leading-tight">Computer Based Test</h1>
-                {/* JARAK DITAMBAHKAN DI SINI DENGAN mb-14 */}
                 <div className="bg-white/5 p-5 rounded-3xl border border-white/10 backdrop-blur-sm mb-14">
                   <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em] mb-2">Sistem</p>
                   <p className="text-xl font-black text-white italic">Full Dynamic Partitioning</p>
@@ -552,12 +521,10 @@ const App: React.FC = () => {
               </div>
               <div className="mt-auto flex flex-col items-center">
                 <button onClick={() => setView('admin-auth')} className="w-full bg-white/5 hover:bg-white/10 p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/5 transition-all mb-4 text-white">Administrator</button>
+                <button onClick={() => setView('analysis-panel')} className="w-full bg-white/5 hover:bg-white/10 p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/5 transition-all mb-4 text-white">ANALISIS</button>
                 <a href={currentLinks.passwordHelp} target="_blank" rel="noopener noreferrer" className="mb-4 block text-[10px] text-center font-bold text-slate-400 hover:text-blue-600 transition-colors uppercase tracking-widest leading-relaxed">klik di sini untuk mendapatkan<br/>password administrator</a>
                 
-                <button 
-                  onClick={handleCentralSettings} 
-                  className="text-[11px] font-black text-white hover:text-blue-400 transition-colors cursor-pointer mb-6 tracking-tight"
-                >
+                <button onClick={handleCentralSettings} className="text-[11px] font-black text-white hover:text-blue-400 transition-colors cursor-pointer mb-6 tracking-tight">
                   {currentLinks.adminEmailDisplay}
                 </button>
               </div>
@@ -577,62 +544,90 @@ const App: React.FC = () => {
                       <input required type="text" placeholder="Contoh: 6A" className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold text-slate-800 text-sm" value={identity.className} onChange={e => setIdentity({...identity, className: e.target.value})} />
                     </div>
                   </div>
-                  
                   <div className="space-y-1 text-left">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Asal Sekolah</label>
                     <input required type="text" placeholder="Nama Sekolah / Institusi" className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold text-slate-800 text-sm" value={identity.schoolOrigin} onChange={e => setIdentity({...identity, schoolOrigin: e.target.value})} />
                   </div>
-                  
                   <div className="space-y-1 text-left">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tanggal Lahir</label>
                     <input required type="date" className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold text-slate-800 text-sm" value={identity.birthDate} onChange={e => setIdentity({...identity, birthDate: e.target.value})} />
                   </div>
-
                   <div className="space-y-1 text-left">
                     <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest ml-1 text-center block">Token Ujian</label>
                     <input required type="text" placeholder="KODE TOKEN" className="w-full p-4 bg-blue-50 border-2 border-blue-200 rounded-2xl font-black text-blue-700 text-center uppercase tracking-[0.3em] outline-none placeholder:opacity-30" value={identity.token} onChange={e => setIdentity({...identity, token: e.target.value})} />
                   </div>
-
                   <div className="pt-2">
                     <button disabled={isSyncing} className="w-full font-black py-4 rounded-[2rem] text-lg shadow-2xl transition-all active:scale-95 bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200">
                       {isSyncing ? 'MENGHUBUNGKAN...' : 'MASUK KE UJIAN'}
                     </button>
                   </div>
                 </form>
-
-                {/* AREA REKAP - DIPERBARUI DENGAN FILTER NAMA SEKOLAH CERDAS */}
-                <hr className="my-10 border-slate-100" />
-                <div className="max-w-xs mx-auto">
-                   <div className="bg-slate-900 p-6 rounded-[2rem] border border-slate-800 shadow-xl space-y-3">
-                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] text-center mb-1">Download Rekap Cepat (Guru)</p>
-                      <div className="space-y-2">
-                        <input 
-                         type="text" 
-                         placeholder="Masukan Token" 
-                         className="w-full bg-slate-950 border border-white/10 p-3 rounded-xl text-center text-[10px] font-black uppercase tracking-widest outline-none focus:border-blue-500 text-blue-400"
-                         value={quickDownloadToken}
-                         onChange={(e) => setQuickDownloadToken(e.target.value)}
-                        />
-                        <input 
-                         type="text" 
-                         placeholder="Nama Sekolah (Opsional)" 
-                         className="w-full bg-slate-950 border border-white/10 p-3 rounded-xl text-center text-[10px] font-black uppercase tracking-widest outline-none focus:border-emerald-500 text-emerald-400"
-                         value={quickDownloadSchool}
-                         onChange={(e) => setQuickDownloadSchool(e.target.value)}
-                        />
-                      </div>
-                      <button 
-                       onClick={handleQuickDownloadRecap}
-                       disabled={isQuickDownloading}
-                       className="w-full bg-white/10 hover:bg-white/20 disabled:opacity-50 text-white font-black py-3 rounded-xl text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2"
-                      >
-                        {isQuickDownloading ? 'Processing...' : 'Download Rekap Nilai'}
-                      </button>
-                   </div>
-                   <p className="text-[8px] text-slate-400 text-center mt-3 font-bold uppercase tracking-widest opacity-50">Hanya untuk pengelola ujian</p>
-                </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {view === 'analysis-panel' && (
+        <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 text-center animate-in fade-in duration-500">
+          <div className="bg-white rounded-[3.5rem] p-12 max-w-2xl w-full shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)] border border-slate-200">
+             <div className="w-20 h-20 bg-blue-100 text-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-inner">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+             </div>
+             
+             <h2 className="text-3xl font-black text-slate-800 mb-2 uppercase tracking-tight">Panel Analisis Hasil</h2>
+             <p className="text-slate-500 mb-10 text-sm font-medium leading-relaxed italic">Kelola evaluasi dan olah hasil pengerjaan siswa secara profesional.</p>
+
+             <div className="space-y-8">
+                {/* BLOK REKAP NILAI CEPAT */}
+                <div className="bg-slate-50 p-8 rounded-[2.5rem] border-2 border-slate-100 shadow-sm space-y-4">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">REKAP NILAI CEPAT (EXCEL)</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <input 
+                      type="text" 
+                      placeholder="Masukkan Token" 
+                      className="w-full bg-white border-2 border-slate-200 p-4 rounded-2xl text-center text-xs font-black uppercase tracking-widest outline-none focus:border-blue-500 text-blue-600 shadow-sm"
+                      value={quickDownloadToken}
+                      onChange={(e) => setQuickDownloadToken(e.target.value)}
+                    />
+                    <input 
+                      type="text" 
+                      placeholder="Nama Sekolah (Opsional)" 
+                      className="w-full bg-white border-2 border-slate-200 p-4 rounded-2xl text-center text-xs font-black uppercase tracking-widest outline-none focus:border-emerald-500 text-emerald-600 shadow-sm"
+                      value={quickDownloadSchool}
+                      onChange={(e) => setQuickDownloadSchool(e.target.value)}
+                    />
+                  </div>
+                  <button 
+                    onClick={handleQuickDownloadRecap}
+                    disabled={isQuickDownloading}
+                    className="w-full bg-slate-900 hover:bg-black disabled:opacity-50 text-white font-black py-4 rounded-2xl text-xs uppercase tracking-widest transition-all shadow-xl flex items-center justify-center gap-2"
+                  >
+                    {isQuickDownloading ? 'Processing...' : 'DOWNLOAD REKAP DATA'}
+                  </button>
+                </div>
+
+                {/* BLOK ANALISIS AI */}
+                <div className="pt-2">
+                   <a 
+                    href="https://ai.studio/apps/drive/1afFf_jTM-k2WAA_dnF9ZYxR_LJ_0lQLr?fullscreenApplet=true" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-6 rounded-[2rem] text-sm uppercase tracking-widest shadow-2xl shadow-blue-200 transition-all active:scale-95 flex items-center justify-center gap-3 border-b-4 border-blue-800"
+                   >
+                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                     ANALISIS HASIL DENGAN AI ✨
+                   </a>
+                   <p className="text-[9px] text-slate-400 mt-4 font-bold uppercase tracking-widest">Gunakan asisten kecerdasan buatan untuk analisis butir soal mendalam.</p>
+                </div>
+
+                <div className="pt-6 border-t border-slate-100 flex justify-center">
+                   <button onClick={() => setView('login')} className="text-slate-400 hover:text-slate-600 font-black text-xs uppercase tracking-widest transition-colors flex items-center gap-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                      KEMBALI KE LOGIN
+                   </button>
+                </div>
+             </div>
           </div>
         </div>
       )}

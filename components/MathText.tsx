@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef } from 'react';
 import katex from 'katex';
 
@@ -20,6 +19,8 @@ const MathText: React.FC<MathTextProps> = ({ text, className, style }) => {
       containerRef.current.innerHTML = '';
       
       parts.forEach(part => {
+        if (!part) return; // Abaikan string kosong hasil split
+
         if (part.startsWith('$$') && part.endsWith('$$')) {
           const formula = part.slice(2, -2);
           const span = document.createElement('span');
