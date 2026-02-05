@@ -29,6 +29,8 @@ const DEFAULT_LINKS: ExternalLinks = {
   adminEmailDisplay: 'asepsukanta25@guru.sd.belajar.id'
 };
 
+const PUSAT_SECRET_CODE = 'Indme&781l';
+
 const App: React.FC = () => {
   const [view, setView] = useState<ViewMode>('login');
   const [adminSubView, setAdminSubView] = useState<AdminSubView>('bank-soal');
@@ -38,6 +40,11 @@ const App: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   
+  // Security States for Admin Pusat
+  const [showPusatLock, setShowPusatLock] = useState(false);
+  const [pusatInputCode, setPusatInputCode] = useState('');
+  const [isPusatUnlocked, setIsPusatUnlocked] = useState(false);
+
   // Quick Recap States
   const [quickDownloadToken, setQuickDownloadToken] = useState('');
   const [quickDownloadSchool, setQuickDownloadSchool] = useState('');
@@ -149,6 +156,29 @@ const App: React.FC = () => {
     }
   };
 
+  const handlePusatAccess = () => {
+    if (isPusatUnlocked) {
+      setAdminSubView('admin-pusat');
+      setIsMobileMenuOpen(false);
+    } else {
+      setShowPusatLock(true);
+    }
+  };
+
+  const verifyPusatCode = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pusatInputCode === PUSAT_SECRET_CODE) {
+      setIsPusatUnlocked(true);
+      setAdminSubView('admin-pusat');
+      setShowPusatLock(false);
+      setPusatInputCode('');
+      setIsMobileMenuOpen(false);
+    } else {
+      alert("KODE AKSES SALAH!");
+      setPusatInputCode('');
+    }
+  };
+
   const getSimilarity = (s1: string, s2: string): number => {
     let longer = s1;
     let shorter = s2;
@@ -254,6 +284,34 @@ const App: React.FC = () => {
       {view === 'admin-panel' && (
         <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row relative">
           {showGuide && <AdminGuide onClose={() => setShowGuide(false)} />}
+          
+          {/* MODAL KODE AKSES RAHASIA ADMIN PUSAT */}
+          {showPusatLock && (
+            <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-xl flex items-center justify-center p-6">
+              <div className="bg-white rounded-[3rem] p-10 max-w-md w-full shadow-2xl border border-slate-200 text-center animate-in zoom-in duration-300">
+                <div className="w-16 h-16 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                </div>
+                <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Akses Sangat Rahasia</h3>
+                <p className="text-slate-500 text-xs font-medium mt-2 mb-8 italic">Masukkan kode khusus untuk membuka panel Admin Pusat.</p>
+                <form onSubmit={verifyPusatCode} className="space-y-4">
+                  <input 
+                    type="password" 
+                    value={pusatInputCode}
+                    onChange={e => setPusatInputCode(e.target.value)}
+                    placeholder="Ketik Kode Akses..." 
+                    className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-center font-black outline-none focus:border-red-500 transition-all"
+                    autoFocus
+                  />
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => setShowPusatLock(false)} className="flex-1 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Batal</button>
+                    <button type="submit" className="flex-[2] bg-slate-900 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl">Verifikasi</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
           <header className="lg:hidden bg-slate-900 text-white p-4 flex justify-between items-center sticky top-0 z-50">
             <div className="font-black text-xl flex items-center gap-2"><div className="w-6 h-6 bg-blue-600 rounded"></div>CBT SERVER</div>
             <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 bg-white/10 rounded-lg">Menu</button>
@@ -268,7 +326,7 @@ const App: React.FC = () => {
                 Bank Soal
               </button>
               <button 
-                onClick={() => {setAdminSubView('admin-pusat'); setIsMobileMenuOpen(false);}}
+                onClick={handlePusatAccess}
                 className={`w-full text-left p-4 rounded-xl font-bold uppercase text-[10px] tracking-widest transition-all ${adminSubView === 'admin-pusat' ? 'bg-white/10 border-l-4 border-emerald-500 text-white' : 'text-slate-400 hover:bg-white/5'}`}
               >
                 Admin Pusat
@@ -307,7 +365,7 @@ const App: React.FC = () => {
                    {syncStatus === 'loading' ? 'MENGIRIM...' : syncStatus === 'success' ? '✓ BERHASIL TERKIRIM' : syncStatus === 'error' ? '⚠ GAGAL' : 'KIRIM KE CLOUD'}
                  </button>
               </div>
-              <button onClick={() => setView('login')} className="w-full p-4 text-red-400 font-bold hover:bg-red-500/10 rounded-xl transition-all text-left uppercase text-[10px] tracking-widest">Keluar</button>
+              <button onClick={() => { setView('login'); setIsPusatUnlocked(false); }} className="w-full p-4 text-red-400 font-bold hover:bg-red-500/10 rounded-xl transition-all text-left uppercase text-[10px] tracking-widest">Keluar</button>
             </div>
           </aside>
           <main className="flex-1 p-4 lg:p-8 overflow-y-auto">
