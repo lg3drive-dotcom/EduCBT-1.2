@@ -78,7 +78,7 @@ export const exportQuestionsToExcel = (questions: Question[], fileName: string) 
 };
 
 /**
- * Ekspor hasil pengerjaan siswa ke Excel dengan perbaikan Mapel vs Token.
+ * Ekspor hasil pengerjaan siswa ke Excel (Rekap Ringkas)
  */
 export const exportSubmissionsToExcel = (submissions: any[], fileName: string, questionBank: Question[] = []) => {
   if (!submissions || submissions.length === 0) return;
@@ -97,30 +97,17 @@ export const exportSubmissionsToExcel = (submissions: any[], fileName: string, q
 
   const rows = submissions.map((s, idx) => {
     const token = (s.subject_token || s.subject || '-').toUpperCase();
-    
-    // LOGIKA PERBAIKAN: 
-    // Jika subject_name di DB kosong atau isinya sama dengan token, cari nama asli di bank soal
     let realSubjectName = s.subject_name;
     
     if (!realSubjectName || realSubjectName.toUpperCase() === token) {
       const matchInBank = questionBank.find(q => q.quizToken?.toUpperCase() === token);
-      if (matchInBank) {
-        realSubjectName = matchInBank.subject;
-      } else {
-        // Jika tetap tidak ketemu di bank soal, tampilkan subject yang ada tapi bersihkan
-        realSubjectName = s.subject_name || s.subject || 'Ujian Digital';
-      }
+      if (matchInBank) realSubjectName = matchInBank.subject;
+      else realSubjectName = s.subject_name || s.subject || 'Ujian Digital';
     }
 
     const dateObj = s.timestamp ? new Date(s.timestamp) : null;
-    
-    const formattedDate = dateObj 
-      ? dateObj.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' })
-      : '-';
-
-    const formattedTime = dateObj 
-      ? dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-      : '-';
+    const formattedDate = dateObj ? dateObj.toLocaleDateString('id-ID') : '-';
+    const formattedTime = dateObj ? dateObj.toLocaleTimeString('id-ID') : '-';
 
     return [
       idx + 1,
@@ -141,6 +128,49 @@ export const exportSubmissionsToExcel = (submissions: any[], fileName: string, q
   const link = document.createElement('a');
   link.setAttribute('href', url);
   link.setAttribute('download', `${fileName}.csv`);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
+/**
+ * Ekspor Data Lengkap (Full CSV) untuk Analisis Butir Soal
+ */
+export const exportFullSubmissionsToCSV = (submissions: any[], fileName: string) => {
+  if (!submissions || submissions.length === 0) return;
+
+  // Header mencakup data identitas dan data jawaban mentah (JSON)
+  const headers = [
+    'SubmissionID',
+    'Nama Siswa',
+    'Kelas',
+    'Sekolah',
+    'Token Ujian',
+    'Skor Akhir',
+    'Timestamp',
+    'Raw_Answers_JSON'
+  ];
+
+  const rows = submissions.map(s => {
+    return [
+      `"${s.id}"`,
+      `"${s.student_name}"`,
+      `"${s.class_name}"`,
+      `"${s.school_origin || '-'}"`,
+      `"${(s.subject_token || s.subject || '').toUpperCase()}"`,
+      s.score.toFixed(2).replace('.', ','),
+      `"${new Date(s.timestamp).toISOString()}"`,
+      `"${JSON.stringify(s.answers).replace(/"/g, '""')}"`
+    ].join(';');
+  });
+
+  const csvContent = "sep=;\n" + "\uFEFF" + headers.join(';') + '\n' + rows.join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', `${fileName}_FULL_ANALYSIS.csv`);
   link.style.visibility = 'hidden';
   document.body.appendChild(link);
   link.click();
