@@ -1,18 +1,19 @@
+
 import React, { useEffect, useRef } from 'react';
 import katex from 'katex';
 
 interface MathTextProps {
-  text: string;
+  text?: string;
   className?: string;
   style?: React.CSSProperties;
 }
 
-const MathText: React.FC<MathTextProps> = ({ text, className, style }) => {
+const MathText: React.FC<MathTextProps> = ({ text = '', className, style }) => {
   const containerRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     if (containerRef.current) {
-      const content = text || '';
+      const content = String(text || '');
       // Regex untuk mendeteksi teks di antara $...$ (inline) atau $$...$$ (block)
       const parts = content.split(/(\$\$[\s\S]*?\$\$|\$.*?\$)/g);
       
