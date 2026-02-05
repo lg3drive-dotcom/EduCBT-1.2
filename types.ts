@@ -31,6 +31,7 @@ export enum CognitiveLevel {
 export interface ExternalLinks {
   passwordHelp: string;
   aiGenerator: string;
+  aiAnalysis: string;
   adminEmailDisplay: string;
 }
 

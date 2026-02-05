@@ -26,6 +26,7 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
   const [links, setLinks] = useState<ExternalLinks>(settings.externalLinks || {
     passwordHelp: '',
     aiGenerator: '',
+    aiAnalysis: '',
     adminEmailDisplay: ''
   });
 
@@ -270,7 +271,17 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">3. Label Email Admin (Halaman Depan)</label>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">3. Link Analisis Cerdas AI</label>
+                  <input 
+                    type="text" 
+                    value={links.aiAnalysis} 
+                    onChange={(e) => setLinks({...links, aiAnalysis: e.target.value})} 
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium outline-none focus:border-purple-600 transition-all text-xs" 
+                    placeholder="URL Dashboard Analisis AI"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">4. Label Email Admin (Halaman Depan)</label>
                   <input 
                     type="text" 
                     value={links.adminEmailDisplay} 

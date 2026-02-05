@@ -26,6 +26,7 @@ type AdminSubView = 'bank-soal' | 'admin-pusat';
 const DEFAULT_LINKS: ExternalLinks = {
   passwordHelp: 'https://lynk.id/edupreneur25/n3yqk5e4er64',
   aiGenerator: 'https://ai.studio/apps/drive/13CnHs1wO_wbrWZYjpbUDvJ0ZKsTA1z0E?fullscreenApplet=true',
+  aiAnalysis: 'https://ai.studio/apps/drive/1afFf_jTM-k2WAA_dnF9ZYxR_LJ_0lQLr?fullscreenApplet=true',
   adminEmailDisplay: 'asepsukanta25@guru.sd.belajar.id'
 };
 
@@ -104,7 +105,10 @@ const App: React.FC = () => {
           setSettings(prev => ({
             ...prev,
             timerMinutes: cloudSettings.timerMinutes || prev.timerMinutes,
-            externalLinks: cloudSettings.externalLinks || prev.externalLinks || DEFAULT_LINKS
+            externalLinks: {
+              ...DEFAULT_LINKS,
+              ...(cloudSettings.externalLinks || {})
+            }
           }));
         }
       } catch (err) {
@@ -493,7 +497,7 @@ const App: React.FC = () => {
                       </h4>
                       <p className="text-blue-100 text-xs font-medium mt-2">Gunakan asisten kecerdasan buatan untuk menganalisis butir soal secara otomatis melalui sistem AI Lab.</p>
                    </div>
-                   <a href="https://ai.studio/apps/drive/1afFf_jTM-k2WAA_dnF9ZYxR_LJ_0lQLr?fullscreenApplet=true" target="_blank" rel="noopener noreferrer" className="bg-white text-blue-600 font-black px-8 py-4 rounded-2xl text-[10px] uppercase tracking-widest shadow-xl hover:bg-blue-50 transition-all active:scale-95 whitespace-nowrap">
+                   <a href={currentLinks.aiAnalysis} target="_blank" rel="noopener noreferrer" className="bg-white text-blue-600 font-black px-8 py-4 rounded-2xl text-[10px] uppercase tracking-widest shadow-xl hover:bg-blue-50 transition-all active:scale-95 whitespace-nowrap">
                       BUKA ANALISIS AI
                    </a>
                 </div>
