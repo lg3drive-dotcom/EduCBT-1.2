@@ -20,6 +20,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
   const [fontSize, setFontSize] = useState(18);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [zoomImage, setZoomImage] = useState<string | null>(null);
+  const [isAutoSubmitting, setIsAutoSubmitting] = useState(false);
   
   const startTime = useRef(Date.now());
   const isSubmitting = useRef(false);
@@ -72,7 +73,11 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
 
   const handleSubmit = () => {
     if (isSubmitting.current) return;
+    
+    // Aktifkan overlay pelindung segera
+    setIsAutoSubmitting(true);
     isSubmitting.current = true;
+
     let correctCount = 0;
     questions.forEach(q => {
       const studentAns = answers[q.id];
@@ -89,8 +94,13 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
       }
       if (isCorrect) correctCount++;
     });
+    
     const finalScore = questions.length > 0 ? (correctCount / questions.length) * 100 : 0;
-    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+
     onFinish({ 
       id: Date.now().toString(), identity, score: finalScore, totalQuestions: questions.length, 
       answers, manualCorrections: {}, timestamp: Date.now(), 
@@ -302,6 +312,38 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
              </div>
           </aside>
        </div>
+
+       {/* OVERLAY PROTEKSI SAAT SINKRONISASI (WAKTU HABIS / SELESAI) */}
+       {isAutoSubmitting && (
+         <div className="fixed inset-0 z-[1000] bg-slate-900/80 backdrop-blur-xl flex items-center justify-center p-6 animate-in fade-in duration-500">
+           <div className="bg-white rounded-[3rem] p-10 max-w-lg w-full shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)] text-center space-y-6">
+              <div className="relative w-24 h-24 mx-auto">
+                <div className="absolute inset-0 border-8 border-blue-100 rounded-full"></div>
+                <div className="absolute inset-0 border-8 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
+                <div className="absolute inset-0 flex items-center justify-center">
+                   <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                   </svg>
+                </div>
+              </div>
+              
+              <div>
+                <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight">SINKRONISASI DATA...</h2>
+                <div className="mt-2 inline-block px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-[9px] font-black uppercase tracking-widest border border-blue-100">
+                   Status: Mengamankan Jawaban
+                </div>
+              </div>
+
+              <p className="text-slate-500 text-sm font-medium leading-relaxed">
+                Waktu Anda telah habis atau ujian telah selesai dikirim. Mohon tunggu sebentar, sistem sedang menghubungkan ke server cloud untuk menyimpan hasil pengerjaan Anda secara permanen.
+              </p>
+
+              <div className="pt-4 border-t border-slate-100">
+                 <p className="text-[10px] text-slate-400 font-bold italic">Layar ini akan berpindah otomatis setelah data aman tersimpan.</p>
+              </div>
+           </div>
+         </div>
+       )}
 
        {/* LIGHTBOX OVERLAY UNTUK PERBESAR GAMBAR */}
        {zoomImage && (
