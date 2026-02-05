@@ -58,7 +58,10 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
   const isSubmitting = useRef(false);
 
   // Efek untuk menyimpan progres secara real-time ke LocalStorage
+  // HANYA simpan jika ujian sudah dimulai (isFullscreen = true)
   useEffect(() => {
+    if (!isFullscreen) return;
+
     const sessionData = {
       answers,
       doubtfuls,
@@ -66,7 +69,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
       lastUpdate: Date.now()
     };
     localStorage.setItem(sessionKey, JSON.stringify(sessionData));
-  }, [answers, doubtfuls, timeLeft, sessionKey]);
+  }, [answers, doubtfuls, timeLeft, sessionKey, isFullscreen]);
 
   useEffect(() => {
     if (!isFullscreen) return;
@@ -97,7 +100,10 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
     };
   }, [isFullscreen, onViolation]);
 
+  // Timer hanya berjalan jika siswa sudah masuk mode fullscreen (memulai ujian)
   useEffect(() => {
+    if (!isFullscreen) return;
+
     const timer = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) { 
@@ -109,7 +115,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [isFullscreen]);
 
   const requestFullscreen = () => {
     const elem = document.documentElement;
