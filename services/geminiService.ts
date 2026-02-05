@@ -132,7 +132,8 @@ export const generateBatchAIQuestions = async (
       try {
         if (q.type === QuestionType.SINGLE) {
           standardizedAnswer = parseInt(String(q.correctAnswer), 10);
-        } else if (q.type === QuestionType.MULTIPLE || q.type === QuestionType.COMPLEX_CATEGORY) {
+          // Fix: Property 'COMPLEX_CATEGORY' does not exist on type 'typeof QuestionType'. Use MATCH or TRUE_FALSE instead.
+        } else if (q.type === QuestionType.MULTIPLE || q.type === QuestionType.MATCH || q.type === QuestionType.TRUE_FALSE) {
           if (typeof q.correctAnswer === 'string') {
             const cleaned = q.correctAnswer.replace(/'/g, '"');
             standardizedAnswer = JSON.parse(cleaned);

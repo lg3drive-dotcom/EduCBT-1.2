@@ -17,10 +17,11 @@ const formatCorrectAnswer = (q: Question): string => {
     }
   }
   
-  if (q.type === QuestionType.COMPLEX_CATEGORY || q.type === QuestionType.TRUE_FALSE_COMPLEX) {
+  if (q.type === QuestionType.MATCH || q.type === QuestionType.TRUE_FALSE) {
     if (Array.isArray(q.correctAnswer)) {
+      const labels = q.tfLabels || { true: 'B', false: 'S' };
       return q.correctAnswer
-        .map((val: boolean) => (val === true ? 'B' : 'S'))
+        .map((val: boolean) => (val === true ? labels.true[0] : labels.false[0]))
         .join(', ');
     }
   }
@@ -77,9 +78,6 @@ export const exportQuestionsToExcel = (questions: Question[], fileName: string) 
   document.body.removeChild(link);
 };
 
-/**
- * Ekspor hasil pengerjaan siswa ke Excel (Rekap Ringkas)
- */
 export const exportSubmissionsToExcel = (submissions: any[], fileName: string, questionBank: Question[] = []) => {
   if (!submissions || submissions.length === 0) return;
 
@@ -96,29 +94,16 @@ export const exportSubmissionsToExcel = (submissions: any[], fileName: string, q
   ];
 
   const rows = submissions.map((s, idx) => {
-    const token = (s.subject_token || s.subject || '-').toUpperCase();
-    let realSubjectName = s.subject_name;
-    
-    if (!realSubjectName || realSubjectName.toUpperCase() === token) {
-      const matchInBank = questionBank.find(q => q.quizToken?.toUpperCase() === token);
-      if (matchInBank) realSubjectName = matchInBank.subject;
-      else realSubjectName = s.subject_name || s.subject || 'Ujian Digital';
-    }
-
-    const dateObj = s.timestamp ? new Date(s.timestamp) : null;
-    const formattedDate = dateObj ? dateObj.toLocaleDateString('id-ID') : '-';
-    const formattedTime = dateObj ? dateObj.toLocaleTimeString('id-ID') : '-';
-
     return [
       idx + 1,
-      `"${s.student_name}"`,
-      `"${s.class_name}"`,
-      `"${s.school_origin || '-'}"`,
-      `"${token}"`,
-      `"${realSubjectName}"`,
-      s.score.toFixed(1).replace('.', ','),
-      `"${formattedDate}"`,
-      `"${formattedTime}"`
+      cleanText(s.student_name),
+      cleanText(s.class_name),
+      cleanText(s.school_origin || '-'),
+      cleanText(s.subject_token || s.subject || '-'),
+      cleanText(s.subject_name || 'Ujian Digital'),
+      s.score.toFixed(1),
+      new Date(s.timestamp).toLocaleDateString('id-ID'),
+      new Date(s.timestamp).toLocaleTimeString('id-ID')
     ].join(';');
   });
 
@@ -134,45 +119,46 @@ export const exportSubmissionsToExcel = (submissions: any[], fileName: string, q
   document.body.removeChild(link);
 };
 
-/**
- * Ekspor Data Lengkap (Full CSV) untuk Analisis Butir Soal
- */
 export const exportFullSubmissionsToCSV = (submissions: any[], fileName: string) => {
-  if (!submissions || submissions.length === 0) return;
+    if (!submissions || submissions.length === 0) return;
 
-  // Header mencakup data identitas dan data jawaban mentah (JSON)
-  const headers = [
-    'SubmissionID',
-    'Nama Siswa',
-    'Kelas',
-    'Sekolah',
-    'Token Ujian',
-    'Skor Akhir',
-    'Timestamp',
-    'Raw_Answers_JSON'
-  ];
+    const allKeys = new Set<string>();
+    submissions.forEach(s => {
+        if (s.answers) Object.keys(s.answers).forEach(k => allKeys.add(k));
+    });
+    const sortedKeys = Array.from(allKeys).sort();
 
-  const rows = submissions.map(s => {
-    return [
-      `"${s.id}"`,
-      `"${s.student_name}"`,
-      `"${s.class_name}"`,
-      `"${s.school_origin || '-'}"`,
-      `"${(s.subject_token || s.subject || '').toUpperCase()}"`,
-      s.score.toFixed(2).replace('.', ','),
-      `"${new Date(s.timestamp).toISOString()}"`,
-      `"${JSON.stringify(s.answers).replace(/"/g, '""')}"`
-    ].join(';');
-  });
+    const headers = [
+        'Nama Siswa', 'Kelas', 'Sekolah', 'Skor Akhir', 'Waktu Selesai',
+        ...sortedKeys.map(k => `Q_${k}`)
+    ];
 
-  const csvContent = "sep=;\n" + "\uFEFF" + headers.join(';') + '\n' + rows.join('\n');
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.setAttribute('href', url);
-  link.setAttribute('download', `${fileName}_FULL_ANALYSIS.csv`);
-  link.style.visibility = 'hidden';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+    const rows = submissions.map(s => {
+        const answers = s.answers || {};
+        const answerCols = sortedKeys.map(k => {
+            const ans = answers[k];
+            if (ans === undefined || ans === null) return '';
+            return cleanText(JSON.stringify(ans));
+        });
+
+        return [
+            cleanText(s.student_name),
+            cleanText(s.class_name),
+            cleanText(s.school_origin || '-'),
+            s.score.toFixed(1),
+            new Date(s.timestamp).toLocaleString('id-ID'),
+            ...answerCols
+        ].join(';');
+    });
+
+    const csvContent = "sep=;\n" + "\uFEFF" + headers.join(';') + '\n' + rows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${fileName}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 };

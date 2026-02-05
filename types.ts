@@ -12,8 +12,8 @@ export enum Subject {
 export enum QuestionType {
   SINGLE = 'Pilihan Ganda',
   MULTIPLE = 'Pilihan Jamak (MCMA)',
-  COMPLEX_CATEGORY = 'Pilihan Ganda Kompleks',
-  TRUE_FALSE_COMPLEX = 'Pilihan Ganda Kompleks (B/S)'
+  TRUE_FALSE = '(Benar/Salah)',
+  MATCH = '(Sesuai/Tidak Sesuai)'
 }
 
 export enum CognitiveLevel {

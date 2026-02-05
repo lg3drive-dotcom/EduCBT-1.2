@@ -25,8 +25,8 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [previewQuestion, setPreviewQuestion] = useState<Question | null>(null);
+  const [zoomImage, setZoomImage] = useState<string | null>(null);
   
-  // State untuk Import/Export
   const [isPasteModalOpen, setIsPasteModalOpen] = useState(false);
   const [pasteContent, setPasteContent] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -153,11 +153,11 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   };
 
   const renderPreviewContent = (q: Question) => {
-    const isComplex = q.type === QuestionType.COMPLEX_CATEGORY || q.type === QuestionType.TRUE_FALSE_COMPLEX;
-    const labels = q.tfLabels || { true: 'Ya', false: 'Tidak' };
+    const isComplex = q.type === QuestionType.TRUE_FALSE || q.type === QuestionType.MATCH;
+    const labels = q.tfLabels || { true: 'Benar', false: 'Salah' };
     return (
       <div className="space-y-6">
-        {q.questionImage && <div className="w-full flex justify-center mb-4"><img src={q.questionImage} className="max-w-full h-auto rounded-2xl border-4 border-white shadow-lg" /></div>}
+        {q.questionImage && <div className="w-full flex justify-center mb-4"><img src={q.questionImage} onClick={() => setZoomImage(q.questionImage!)} className="max-w-full h-auto rounded-2xl border-4 border-white shadow-lg cursor-zoom-in" /></div>}
         <MathText text={q.text} className="text-sm font-medium text-slate-700 block bg-slate-50 p-6 rounded-2xl border border-slate-100" />
         {isComplex ? (
           <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
@@ -167,7 +167,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                 {q.options?.map((opt, idx) => (
                   <tr key={idx}><td className="p-3"><MathText text={opt} className="text-xs font-bold text-slate-600" /></td>
                     <td className="p-3 flex gap-1 justify-center">
-                      <div className={`px-3 py-1 rounded text-[8px] font-black ${Array.isArray(q.correctAnswer) && q.correctAnswer[idx] === true ? 'bg-green-600 text-white' : 'bg-slate-100 text-slate-300'}`}>{labels.true.toUpperCase()}</div>
+                      <div className={`px-3 py-1 rounded text-[8px] font-black ${Array.isArray(q.correctAnswer) && q.correctAnswer[idx] === true ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-300'}`}>{labels.true.toUpperCase()}</div>
                       <div className={`px-3 py-1 rounded text-[8px] font-black ${Array.isArray(q.correctAnswer) && q.correctAnswer[idx] === false ? 'bg-red-600 text-white' : 'bg-slate-100 text-slate-300'}`}>{labels.false.toUpperCase()}</div>
                     </td></tr>
                 ))}
@@ -180,12 +180,12 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
               const isCorrect = q.type === QuestionType.SINGLE ? q.correctAnswer === idx : (q.correctAnswer || []).includes(idx);
               const optImg = q.optionImages?.[idx];
               return (
-                <div key={idx} className={`flex flex-col p-4 border-2 rounded-xl ${isCorrect ? 'border-green-500 bg-green-50' : 'border-slate-100 bg-white'}`}>
+                <div key={idx} className={`flex flex-col p-4 border-2 rounded-xl ${isCorrect ? 'border-blue-500 bg-blue-50' : 'border-slate-100 bg-white'}`}>
                   <div className="flex items-start">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs mr-4 shrink-0 ${isCorrect ? 'bg-green-600 text-white' : 'bg-slate-100 text-slate-400'}`}>{String.fromCharCode(65+idx)}</div>
-                    <MathText text={opt} className={`text-xs font-bold block ${isCorrect ? 'text-green-800' : 'text-slate-600'}`} />
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs mr-4 shrink-0 ${isCorrect ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-400'}`}>{String.fromCharCode(65+idx)}</div>
+                    <MathText text={opt} className={`text-xs font-bold block ${isCorrect ? 'text-blue-800' : 'text-slate-700'}`} />
                   </div>
-                  {optImg && <img src={optImg} className="mt-3 ml-12 max-h-32 rounded-lg border border-slate-200" />}
+                  {optImg && <img src={optImg} onClick={() => setZoomImage(optImg)} className="mt-3 ml-12 max-h-32 rounded-lg border border-slate-200 cursor-zoom-in" />}
                 </div>
               );
             })}
@@ -221,7 +221,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
         <button onClick={() => { closeForm(); setShowForm(true); }} className="bg-slate-900 text-white px-5 py-2 rounded-xl text-[10px] font-black">TAMBAH</button>
       </div>
 
-      <div className="flex-1 overflow-y-auto bg-slate-50/30 p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto bg-slate-50/30 p-4 space-y-4 custom-scrollbar">
         {processedQuestions.map((q) => (
           <div key={q.id} className="bg-white p-4 border rounded-2xl group flex gap-4 items-start shadow-sm hover:shadow-md transition-shadow">
             <div className="w-10 h-10 flex items-center justify-center bg-blue-50 text-blue-700 rounded-xl font-black text-xs shrink-0">{q.order}</div>
@@ -240,40 +240,10 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
         ))}
       </div>
 
-      {isPasteModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[200] flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-            <div className="p-6 bg-slate-900 text-white flex justify-between items-center shrink-0">
-              <h3 className="text-lg font-black uppercase tracking-tight">Paste Data Soal</h3>
-              <button onClick={() => setIsPasteModalOpen(false)} className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center font-black">×</button>
-            </div>
-            <div className="p-6 flex-1 overflow-hidden flex flex-col">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Tempel teks JSON kumpulan soal di bawah ini:</p>
-              <textarea 
-                value={pasteContent}
-                onChange={e => setPasteContent(e.target.value)}
-                className="flex-1 w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-mono text-xs outline-none focus:border-blue-500"
-                placeholder='[{"text": "Soal...", ...}]'
-              />
-            </div>
-            <div className="p-6 border-t bg-slate-50 flex gap-3">
-               <button onClick={() => setIsPasteModalOpen(false)} className="flex-1 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Batal</button>
-               <button onClick={handlePasteImport} className="flex-[2] bg-blue-600 text-white font-black py-3 rounded-xl shadow-lg uppercase text-[10px] tracking-widest">Import Sekarang</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {previewQuestion && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-             <div className="p-6 bg-slate-900 text-white flex justify-between items-center shrink-0">
-                <h3 className="text-lg font-black uppercase tracking-tight">Preview Soal Math</h3>
-                <button onClick={() => setPreviewQuestion(null)} className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center font-black">×</button>
-             </div>
-             <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">{renderPreviewContent(previewQuestion)}</div>
-             <div className="p-6 border-t bg-slate-50 flex justify-center"><button onClick={() => setPreviewQuestion(null)} className="px-10 py-3 bg-slate-900 text-white font-black rounded-xl text-[10px] uppercase shadow-xl">TUTUP</button></div>
-          </div>
+      {zoomImage && (
+        <div className="fixed inset-0 z-[1000] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-12 animate-in fade-in duration-300" onClick={() => setZoomImage(null)}>
+           <button className="absolute top-8 right-8 w-12 h-12 bg-white/10 rounded-full flex items-center justify-center text-white font-black">✕</button>
+           <img src={zoomImage} className="max-w-full max-h-full rounded-3xl border-4 border-white/20 shadow-2xl object-contain" onClick={e => e.stopPropagation()} />
         </div>
       )}
 
@@ -304,11 +274,21 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                           onChange={e => {
                             const newType = e.target.value as QuestionType;
                             let newAns: any = 0;
-                            if (newType === QuestionType.MULTIPLE) newAns = [];
-                            if (newType === QuestionType.COMPLEX_CATEGORY || newType === QuestionType.TRUE_FALSE_COMPLEX) {
+                            let newLabels = { ...formData.tfLabels };
+
+                            if (newType === QuestionType.TRUE_FALSE) {
+                              newLabels = { true: 'Benar', false: 'Salah' };
                               newAns = formData.options.map(() => false);
+                            } else if (newType === QuestionType.MATCH) {
+                              newLabels = { true: 'Sesuai', false: 'Tidak Sesuai' };
+                              newAns = formData.options.map(() => false);
+                            } else if (newType === QuestionType.MULTIPLE) {
+                              newAns = [];
+                            } else {
+                              newAns = 0;
                             }
-                            setFormData({...formData, type: newType, correctAnswer: newAns});
+                            
+                            setFormData({...formData, type: newType, correctAnswer: newAns, tfLabels: newLabels});
                           }} 
                           className="w-full p-3 border bg-slate-50 rounded-xl font-bold outline-none text-xs"
                         >
@@ -329,12 +309,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
 
                    <div className="space-y-1">
                       <label className="text-[10px] font-black text-slate-400 uppercase">Isi Butir Pertanyaan</label>
-                      <textarea value={formData.text} onChange={e => setFormData({...formData, text: e.target.value})} className="w-full p-4 border bg-slate-50 rounded-2xl h-40 font-mono text-sm outline-none focus:border-blue-500 focus:bg-white transition-all" placeholder="Tulis soal di sini... Gunakan $ untuk rumus." />
-                   </div>
-
-                   <div className="space-y-1">
-                      <label className="text-[10px] font-black text-emerald-600 uppercase">URL Gambar Soal (Opsional)</label>
-                      <input type="text" value={formData.questionImage} onChange={e => setFormData({...formData, questionImage: e.target.value})} className="w-full p-3 border border-emerald-100 bg-emerald-50/30 rounded-xl text-xs font-mono outline-none focus:border-emerald-500 focus:bg-white transition-all" placeholder="Tempel URL gambar (https://...)" />
+                      <textarea value={formData.text} onChange={e => setFormData({...formData, text: e.target.value})} className="w-full p-4 border bg-slate-50 rounded-2xl h-40 font-mono text-sm outline-none focus:border-blue-500 focus:bg-white transition-all" placeholder="Tulis soal di sini..." />
                    </div>
 
                    <div className="space-y-3">
@@ -349,7 +324,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                                  <div className="pt-2">
                                     <input 
                                       type={formData.type === QuestionType.SINGLE ? 'radio' : 'checkbox'} 
-                                      checked={formData.type === QuestionType.SINGLE ? formData.correctAnswer === idx : (formData.correctAnswer || []).includes(idx)} 
+                                      checked={formData.type === QuestionType.SINGLE ? formData.correctAnswer === idx : (Array.isArray(formData.correctAnswer) && (formData.type === QuestionType.MULTIPLE ? formData.correctAnswer.includes(idx) : formData.correctAnswer[idx] === true))} 
                                       onChange={() => {
                                         if(formData.type === QuestionType.SINGLE) setFormData({...formData, correctAnswer: idx});
                                         else if (formData.type === QuestionType.MULTIPLE) {
@@ -384,6 +359,12 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                                     className="w-full p-2 bg-white border border-slate-200 rounded-lg text-[10px] font-mono outline-none focus:border-emerald-500" 
                                     placeholder="URL Gambar Opsi (Opsional)" 
                                  />
+                                 {formData.optionImages[idx] && (
+                                   <div className="mt-2 flex items-center gap-2">
+                                      <img src={formData.optionImages[idx]} className="w-10 h-10 object-cover rounded-lg border cursor-zoom-in" onClick={() => setZoomImage(formData.optionImages[idx]!)} />
+                                      <span className="text-[8px] font-bold text-slate-400">Klik untuk zoom</span>
+                                   </div>
+                                 )}
                               </div>
                            </div>
                          ))}
@@ -406,33 +387,51 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                       <div className="space-y-6">
                          {formData.questionImage && (
                             <div className="flex justify-center mb-4">
-                               <img src={formData.questionImage} alt="Preview Soal" className="max-w-full h-auto rounded-2xl border-4 border-slate-50 shadow-md" />
+                               <img src={formData.questionImage} alt="Preview Soal" className="max-w-full h-auto rounded-2xl border-4 border-slate-50 shadow-md cursor-zoom-in" onClick={() => setZoomImage(formData.questionImage)} />
                             </div>
                          )}
                          
-                         <MathText text={formData.text || "Tulis pertanyaan untuk melihat pratinjau..."} className={`block text-slate-800 font-medium leading-relaxed ${!formData.text ? 'italic opacity-30' : ''}`} />
+                         <MathText text={formData.text || "Tulis pertanyaan..."} className="block text-slate-800 font-medium leading-relaxed" />
                          
-                         <div className="space-y-3">
-                            {formData.options.map((opt, i) => {
-                               const isCorrect = formData.type === QuestionType.SINGLE 
-                                 ? formData.correctAnswer === i 
-                                 : (formData.type === QuestionType.MULTIPLE 
-                                    ? (formData.correctAnswer || []).includes(i)
-                                    : (formData.correctAnswer?.[i] === true));
-                               
-                               const optImg = formData.optionImages[i];
-                               return (
-                                 <div key={i} className={`flex flex-col p-4 border-2 rounded-2xl transition-all ${isCorrect ? 'border-green-500 bg-green-50' : 'border-slate-100 bg-white'}`}>
-                                    <div className="flex items-start">
-                                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs mr-4 shrink-0 ${isCorrect ? 'bg-green-600 text-white' : 'bg-slate-100 text-slate-400'}`}>{String.fromCharCode(65+i)}</div>
-                                       <MathText text={opt || "..."} className={`flex-1 text-xs font-bold ${isCorrect ? 'text-green-800' : 'text-slate-600'}`} />
-                                       {isCorrect && <span className="text-[8px] font-black text-green-600 uppercase ml-2">Kunci</span>}
-                                    </div>
-                                    {optImg && <img src={optImg} className="mt-3 ml-12 max-h-32 w-auto object-contain rounded-lg border border-slate-100" />}
-                                 </div>
-                               );
-                            })}
-                         </div>
+                         {formData.type === QuestionType.TRUE_FALSE || formData.type === QuestionType.MATCH ? (
+                           <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                             <table className="w-full text-left">
+                               <thead className="bg-slate-800 text-white">
+                                 <tr className="text-[9px] font-black uppercase"><th className="p-3">Pernyataan</th><th className="p-3 text-center">Kunci</th></tr>
+                               </thead>
+                               <tbody className="divide-y divide-slate-100">
+                                 {formData.options.map((opt, i) => (
+                                   <tr key={i}>
+                                     <td className="p-3"><MathText text={opt || "..."} className="text-xs font-bold text-slate-700" /></td>
+                                     <td className="p-3 flex gap-1 justify-center">
+                                       <div className={`px-2 py-1 rounded text-[8px] font-black ${formData.correctAnswer?.[i] === true ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-300'}`}>{formData.tfLabels.true.toUpperCase()}</div>
+                                       <div className={`px-2 py-1 rounded text-[8px] font-black ${formData.correctAnswer?.[i] === false ? 'bg-red-600 text-white' : 'bg-slate-100 text-slate-300'}`}>{formData.tfLabels.false.toUpperCase()}</div>
+                                     </td>
+                                   </tr>
+                                 ))}
+                               </tbody>
+                             </table>
+                           </div>
+                         ) : (
+                           <div className="space-y-3">
+                              {formData.options.map((opt, i) => {
+                                 const isCorrect = formData.type === QuestionType.SINGLE 
+                                   ? formData.correctAnswer === i 
+                                   : (Array.isArray(formData.correctAnswer) && (formData.type === QuestionType.MULTIPLE ? formData.correctAnswer.includes(i) : formData.correctAnswer[i] === true));
+                                 
+                                 const optImg = formData.optionImages[i];
+                                 return (
+                                   <div key={i} className={`flex flex-col p-4 border-2 rounded-2xl transition-all ${isCorrect ? 'border-blue-500 bg-blue-50' : 'border-slate-100 bg-white'}`}>
+                                      <div className="flex items-start">
+                                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs mr-4 shrink-0 ${isCorrect ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-400'}`}>{String.fromCharCode(65+i)}</div>
+                                         <MathText text={opt || "..."} className={`flex-1 text-xs font-bold ${isCorrect ? 'text-blue-800' : 'text-slate-700'}`} />
+                                      </div>
+                                      {optImg && <img src={optImg} className="mt-3 ml-12 max-h-32 w-auto object-contain rounded-lg border border-slate-100 cursor-zoom-in" onClick={() => setZoomImage(optImg)} />}
+                                   </div>
+                                 );
+                              })}
+                           </div>
+                         )}
                       </div>
                    </div>
                 </div>

@@ -13,7 +13,6 @@ interface QuizInterfaceProps {
 }
 
 const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, timeLimitMinutes, subjectName, onFinish, onViolation }) => {
-  // Identifikasi unik untuk sesi siswa
   const sessionKey = useMemo(() => {
     const clean = (str: string) => str.toLowerCase().replace(/[^a-z0-9]/g, '');
     return `educbt_session_${clean(identity.name)}_${clean(identity.className)}_${clean(identity.token)}`;
@@ -21,7 +20,6 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
 
   const [currentIdx, setCurrentIdx] = useState(0);
   
-  // Inisialisasi state dari localStorage jika ada progres tersimpan
   const [answers, setAnswers] = useState<{ [key: string]: any }>(() => {
     const saved = localStorage.getItem(sessionKey);
     if (saved) {
@@ -57,11 +55,9 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
   const startTime = useRef(Date.now());
   const isSubmitting = useRef(false);
 
-  // CRITICAL: Gunakan useRef untuk menghindari stale closure saat auto-submit (waktu habis)
   const answersRef = useRef(answers);
   const doubtfulsRef = useRef(doubtfuls);
 
-  // Sinkronkan ref dengan state setiap kali ada perubahan
   useEffect(() => {
     answersRef.current = answers;
   }, [answers]);
@@ -70,7 +66,6 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
     doubtfulsRef.current = doubtfuls;
   }, [doubtfuls]);
 
-  // Efek untuk menyimpan progres secara real-time ke LocalStorage
   useEffect(() => {
     if (!isFullscreen) return;
 
@@ -112,7 +107,6 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
     };
   }, [isFullscreen, onViolation]);
 
-  // Timer
   useEffect(() => {
     if (!isFullscreen) return;
 
@@ -120,7 +114,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
       setTimeLeft(prev => {
         if (prev <= 1) { 
           clearInterval(timer); 
-          handleSubmit(); // Memanggil submit otomatis saat waktu habis
+          handleSubmit(); 
           return 0; 
         }
         return prev - 1;
@@ -145,8 +139,6 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
     localStorage.removeItem(sessionKey);
 
     let correctCount = 0;
-    // Menggunakan answersRef.current untuk memastikan data terbaru yang diambil, 
-    // meskipun dipanggil dari closure setInterval yang lama.
     const latestAnswers = answersRef.current;
 
     questions.forEach(q => {
@@ -157,7 +149,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
         const correctSet = new Set(q.correctAnswer || []);
         const studentSet = new Set(studentAns || []);
         isCorrect = correctSet.size === studentSet.size && [...correctSet].every(x => studentSet.has(x));
-      } else if (q.type === QuestionType.COMPLEX_CATEGORY || q.type === QuestionType.TRUE_FALSE_COMPLEX) {
+      } else if (q.type === QuestionType.TRUE_FALSE || q.type === QuestionType.MATCH) {
         const correctArr = q.correctAnswer || [];
         const studentArr = studentAns || [];
         isCorrect = correctArr.length > 0 && correctArr.length === studentArr.length && correctArr.every((v:any, i:number) => v === studentArr[i]);
@@ -190,8 +182,8 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
   const isDoubtful = doubtfuls[q.id] || false;
 
   const renderInput = () => {
-    if (q.type === QuestionType.COMPLEX_CATEGORY || q.type === QuestionType.TRUE_FALSE_COMPLEX) {
-      const labels = q.tfLabels || { true: 'Ya', false: 'Tidak' };
+    if (q.type === QuestionType.TRUE_FALSE || q.type === QuestionType.MATCH) {
+      const labels = q.tfLabels || { true: 'Benar', false: 'Salah' };
       return (
         <div className="bg-white border-2 border-slate-200 rounded-2xl overflow-hidden shadow-sm">
            <table className="w-full text-left">
@@ -213,7 +205,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                           <button onClick={() => {
                             const next = [...(currentAnswer || q.options!.map(() => null))]; next[idx] = true;
                             setAnswers({...answers, [q.id]: next});
-                          }} className={`flex-1 py-2 px-1 rounded-lg text-[9px] font-black transition-all ${val === true ? 'bg-green-600 text-white shadow-md' : 'text-slate-400'}`}>{labels.true.toUpperCase()}</button>
+                          }} className={`flex-1 py-2 px-1 rounded-lg text-[9px] font-black transition-all ${val === true ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400'}`}>{labels.true.toUpperCase()}</button>
                           <button onClick={() => {
                             const next = [...(currentAnswer || q.options!.map(() => null))]; next[idx] = false;
                             setAnswers({...answers, [q.id]: next});
@@ -234,10 +226,8 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
         <div className="space-y-4">
           {isMultiple && (
             <div className="flex items-center gap-2 mb-4 bg-blue-50 p-3 rounded-xl border border-blue-100">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-              </svg>
-              <p className="text-blue-700 font-bold text-xs uppercase tracking-tight">Soal MCMA — Pilih lebih dari satu jawaban yang benar</p>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+              <p className="text-blue-700 font-bold text-xs uppercase tracking-tight">Pilih lebih dari satu jawaban yang benar</p>
             </div>
           )}
           {q.options?.map((opt, idx) => {
@@ -271,30 +261,17 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                 </div>
                 
                 <div className="flex-1 min-w-0">
-                  <div 
-                    onClick={() => {
+                  <div onClick={() => {
                       if (isMultiple) {
                         const prev = currentAnswer || [];
                         setAnswers({...answers, [q.id]: isSelected ? prev.filter((i:any) => i !== idx) : [...prev, idx]});
                       } else setAnswers({...answers, [q.id]: idx});
-                    }}
-                    className="cursor-pointer"
-                  >
+                    }} className="cursor-pointer">
                     <MathText text={opt} className={`font-bold block ${isSelected ? 'text-blue-800' : 'text-slate-700'}`} style={{ fontSize: `${fontSize - 2}px` }} />
                   </div>
                   {optImg && (
                     <div className="relative mt-3 group w-fit">
-                      <img 
-                        src={optImg} 
-                        onClick={() => setZoomImage(optImg)}
-                        className="max-h-40 rounded-xl border border-slate-200 shadow-sm cursor-zoom-in hover:brightness-90 transition-all" 
-                        alt={`Opsi ${String.fromCharCode(65+idx)}`}
-                      />
-                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                        <div className="bg-slate-900/60 text-white p-1.5 rounded-lg">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" /></svg>
-                        </div>
-                      </div>
+                      <img src={optImg} onClick={() => setZoomImage(optImg)} className="max-h-40 rounded-xl border border-slate-200 shadow-sm cursor-zoom-in hover:brightness-90 transition-all" alt={`Opsi ${String.fromCharCode(65+idx)}`} />
                     </div>
                   )}
                 </div>
@@ -358,15 +335,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                    <div className="space-y-8">
                       {q?.questionImage && (
                         <div className="flex justify-center mb-6 relative group w-fit mx-auto">
-                          <img 
-                            src={q.questionImage} 
-                            onClick={() => setZoomImage(q.questionImage!)}
-                            className="max-w-full h-auto rounded-[1.5rem] border-4 border-white shadow-xl cursor-zoom-in hover:brightness-95 transition-all" 
-                            alt="Gambar Soal"
-                          />
-                          <div className="absolute top-4 right-4 bg-slate-900/40 text-white p-2 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" /></svg>
-                          </div>
+                          <img src={q.questionImage} onClick={() => setZoomImage(q.questionImage!)} className="max-w-full h-auto rounded-[1.5rem] border-4 border-white shadow-xl cursor-zoom-in" alt="Gambar Soal" />
                         </div>
                       )}
                       <MathText text={q?.text} className="leading-relaxed text-slate-800 font-medium block" style={{ fontSize: `${fontSize}px` }} />
@@ -398,7 +367,6 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                 </div>
              </div>
 
-             {/* PANEL IDENTITAS SISWA */}
              <div className="mt-auto border-t-2 border-slate-100 pt-6">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Identitas Peserta</p>
                 <div className="bg-slate-50 p-5 rounded-[2rem] border border-slate-200 space-y-4">
@@ -411,18 +379,6 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                          <p className="text-xs font-black text-slate-800 truncate uppercase">{identity.name}</p>
                       </div>
                    </div>
-                   
-                   <div className="grid grid-cols-1 gap-3">
-                      <div className="bg-white p-3 rounded-xl border border-slate-100">
-                         <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Kelas / Rombel</p>
-                         <p className="text-[11px] font-black text-slate-700">{identity.className}</p>
-                      </div>
-                      <div className="bg-white p-3 rounded-xl border border-slate-100">
-                         <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Asal Sekolah</p>
-                         <p className="text-[11px] font-black text-slate-700 truncate">{identity.schoolOrigin || '-'}</p>
-                      </div>
-                   </div>
-
                    <div className="flex items-center justify-center gap-2 pt-2">
                       <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
                       <p className="text-[9px] font-black text-green-600 uppercase tracking-widest">Status: Sesi Aktif</p>
@@ -432,66 +388,22 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
           </aside>
        </div>
 
-       {/* OVERLAY PROTEKSI SAAT SINKRONISASI */}
        {isAutoSubmitting && (
          <div className="fixed inset-0 z-[1000] bg-slate-900/80 backdrop-blur-xl flex items-center justify-center p-6 animate-in fade-in duration-500">
-           <div className="bg-white rounded-[3rem] p-10 max-lg w-full shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)] text-center space-y-6">
+           <div className="bg-white rounded-[3rem] p-10 max-lg w-full shadow-2xl text-center space-y-6">
               <div className="relative w-24 h-24 mx-auto">
                 <div className="absolute inset-0 border-8 border-blue-100 rounded-full"></div>
                 <div className="absolute inset-0 border-8 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
-                <div className="absolute inset-0 flex items-center justify-center">
-                   <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                   </svg>
-                </div>
               </div>
-              
-              <div>
-                <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight">SINKRONISASI DATA...</h2>
-                <div className="mt-2 inline-block px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-[9px] font-black uppercase tracking-widest border border-blue-100">
-                   Status: Mengamankan Jawaban
-                </div>
-              </div>
-
-              <p className="text-slate-500 text-sm font-medium leading-relaxed">
-                Waktu Anda telah habis atau ujian telah selesai dikirim. Mohon tunggu sebentar, sistem sedang menghubungkan ke server cloud untuk menyimpan hasil pengerjaan Anda secara permanen.
-              </p>
-
-              <div className="pt-4 border-t border-slate-100">
-                 <p className="text-[10px] text-slate-400 font-bold italic">Layar ini akan berpindah otomatis setelah data aman tersimpan.</p>
-              </div>
+              <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight">SINKRONISASI DATA...</h2>
            </div>
          </div>
        )}
 
-       {/* LIGHTBOX OVERLAY UNTUK PERBESAR GAMBAR */}
        {zoomImage && (
-         <div 
-          className="fixed inset-0 z-[999] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4 md:p-12 animate-in fade-in duration-300"
-          onClick={() => setZoomImage(null)}
-         >
-           <button 
-             className="absolute top-6 right-6 w-12 h-12 bg-white/20 hover:bg-white/40 text-white rounded-full flex items-center justify-center font-black transition-all z-10"
-             onClick={() => setZoomImage(null)}
-           >
-             ✕
-           </button>
-           <div className="relative max-w-full max-h-full flex flex-col items-center gap-6" onClick={e => e.stopPropagation()}>
-             <img 
-               src={zoomImage} 
-               className="max-w-full max-h-[80vh] rounded-[2rem] border-4 border-white/20 shadow-[0_0_50px_rgba(0,0,0,0.5)] object-contain" 
-               alt="Zoomed View" 
-             />
-             <div className="bg-white/10 px-8 py-3 rounded-full border border-white/20 backdrop-blur-sm">
-                <p className="text-white text-xs font-black uppercase tracking-[0.2em]">Mode Pratinjau Detail</p>
-             </div>
-             <button 
-               onClick={() => setZoomImage(null)}
-               className="bg-white text-slate-900 font-black px-10 py-3 rounded-2xl uppercase text-[10px] tracking-widest shadow-xl hover:bg-blue-50 transition-all"
-             >
-               TUTUP GAMBAR
-             </button>
-           </div>
+         <div className="fixed inset-0 z-[999] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4 md:p-12 animate-in fade-in duration-300" onClick={() => setZoomImage(null)}>
+           <button className="absolute top-6 right-6 w-12 h-12 bg-white/20 text-white rounded-full flex items-center justify-center font-black">✕</button>
+           <img src={zoomImage} className="max-w-full max-h-[80vh] rounded-[2rem] border-4 border-white/20 shadow-2xl object-contain" onClick={e => e.stopPropagation()} />
          </div>
        )}
     </div>

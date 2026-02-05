@@ -64,7 +64,8 @@ const getFullAnswerText = (q: Question, answerValue?: any, isKey: boolean = fals
   if (targetAnswer === undefined || targetAnswer === null) return "-";
 
   let rawText = "-";
-  if (q.type === QuestionType.COMPLEX_CATEGORY || q.type === QuestionType.TRUE_FALSE_COMPLEX) {
+  // Fix: Property 'COMPLEX_CATEGORY' and 'TRUE_FALSE_COMPLEX' do not exist on type 'typeof QuestionType'. Use MATCH and TRUE_FALSE instead.
+  if (q.type === QuestionType.MATCH || q.type === QuestionType.TRUE_FALSE) {
     if (Array.isArray(targetAnswer)) {
       const labels = q.tfLabels || { true: 'Ya', false: 'Tidak' };
       rawText = q.options?.map((opt, i) => {
@@ -93,7 +94,8 @@ const checkCorrectness = (q: Question, studentAnswer: any): boolean => {
     const studentSet = new Set(studentAnswer);
     return correctSet.size === studentSet.size && [...correctSet].every(x => studentSet.has(x));
   }
-  if (q.type === QuestionType.COMPLEX_CATEGORY || q.type === QuestionType.TRUE_FALSE_COMPLEX) {
+  // Fix: Property 'COMPLEX_CATEGORY' and 'TRUE_FALSE_COMPLEX' do not exist on type 'typeof QuestionType'. Use MATCH and TRUE_FALSE instead.
+  if (q.type === QuestionType.MATCH || q.type === QuestionType.TRUE_FALSE) {
     if (!Array.isArray(q.correctAnswer) || !Array.isArray(studentAnswer)) return false;
     return q.correctAnswer.length === studentAnswer.length && q.correctAnswer.every((v:any, i:number) => v === studentAnswer[i]);
   }

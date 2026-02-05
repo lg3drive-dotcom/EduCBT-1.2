@@ -110,7 +110,8 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ results, questions, onUpdat
                             <p className="text-[10px] text-slate-400 font-black uppercase mb-2 tracking-widest">Jawaban Peserta</p>
                             <div className="flex flex-col gap-2">
                               <p className="font-black text-slate-700">
-                                {q.type === QuestionType.COMPLEX_CATEGORY 
+                                { /* Fix: Property 'COMPLEX_CATEGORY' does not exist on type 'typeof QuestionType'. Use MATCH and TRUE_FALSE which represent complex types. */ }
+                                {q.type === QuestionType.MATCH || q.type === QuestionType.TRUE_FALSE 
                                   ? (Array.isArray(answer) ? answer.map((v, i) => `[${q.options?.[i]}: ${v ? 'Sesuai' : 'Tidak'}]`).join(", ") : "Tidak dijawab")
                                   : q.options 
                                     ? (Array.isArray(answer) ? answer.map((i: number) => q.options?.[i]).join(", ") : q.options[answer as number] || "Tidak dijawab")
@@ -122,7 +123,8 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ results, questions, onUpdat
                           <div className="p-5 bg-green-50 rounded-2xl border border-green-100">
                             <p className="text-[10px] text-green-600 font-black uppercase mb-2 tracking-widest">Kunci Jawaban</p>
                             <p className="font-black text-green-800">
-                               {q.type === QuestionType.COMPLEX_CATEGORY 
+                               { /* Fix: Property 'COMPLEX_CATEGORY' does not exist on type 'typeof QuestionType'. Use MATCH and TRUE_FALSE which represent complex types. */ }
+                               {q.type === QuestionType.MATCH || q.type === QuestionType.TRUE_FALSE 
                                  ? q.options?.map((opt, i) => `[${opt}: ${q.correctAnswer[i] ? 'Sesuai' : 'Tidak'}]`).join(", ")
                                  : q.options 
                                    ? (Array.isArray(q.correctAnswer) ? q.correctAnswer.map(i => q.options?.[i]).join(", ") : q.options[q.correctAnswer])
