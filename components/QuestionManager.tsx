@@ -165,18 +165,15 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     let result = val;
 
     // 1. Pecahan Campuran: 1 1/2 -> $1 \frac{1}{2}$
-    // Diganti dulu agar tidak tertabrak oleh regex pecahan biasa
     result = result.replace(/(\d+)\s+(\d+)\/(\d+)/g, '$$$1 \\frac{$2}{$3}$$');
 
     // 2. Pecahan Biasa: 3/4 atau 1/4 -> $\frac{3}{4}$
-    // Menggunakan regex yang mencari angka/angka yang belum dibungkus $ atau didahului angka lain (yang biasanya bagian dari campuran)
-    // p1 = karakter sebelum (untuk dipertahankan), p2 = pembilang, p3 = penyebut
+    // Menggunakan global flag (g) agar mendeteksi semua kemunculan dalam teks
     result = result.replace(/(^|[^0-9\$])(\d+)\/(\d+)(?![0-9])/g, (match, p1, p2, p3) => {
       return `${p1}$$\\frac{${p2}}{${p3}}$$`;
     });
 
     // 3. Pangkat: x^2 -> $x^2$
-    // Hanya jika belum dibungkus $
     result = result.replace(/(^|[^0-9\$])([a-zA-Z0-9]+)\^([a-zA-Z0-9]+)(?![0-9\$])/g, (match, p1, p2, p3) => {
        return `${p1}$$${p2}^{${p3}}$$`;
     });
@@ -386,7 +383,23 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                           ✨ Auto-LaTeX
                         </button>
                       </div>
-                      <textarea value={formData.text} onChange={e => setFormData({...formData, text: e.target.value})} className="w-full p-4 border bg-slate-50 rounded-2xl h-40 font-mono text-sm outline-none focus:border-blue-500 focus:bg-white transition-all" placeholder="Tulis soal di sini..." />
+                      <textarea value={formData.text} onChange={e => setFormData({...formData, text: e.target.value})} className="w-full p-4 border bg-slate-50 rounded-2xl h-32 font-mono text-sm outline-none focus:border-blue-500 focus:bg-white transition-all mb-3" placeholder="Tulis soal di sini..." />
+                      <div className="space-y-1">
+                         <label className="text-[10px] font-black text-slate-400 uppercase">URL Gambar Soal (Opsional)</label>
+                         <input 
+                            type="text" 
+                            value={formData.questionImage} 
+                            onChange={e => setFormData({...formData, questionImage: e.target.value})} 
+                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono outline-none focus:border-emerald-500" 
+                            placeholder="https://link-gambar-soal.png" 
+                         />
+                         {formData.questionImage && (
+                           <div className="mt-2 flex items-center gap-3 bg-white p-2 rounded-xl border">
+                              <img src={formData.questionImage} className="w-12 h-12 object-cover rounded-lg border cursor-zoom-in" onClick={() => setZoomImage(formData.questionImage)} />
+                              <span className="text-[8px] font-bold text-slate-400 uppercase">Preview Gambar Soal</span>
+                           </div>
+                         )}
+                      </div>
                    </div>
 
                    <div className="space-y-3">
@@ -394,7 +407,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                          <label className="text-[10px] font-black text-slate-400 uppercase">Opsi Jawaban & Pernyataan</label>
                          <button onClick={() => setFormData(prev => ({ ...prev, options: [...prev.options, ''], optionImages: [...prev.optionImages, undefined], correctAnswer: Array.isArray(prev.correctAnswer) ? [...prev.correctAnswer, false] : prev.correctAnswer }))} className="text-[9px] font-black text-blue-600 uppercase">+ Tambah Opsi</button>
                       </div>
-                      <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
+                      <div className="space-y-4 max-h-[35vh] overflow-y-auto pr-2 custom-scrollbar">
                          {formData.options.map((opt, idx) => (
                            <div key={idx} className="p-4 bg-slate-50 border rounded-2xl space-y-3 group transition-all hover:border-blue-200 relative">
                               <div className="flex gap-3 items-start">
