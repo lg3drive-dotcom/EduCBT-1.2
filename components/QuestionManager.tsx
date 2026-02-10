@@ -157,20 +157,32 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  // Fungsi Helper untuk mengubah teks biasa menjadi LaTeX
+  /**
+   * Fungsi untuk mengubah teks matematika biasa menjadi LaTeX secara cerdas.
+   */
   const applyAutoLatex = (val: string): string => {
     if (!val) return val;
     let result = val;
-    // Mixed fractions: 1 1/2 -> $1 \frac{1}{2}$
+
+    // 1. Pecahan Campuran: 1 1/2 -> $1 \frac{1}{2}$
+    // Diganti dulu agar tidak tertabrak oleh regex pecahan biasa
     result = result.replace(/(\d+)\s+(\d+)\/(\d+)/g, '$$$1 \\frac{$2}{$3}$$');
-    // Simple fractions (not mixed): 3/4 -> $\frac{3}{4}$ (preceded by non-digit or start of string)
-    result = result.replace(/(^|[^0-9\s\$])(\d+)\/(\d+)/g, '$1$$\\frac{$2}{$3}$$');
-    // Exponents: x^2 -> $x^2$
-    result = result.replace(/(\w+)\^(\d+|\w+)/g, '$$$1^{$2}$$');
-    // Square roots: sqrt(144) -> $\sqrt{144}$
+
+    // 2. Pecahan Biasa: 3/4 atau 1/4 -> $\frac{3}{4}$
+    // Menggunakan regex yang mencari angka/angka yang belum dibungkus $ atau didahului angka lain (yang biasanya bagian dari campuran)
+    // p1 = karakter sebelum (untuk dipertahankan), p2 = pembilang, p3 = penyebut
+    result = result.replace(/(^|[^0-9\$])(\d+)\/(\d+)(?![0-9])/g, (match, p1, p2, p3) => {
+      return `${p1}$$\\frac{${p2}}{${p3}}$$`;
+    });
+
+    // 3. Pangkat: x^2 -> $x^2$
+    // Hanya jika belum dibungkus $
+    result = result.replace(/(^|[^0-9\$])([a-zA-Z0-9]+)\^([a-zA-Z0-9]+)(?![0-9\$])/g, (match, p1, p2, p3) => {
+       return `${p1}$$${p2}^{${p3}}$$`;
+    });
+
+    // 4. Akar Kuadrat: sqrt(144) -> $\sqrt{144}$
     result = result.replace(/sqrt\((.*?)\)/g, '$$\\sqrt{$1}$$');
-    // Multiplication x or * -> \times
-    // result = result.replace(/\s[\*x]\s/g, ' $$\\times$$ ');
     
     return result;
   };
