@@ -115,16 +115,6 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     closeForm();
   };
 
-  const handleExportJSON = () => {
-    if (processedQuestions.length === 0) return alert("Tidak ada soal yang bisa diekspor.");
-    const blob = new Blob([JSON.stringify(processedQuestions, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Export_CBT_${tokenFilter || 'Filter'}_${new Date().toISOString().split('T')[0]}.json`;
-    link.click();
-  };
-
   const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -152,9 +142,50 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     } catch (e) { alert("Teks JSON tidak valid."); }
   };
 
+  const handleExportJSON = () => {
+    if (processedQuestions.length === 0) {
+      alert("Tidak ada soal ditemukan untuk di-export.");
+      return;
+    }
+    const blob = new Blob([JSON.stringify(processedQuestions, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const fileName = tokenFilter.trim() ? `Export_${tokenFilter.toUpperCase()}` : 'BankSoal_Semua';
+    link.download = `EduCBT_${fileName}_${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Fungsi Helper untuk mengubah teks biasa menjadi LaTeX
+  const applyAutoLatex = (val: string): string => {
+    if (!val) return val;
+    let result = val;
+    // Mixed fractions: 1 1/2 -> $1 \frac{1}{2}$
+    result = result.replace(/(\d+)\s+(\d+)\/(\d+)/g, '$$$1 \\frac{$2}{$3}$$');
+    // Simple fractions (not mixed): 3/4 -> $\frac{3}{4}$ (preceded by non-digit or start of string)
+    result = result.replace(/(^|[^0-9\s\$])(\d+)\/(\d+)/g, '$1$$\\frac{$2}{$3}$$');
+    // Exponents: x^2 -> $x^2$
+    result = result.replace(/(\w+)\^(\d+|\w+)/g, '$$$1^{$2}$$');
+    // Square roots: sqrt(144) -> $\sqrt{144}$
+    result = result.replace(/sqrt\((.*?)\)/g, '$$\\sqrt{$1}$$');
+    // Multiplication x or * -> \times
+    // result = result.replace(/\s[\*x]\s/g, ' $$\\times$$ ');
+    
+    return result;
+  };
+
   const renderPreviewContent = (q: Question) => {
     const isComplex = q.type === QuestionType.TRUE_FALSE || q.type === QuestionType.MATCH;
     const labels = q.tfLabels || { true: 'Benar', false: 'Salah' };
+    
+    const checkIsCorrect = (idx: number) => {
+      if (q.type === QuestionType.SINGLE) return q.correctAnswer === idx;
+      if (q.type === QuestionType.MULTIPLE) return Array.isArray(q.correctAnswer) && q.correctAnswer.includes(idx);
+      if (isComplex) return Array.isArray(q.correctAnswer) && q.correctAnswer[idx] === true;
+      return false;
+    };
+
     return (
       <div className="space-y-6">
         {q.questionImage && <div className="w-full flex justify-center mb-4"><img src={q.questionImage} onClick={() => setZoomImage(q.questionImage!)} className="max-w-full h-auto rounded-2xl border-4 border-white shadow-lg cursor-zoom-in" /></div>}
@@ -167,7 +198,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                 {q.options?.map((opt, idx) => (
                   <tr key={idx}><td className="p-3"><MathText text={opt} className="text-xs font-bold text-slate-600" /></td>
                     <td className="p-3 flex gap-1 justify-center">
-                      <div className={`px-3 py-1 rounded text-[8px] font-black ${Array.isArray(q.correctAnswer) && q.correctAnswer[idx] === true ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-300'}`}>{labels.true.toUpperCase()}</div>
+                      <div className={`px-3 py-1 rounded text-[8px] font-black ${Array.isArray(q.correctAnswer) && q.correctAnswer[idx] === true ? 'bg-green-600 text-white' : 'bg-slate-100 text-slate-300'}`}>{labels.true.toUpperCase()}</div>
                       <div className={`px-3 py-1 rounded text-[8px] font-black ${Array.isArray(q.correctAnswer) && q.correctAnswer[idx] === false ? 'bg-red-600 text-white' : 'bg-slate-100 text-slate-300'}`}>{labels.false.toUpperCase()}</div>
                     </td></tr>
                 ))}
@@ -177,12 +208,12 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
         ) : (
           <div className="grid grid-cols-1 gap-3">
             {q.options?.map((opt, idx) => {
-              const isCorrect = q.type === QuestionType.SINGLE ? q.correctAnswer === idx : (q.correctAnswer || []).includes(idx);
+              const isCorrect = checkIsCorrect(idx);
               const optImg = q.optionImages?.[idx];
               return (
-                <div key={idx} className={`flex flex-col p-4 border-2 rounded-xl ${isCorrect ? 'border-blue-500 bg-blue-50' : 'border-slate-100 bg-white'}`}>
+                <div key={idx} className={`flex flex-col p-4 border-2 rounded-xl ${isCorrect ? 'border-blue-500 bg-blue-50 shadow-sm' : 'border-slate-100 bg-white'}`}>
                   <div className="flex items-start">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs mr-4 shrink-0 ${isCorrect ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-400'}`}>{String.fromCharCode(65+idx)}</div>
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs mr-4 shrink-0 ${isCorrect ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-100 text-slate-400'}`}>{String.fromCharCode(65+idx)}</div>
                     <MathText text={opt} className={`text-xs font-bold block ${isCorrect ? 'text-blue-800' : 'text-slate-700'}`} />
                   </div>
                   {optImg && <img src={optImg} onClick={() => setZoomImage(optImg)} className="mt-3 ml-12 max-h-32 rounded-lg border border-slate-200 cursor-zoom-in" />}
@@ -191,12 +222,18 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
             })}
           </div>
         )}
+        {q.explanation && (
+          <div className="bg-emerald-50 p-6 rounded-2xl border border-emerald-100">
+            <h4 className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-2">Pembahasan:</h4>
+            <MathText text={q.explanation} className="text-xs font-medium text-emerald-800 leading-relaxed" />
+          </div>
+        )}
       </div>
     );
   };
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+    <div className="flex flex-col h-full bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative">
       <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex bg-white p-1 rounded-xl border border-slate-200 shadow-sm">
@@ -218,20 +255,20 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
              </button>
           </div>
         </div>
-        <button onClick={() => { closeForm(); setShowForm(true); }} className="bg-slate-900 text-white px-5 py-2 rounded-xl text-[10px] font-black">TAMBAH</button>
+        <button onClick={() => { closeForm(); setShowForm(true); }} className="bg-slate-900 text-white px-5 py-2 rounded-xl text-[10px] font-black shadow-lg active:scale-95 transition-all">TAMBAH</button>
       </div>
 
       <div className="flex-1 overflow-y-auto bg-slate-50/30 p-4 space-y-4 custom-scrollbar">
         {processedQuestions.map((q) => (
-          <div key={q.id} className="bg-white p-4 border rounded-2xl group flex gap-4 items-start shadow-sm hover:shadow-md transition-shadow">
+          <div key={q.id} className="bg-white p-4 border rounded-2xl group flex gap-4 items-start shadow-sm hover:shadow-md transition-all">
             <div className="w-10 h-10 flex items-center justify-center bg-blue-50 text-blue-700 rounded-xl font-black text-xs shrink-0">{q.order}</div>
             <div className="flex-1 min-w-0">
               <div className="flex justify-between items-start mb-2">
                 <span className="text-[8px] bg-blue-600 text-white px-2 py-0.5 rounded font-black uppercase">TOKEN: {q.quizToken}</span>
                 <div className="flex gap-4 opacity-0 group-hover:opacity-100 transition-all">
-                   <button onClick={() => setPreviewQuestion(q)} className="text-emerald-600 text-[9px] font-black uppercase">Preview</button>
-                   <button onClick={() => handleEdit(q)} className="text-blue-600 text-[9px] font-black uppercase">Edit</button>
-                   <button onClick={() => onSoftDelete(q.id)} className="text-red-400 text-[9px] font-black uppercase">Buang</button>
+                   <button onClick={() => setPreviewQuestion(q)} className="text-emerald-600 text-[9px] font-black uppercase hover:underline">Preview</button>
+                   <button onClick={() => handleEdit(q)} className="text-blue-600 text-[9px] font-black uppercase hover:underline">Edit</button>
+                   <button onClick={() => onSoftDelete(q.id)} className="text-red-400 text-[9px] font-black uppercase hover:underline">Buang</button>
                 </div>
               </div>
               <MathText text={q.text} className="font-semibold text-slate-800 text-xs line-clamp-2 block" />
@@ -240,15 +277,35 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
         ))}
       </div>
 
+      {previewQuestion && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[2000] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] border border-white/20">
+             <div className="p-6 bg-slate-900 text-white flex justify-between items-center shrink-0">
+                <div className="flex items-center gap-3">
+                   <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center text-white font-black text-sm">P</div>
+                   <h3 className="text-lg font-black uppercase tracking-tight">Pratinjau Soal</h3>
+                </div>
+                <button onClick={() => setPreviewQuestion(null)} className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center font-black hover:bg-white/20 transition-all">✕</button>
+             </div>
+             <div className="flex-1 overflow-y-auto p-8 lg:p-10 custom-scrollbar">
+                {renderPreviewContent(previewQuestion)}
+             </div>
+             <div className="p-6 border-t bg-slate-50 flex justify-center">
+                <button onClick={() => setPreviewQuestion(null)} className="px-12 py-3.5 bg-slate-900 hover:bg-black text-white font-black rounded-2xl text-[10px] uppercase shadow-xl transition-all active:scale-95">TUTUP PRATINJAU</button>
+             </div>
+          </div>
+        </div>
+      )}
+
       {zoomImage && (
-        <div className="fixed inset-0 z-[1000] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-12 animate-in fade-in duration-300" onClick={() => setZoomImage(null)}>
-           <button className="absolute top-8 right-8 w-12 h-12 bg-white/10 rounded-full flex items-center justify-center text-white font-black">✕</button>
+        <div className="fixed inset-0 z-[3000] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-12 animate-in fade-in duration-300" onClick={() => setZoomImage(null)}>
+           <button className="absolute top-8 right-8 w-12 h-12 bg-white/10 rounded-full flex items-center justify-center text-white font-black hover:bg-white/20">✕</button>
            <img src={zoomImage} className="max-w-full max-h-full rounded-3xl border-4 border-white/20 shadow-2xl object-contain" onClick={e => e.stopPropagation()} />
         </div>
       )}
 
       {showForm && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[1500] flex items-center justify-center p-4">
           <div className="bg-white rounded-[2rem] w-full max-w-7xl p-8 shadow-2xl overflow-y-auto max-h-[95vh] custom-scrollbar flex flex-col">
              <div className="flex justify-between items-center mb-6 border-b pb-4 sticky top-0 bg-white shrink-0 z-20">
                 <div>
@@ -308,7 +365,15 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                    </div>
 
                    <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-400 uppercase">Isi Butir Pertanyaan</label>
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="text-[10px] font-black text-slate-400 uppercase">Isi Butir Pertanyaan</label>
+                        <button 
+                          onClick={() => setFormData({...formData, text: applyAutoLatex(formData.text)})}
+                          className="text-[9px] font-black bg-purple-100 text-purple-700 px-2 py-1 rounded-lg hover:bg-purple-200 transition-colors uppercase flex items-center gap-1"
+                        >
+                          ✨ Auto-LaTeX
+                        </button>
+                      </div>
                       <textarea value={formData.text} onChange={e => setFormData({...formData, text: e.target.value})} className="w-full p-4 border bg-slate-50 rounded-2xl h-40 font-mono text-sm outline-none focus:border-blue-500 focus:bg-white transition-all" placeholder="Tulis soal di sini..." />
                    </div>
 
@@ -319,7 +384,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                       </div>
                       <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
                          {formData.options.map((opt, idx) => (
-                           <div key={idx} className="p-4 bg-slate-50 border rounded-2xl space-y-3 group transition-all hover:border-blue-200">
+                           <div key={idx} className="p-4 bg-slate-50 border rounded-2xl space-y-3 group transition-all hover:border-blue-200 relative">
                               <div className="flex gap-3 items-start">
                                  <div className="pt-2">
                                     <input 
@@ -340,11 +405,22 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                                       className="w-4 h-4 cursor-pointer accent-blue-600"
                                     />
                                  </div>
-                                 <div className="flex-1">
+                                 <div className="flex-1 relative">
                                     <textarea value={opt} onChange={e => {
                                        const next = [...formData.options]; next[idx] = e.target.value;
                                        setFormData({...formData, options: next});
-                                    }} className="w-full p-3 bg-white border rounded-xl text-xs font-mono h-16 outline-none focus:border-blue-500 transition-all" placeholder={`Teks Opsi ${String.fromCharCode(65+idx)}...`} />
+                                    }} className="w-full p-3 pr-10 bg-white border rounded-xl text-xs font-mono h-16 outline-none focus:border-blue-500 transition-all" placeholder={`Teks Opsi ${String.fromCharCode(65+idx)}...`} />
+                                    <button 
+                                      onClick={() => {
+                                        const next = [...formData.options];
+                                        next[idx] = applyAutoLatex(next[idx]);
+                                        setFormData({...formData, options: next});
+                                      }}
+                                      className="absolute right-2 top-2 p-1.5 bg-slate-100 hover:bg-purple-100 text-slate-400 hover:text-purple-600 rounded-lg transition-all"
+                                      title="Convert to LaTeX"
+                                    >
+                                      <span className="text-[10px] font-black leading-none">∑</span>
+                                    </button>
                                  </div>
                                  <button onClick={() => setFormData(prev => ({ ...prev, options: prev.options.filter((_, i) => i !== idx), optionImages: prev.optionImages.filter((_, i) => i !== idx) }))} className="p-2 text-red-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">×</button>
                               </div>

@@ -406,7 +406,7 @@ const App: React.FC = () => {
               <div>
                 <div className="flex items-center gap-3 mb-12"><div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-black">C</div><div className="font-black text-2xl">EduCBT Pro</div></div>
                 <h1 className="text-4xl font-black mb-6 leading-tight">Computer Based Test</h1>
-                <p className="text-slate-400 font-medium italic">Sistem Ujian Digital</p>
+                <p className="text-slate-400 font-medium italic text-xs leading-relaxed">Pastikan guru mengunduh data Rekap Nilai setelah ujian selesai, karena sewaktu-waktu dapat hilang</p>
               </div>
               <div className="space-y-4">
                 <button onClick={() => setView('admin-auth')} className="w-full bg-white/5 hover:bg-white/10 p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/5 transition-all text-white">Administrator</button>
