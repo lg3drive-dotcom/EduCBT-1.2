@@ -230,6 +230,7 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
                 <button onClick={handleExportJSON} disabled={selectedTokens.length === 0} className="w-full bg-slate-900 disabled:opacity-20 text-white font-black py-3 rounded-xl text-[10px] uppercase tracking-widest transition-all">Export JSON (Backup)</button>
                 <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleFileChange} />
                 <button onClick={() => fileInputRef.current?.click()} className="w-full bg-blue-50 text-blue-600 font-bold py-3 rounded-xl border border-blue-100 text-[10px] uppercase tracking-widest transition-all">Upload JSON (Restore)</button>
+                <button onClick={() => setIsPasteModalOpen(true)} className="w-full bg-slate-100 text-slate-600 font-bold py-3 rounded-xl border border-slate-200 text-[10px] uppercase tracking-widest transition-all">Paste JSON (Manual)</button>
                 <button onClick={handleResetData} className="w-full text-red-500 font-bold py-2 text-[9px] uppercase tracking-widest hover:bg-red-50 rounded-lg">Kosongkan Bank Soal Lokal</button>
               </div>
             </div>

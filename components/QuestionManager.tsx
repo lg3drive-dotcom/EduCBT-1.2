@@ -545,6 +545,32 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
           </div>
         </div>
       )}
+
+      {/* MODAL PASTE JSON (FIX) */}
+      {isPasteModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-md z-[2000] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+            <div className="p-8 bg-slate-900 text-white flex justify-between items-center shrink-0">
+              <div>
+                <h3 className="text-xl font-black uppercase tracking-tight">Paste Bank Soal</h3>
+              </div>
+              <button onClick={() => setIsPasteModalOpen(false)} className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center font-black">×</button>
+            </div>
+            <div className="p-8 flex-1 overflow-y-auto">
+              <textarea 
+                className="w-full h-80 p-6 bg-slate-50 border-2 border-slate-100 rounded-3xl font-mono text-xs outline-none focus:border-blue-500 transition-all"
+                placeholder='Tempel kumpulan soal di sini...'
+                value={pasteContent}
+                onChange={(e) => setPasteContent(e.target.value)}
+              />
+            </div>
+            <div className="p-8 border-t bg-slate-50 flex gap-4">
+              <button onClick={() => setIsPasteModalOpen(false)} className="flex-1 py-4 font-black text-slate-400 uppercase tracking-widest text-[10px]">Tutup</button>
+              <button onClick={handlePasteImport} className="flex-[2] bg-blue-600 text-white font-black py-4 rounded-2xl shadow-xl uppercase tracking-widest text-[10px]">Import</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
