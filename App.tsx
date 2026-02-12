@@ -9,7 +9,7 @@ import AdminSettings from './components/AdminSettings.tsx';
 import ConfirmIdentity from './components/ConfirmIdentity.tsx';
 import AdminGuide from './components/AdminGuide.tsx';
 import { generateResultPDF } from './services/pdfService.ts';
-import { exportSubmissionsToExcel, exportFullSubmissionsToCSV } from './services/excelService.ts';
+import { exportSubmissionsToExcel, exportMultiSheetAnalysis } from './services/excelService.ts';
 import { 
   pushQuestionsToCloud, 
   updateLiveSettings, 
@@ -17,7 +17,8 @@ import {
   submitResultToCloud,
   getGlobalSettings,
   fetchAllQuestions,
-  fetchSubmissionsByToken
+  fetchSubmissionsByToken,
+  fetchQuestionsByToken
 } from './services/supabaseService.ts';
 
 type ViewMode = 'login' | 'confirm-data' | 'quiz' | 'result' | 'admin-auth' | 'admin-panel' | 'analysis-panel';
@@ -49,11 +50,11 @@ const App: React.FC = () => {
 
   // Quick Recap States
   const [quickDownloadToken, setQuickDownloadToken] = useState('');
-  const [quickDownloadSchool, setQuickDownloadSchool] = useState('');
   const [isQuickDownloading, setIsQuickDownloading] = useState(false);
   
   // Full Data States
   const [fullDownloadToken, setFullDownloadToken] = useState('');
+  const [fullDownloadSchool, setFullDownloadSchool] = useState('');
   const [isFullDownloading, setIsFullDownloading] = useState(false);
 
   const [adminPassword, setAdminPassword] = useState(() => {
@@ -85,7 +86,6 @@ const App: React.FC = () => {
 
   useEffect(() => {
     localStorage.setItem('cbt_questions', JSON.stringify(questions));
-    // Jika data berubah (bukan dari sync), set status dirty
     if (syncStatus === 'success') setSyncStatus('dirty');
   }, [questions]);
 
@@ -233,15 +233,44 @@ const App: React.FC = () => {
   };
 
   const handleFullDataDownload = async () => {
-    if (!fullDownloadToken.trim()) return alert("Silakan masukkan token.");
+    const token = fullDownloadToken.trim().toUpperCase();
+    if (!token) return alert("Silakan masukkan token.");
+    
     setIsFullDownloading(true);
     try {
-      const data = await fetchSubmissionsByToken(fullDownloadToken.toUpperCase());
-      if (data && data.length > 0) {
-        exportFullSubmissionsToCSV(data, `Data_Lengkap_Analisis_${fullDownloadToken.toUpperCase()}`);
-      } else alert("Data tidak ditemukan.");
-    } catch (err: any) { alert(`Error: ${err.message}`); }
-    finally { setIsFullDownloading(false); }
+      // Ambil jawaban siswa
+      let submissions = await fetchSubmissionsByToken(token);
+      
+      // Filter sekolah jika diisi
+      if (fullDownloadSchool.trim()) {
+        const schoolFilter = fullDownloadSchool.trim().toLowerCase();
+        submissions = submissions.filter(s => (s.school_origin || '').toLowerCase().includes(schoolFilter));
+      }
+
+      if (!submissions || submissions.length === 0) {
+        alert("Data pengerjaan siswa tidak ditemukan pada token (atau filter sekolah) tersebut.");
+        setIsFullDownloading(false);
+        return;
+      }
+
+      // Ambil bank soal dari cloud untuk referensi kunci & pembahasan
+      const cloudQuestions = await fetchQuestionsByToken(token);
+      if (!cloudQuestions || cloudQuestions.length === 0) {
+        alert("Bank soal untuk token ini tidak ditemukan di cloud. Harap pastikan soal sudah di-sinkron.");
+        setIsFullDownloading(false);
+        return;
+      }
+
+      // Jalankan ekspor multi-sheet
+      const fileName = `Analisis_CBT_${token}_${fullDownloadSchool.trim() ? fullDownloadSchool.replace(/\s+/g, '_') : 'SEMUA'}`;
+      exportMultiSheetAnalysis(submissions, cloudQuestions, fileName);
+      
+      alert("Laporan Analisis Multi-Sheet (.xlsx) berhasil dibuat.");
+    } catch (err: any) { 
+      alert(`Gagal membuat laporan: ${err.message}`); 
+    } finally { 
+      setIsFullDownloading(false); 
+    }
   };
 
   const handleImportQuestions = (imported: Question[]) => {
@@ -317,7 +346,6 @@ const App: React.FC = () => {
             </nav>
 
             <div className="mt-8 lg:mt-auto space-y-4">
-              {/* STATUS INDICATOR SECTION */}
               <div className="p-4 bg-white/5 border border-white/10 rounded-2xl mb-2">
                  <div className="flex items-center justify-between mb-3">
                     <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Server Status</span>
@@ -437,29 +465,50 @@ const App: React.FC = () => {
 
       {view === 'analysis-panel' && (
         <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 text-center">
-          <div className="bg-white rounded-[4rem] p-12 max-w-4xl w-full shadow-2xl overflow-hidden relative">
+          <div className="bg-white rounded-[4rem] p-12 max-w-5xl w-full shadow-2xl overflow-hidden relative">
              <div className="relative">
                 <h2 className="text-3xl font-black text-slate-800 mb-2 uppercase tracking-tight">Panel Evaluasi & Analisis</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                    <div className="bg-slate-50 p-8 rounded-[2.5rem] border-2 border-slate-100 text-left space-y-6">
-                      <h3 className="font-black text-slate-800 uppercase text-xs tracking-widest">Rekap Nilai Cepat</h3>
+                      <h3 className="font-black text-slate-800 uppercase text-xs tracking-widest flex items-center gap-2">
+                        <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                        Rekap Nilai Cepat (.CSV)
+                      </h3>
                       <div className="space-y-3">
-                         <input type="text" placeholder="Input Token Rekap" className="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs font-black uppercase tracking-widest outline-none focus:border-emerald-500" value={quickDownloadToken} onChange={e => setQuickDownloadToken(e.target.value)} />
-                         <button onClick={handleQuickDownloadRecap} disabled={isQuickDownloading} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3 rounded-xl text-[10px] uppercase tracking-widest transition-all">
+                         <input type="text" placeholder="Input Token..." className="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs font-black uppercase tracking-widest outline-none focus:border-emerald-500" value={quickDownloadToken} onChange={e => setQuickDownloadToken(e.target.value)} />
+                         <button onClick={handleQuickDownloadRecap} disabled={isQuickDownloading} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-xl text-[10px] uppercase tracking-widest transition-all">
                             {isQuickDownloading ? 'MEMPROSES...' : 'DOWNLOAD REKAP RINGKAS'}
                          </button>
                       </div>
                    </div>
                    <div className="bg-slate-50 p-8 rounded-[2.5rem] border-2 border-slate-100 text-left space-y-6">
-                      <h3 className="font-black text-slate-800 uppercase text-xs tracking-widest">Data Lengkap (CSV)</h3>
+                      <h3 className="font-black text-slate-800 uppercase text-xs tracking-widest flex items-center gap-2">
+                         <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                         Analisis Terpadu (.XLSX)
+                      </h3>
                       <div className="space-y-3">
-                         <input type="text" placeholder="Input Token Data Lengkap" className="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs font-black uppercase tracking-widest outline-none focus:border-blue-500" value={fullDownloadToken} onChange={e => setFullDownloadToken(e.target.value)} />
-                         <button onClick={handleFullDataDownload} disabled={isFullDownloading} className="w-full bg-slate-900 hover:bg-black text-white font-black py-3 rounded-xl text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2">
+                         <input type="text" placeholder="Input Token..." className="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs font-black uppercase tracking-widest outline-none focus:border-blue-500 mb-2" value={fullDownloadToken} onChange={e => setFullDownloadToken(e.target.value)} />
+                         <input type="text" placeholder="Nama Sekolah (Opsional)" className="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-blue-500" value={fullDownloadSchool} onChange={e => setFullDownloadSchool(e.target.value)} />
+                         <p className="text-[9px] text-slate-400 font-medium italic mt-1 px-1">Menghasilkan file Excel dengan sheet Jawaban Siswa & Referensi Soal.</p>
+                         <button onClick={handleFullDataDownload} disabled={isFullDownloading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-xl text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2">
                             {isFullDownloading ? 'MENGEKSTRAK...' : 'DOWNLOAD DATA LENGKAP'}
                          </button>
                       </div>
                    </div>
                 </div>
+
+                <div className="mb-10">
+                   <a 
+                     href={currentLinks.aiAnalysis} 
+                     target="_blank" 
+                     rel="noopener noreferrer"
+                     className="w-full inline-flex items-center justify-center gap-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-black py-5 px-10 rounded-[2rem] shadow-xl shadow-blue-900/20 transition-all active:scale-95 text-xs uppercase tracking-[0.2em]"
+                   >
+                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                     Buka Dashboard Analisis AI Studio
+                   </a>
+                </div>
+
                 <button onClick={() => setView('login')} className="text-slate-400 hover:text-slate-600 font-black text-xs uppercase tracking-widest">Kembali ke Login</button>
              </div>
           </div>

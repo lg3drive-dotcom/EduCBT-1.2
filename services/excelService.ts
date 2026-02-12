@@ -1,5 +1,6 @@
 
 import { Question, QuestionType } from '../types';
+import * as XLSX from 'xlsx';
 
 const indexToAlpha = (idx: number) => String.fromCharCode(65 + idx);
 
@@ -29,10 +30,92 @@ const formatCorrectAnswer = (q: Question): string => {
   return String(q.correctAnswer || '-');
 };
 
-const cleanText = (text: string): string => {
+const checkCorrectness = (q: Question, studentAnswer: any): boolean => {
+  if (studentAnswer === undefined || studentAnswer === null) return false;
+  if (q.type === QuestionType.SINGLE) return studentAnswer === q.correctAnswer;
+  if (q.type === QuestionType.MULTIPLE) {
+    if (!Array.isArray(q.correctAnswer) || !Array.isArray(studentAnswer)) return false;
+    const correctSet = new Set(q.correctAnswer);
+    const studentSet = new Set(studentAnswer);
+    return correctSet.size === studentSet.size && [...correctSet].every(x => studentSet.has(x));
+  }
+  if (q.type === QuestionType.MATCH || q.type === QuestionType.TRUE_FALSE) {
+    if (!Array.isArray(q.correctAnswer) || !Array.isArray(studentAnswer)) return false;
+    return q.correctAnswer.length === studentAnswer.length && q.correctAnswer.every((v:any, i:number) => v === studentAnswer[i]);
+  }
+  return false;
+};
+
+const cleanTextRaw = (text: string): string => {
   if (!text) return '';
-  const cleaned = text.toString().replace(/"/g, '""').replace(/\n/g, ' ').replace(/;/g, ',');
-  return `"${cleaned}"`;
+  return text.toString().replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+};
+
+export const exportMultiSheetAnalysis = (submissions: any[], questions: Question[], fileName: string) => {
+  if (!submissions || submissions.length === 0 || !questions || questions.length === 0) {
+    alert("Data tidak lengkap untuk membuat laporan analisis.");
+    return;
+  }
+
+  // --- SHEET 1: DATA SISWA & JAWABAN ---
+  const studentRows = submissions.map((s, idx) => {
+    const row: any = {
+      'No': idx + 1,
+      'Nama Siswa': s.student_name,
+      'Kelas': s.class_name,
+      'Sekolah': s.school_origin || '-',
+      'Skor Akhir': s.score.toFixed(1),
+      'Waktu Selesai': new Date(s.timestamp).toLocaleString('id-ID'),
+    };
+
+    // Tambahkan kolom jawaban per nomor
+    questions.forEach((q, qIdx) => {
+      const ans = s.answers?.[q.id];
+      const isCorrect = checkCorrectness(q, ans);
+      const label = `Soal ${qIdx + 1}`;
+      
+      let displayAns = "";
+      if (ans === undefined || ans === null) displayAns = "KOSONG";
+      else if (q.type === QuestionType.SINGLE) displayAns = indexToAlpha(ans);
+      else displayAns = JSON.stringify(ans);
+
+      row[label] = displayAns;
+      row[`Status ${qIdx + 1}`] = isCorrect ? 'BENAR' : 'SALAH';
+    });
+
+    return row;
+  });
+
+  // --- SHEET 2: REFERENSI SOAL & KUNCI ---
+  const questionRows = questions.map((q, idx) => {
+    const options = q.options || [];
+    return {
+      'No': q.order || idx + 1,
+      'ID Soal': q.id,
+      'Tipe': q.type,
+      'Level': q.level || '-',
+      'Butir Pertanyaan': cleanTextRaw(q.text),
+      'Opsi A': cleanTextRaw(options[0] || ''),
+      'Opsi B': cleanTextRaw(options[1] || ''),
+      'Opsi C': cleanTextRaw(options[2] || ''),
+      'Opsi D': cleanTextRaw(options[3] || ''),
+      'Opsi E': cleanTextRaw(options[4] || ''),
+      'Kunci Jawaban': formatCorrectAnswer(q),
+      'Pembahasan': cleanTextRaw(q.explanation || 'Tidak ada pembahasan.')
+    };
+  });
+
+  // Buat Workbook
+  const wb = XLSX.utils.book_new();
+  
+  const wsStudents = XLSX.utils.json_to_sheet(studentRows);
+  const wsQuestions = XLSX.utils.json_to_sheet(questionRows);
+
+  XLSX.utils.book_append_sheet(wb, wsStudents, "HASIL_SISWA");
+  XLSX.utils.book_append_sheet(wb, wsQuestions, "REFERENSI_SOAL");
+
+  // Download
+  XLSX.writeFile(wb, `${fileName}.xlsx`);
 };
 
 export const exportQuestionsToExcel = (questions: Question[], fileName: string) => {
@@ -52,17 +135,17 @@ export const exportQuestionsToExcel = (questions: Question[], fileName: string) 
       q.order || idx + 1,
       q.type,
       q.level || '-',
-      cleanText(q.material || '-'),
-      cleanText(q.text),
+      (q.material || '-').replace(/;/g, ','),
+      (q.text || '').replace(/;/g, ','),
       q.questionImage || '',
-      cleanText(options[0] || ''), optImages[0] || '',
-      cleanText(options[1] || ''), optImages[1] || '',
-      cleanText(options[2] || ''), optImages[2] || '',
-      cleanText(options[3] || ''), optImages[3] || '',
-      cleanText(options[4] || ''), optImages[4] || '',
-      cleanText(formatCorrectAnswer(q)),
-      cleanText(q.explanation || ''),
-      cleanText(q.quizToken || '-')
+      (options[0] || '').replace(/;/g, ','), optImages[0] || '',
+      (options[1] || '').replace(/;/g, ','), optImages[1] || '',
+      (options[2] || '').replace(/;/g, ','), optImages[2] || '',
+      (options[3] || '').replace(/;/g, ','), optImages[3] || '',
+      (options[4] || '').replace(/;/g, ','), optImages[4] || '',
+      formatCorrectAnswer(q),
+      (q.explanation || '').replace(/;/g, ','),
+      (q.quizToken || '-')
     ].join(';');
   });
 
@@ -72,10 +155,7 @@ export const exportQuestionsToExcel = (questions: Question[], fileName: string) 
   const link = document.createElement('a');
   link.setAttribute('href', url);
   link.setAttribute('download', `${fileName}.csv`);
-  link.style.visibility = 'hidden';
-  document.body.appendChild(link);
   link.click();
-  document.body.removeChild(link);
 };
 
 export const exportSubmissionsToExcel = (submissions: any[], fileName: string, questionBank: Question[] = []) => {
@@ -96,11 +176,11 @@ export const exportSubmissionsToExcel = (submissions: any[], fileName: string, q
   const rows = submissions.map((s, idx) => {
     return [
       idx + 1,
-      cleanText(s.student_name),
-      cleanText(s.class_name),
-      cleanText(s.school_origin || '-'),
-      cleanText(s.subject_token || s.subject || '-'),
-      cleanText(s.subject_name || 'Ujian Digital'),
+      `"${s.student_name}"`,
+      `"${s.class_name}"`,
+      `"${s.school_origin || '-'}"`,
+      `"${s.subject_token || s.subject || '-'}"`,
+      `"${s.subject_name || 'Ujian Digital'}"`,
       s.score.toFixed(1),
       new Date(s.timestamp).toLocaleDateString('id-ID'),
       new Date(s.timestamp).toLocaleTimeString('id-ID')
@@ -113,10 +193,7 @@ export const exportSubmissionsToExcel = (submissions: any[], fileName: string, q
   const link = document.createElement('a');
   link.setAttribute('href', url);
   link.setAttribute('download', `${fileName}.csv`);
-  link.style.visibility = 'hidden';
-  document.body.appendChild(link);
   link.click();
-  document.body.removeChild(link);
 };
 
 export const exportFullSubmissionsToCSV = (submissions: any[], fileName: string) => {
@@ -138,13 +215,13 @@ export const exportFullSubmissionsToCSV = (submissions: any[], fileName: string)
         const answerCols = sortedKeys.map(k => {
             const ans = answers[k];
             if (ans === undefined || ans === null) return '';
-            return cleanText(JSON.stringify(ans));
+            return `"${JSON.stringify(ans).replace(/"/g, '""')}"`;
         });
 
         return [
-            cleanText(s.student_name),
-            cleanText(s.class_name),
-            cleanText(s.school_origin || '-'),
+            `"${s.student_name}"`,
+            `"${s.class_name}"`,
+            `"${s.school_origin || '-'}"`,
             s.score.toFixed(1),
             new Date(s.timestamp).toLocaleString('id-ID'),
             ...answerCols
@@ -157,8 +234,5 @@ export const exportFullSubmissionsToCSV = (submissions: any[], fileName: string)
     const link = document.createElement('a');
     link.setAttribute('href', url);
     link.setAttribute('download', `${fileName}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
 };

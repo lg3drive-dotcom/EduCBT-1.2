@@ -44,6 +44,37 @@ export const fetchAllQuestions = async (): Promise<Question[]> => {
   }));
 };
 
+export const fetchQuestionsByToken = async (token: string): Promise<Question[]> => {
+  const { data, error } = await supabase
+    .from('questions')
+    .select('*')
+    .eq('quiz_token', token.toUpperCase())
+    .eq('is_deleted', false)
+    .order('order', { ascending: true });
+
+  if (error) throw error;
+  
+  return (data || []).map(q => ({
+    id: q.id,
+    type: q.type,
+    level: q.level,
+    subject: q.subject,
+    phase: q.phase || 'Fase C',
+    material: q.material,
+    text: q.text,
+    explanation: q.explanation,
+    questionImage: q.question_image,
+    options: q.options,
+    optionImages: q.option_images,
+    correctAnswer: q.correct_answer,
+    isDeleted: q.is_deleted,
+    createdAt: q.created_at,
+    order: q.order,
+    quizToken: q.quiz_token,
+    tfLabels: q.tf_labels
+  }));
+};
+
 export const pushQuestionsToCloud = async (questions: Question[]) => {
   if (!questions || questions.length === 0) return;
 
