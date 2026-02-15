@@ -12,6 +12,17 @@ const MathText: React.FC<MathTextProps> = ({ text, className, style }) => {
   const containerRef = useRef<HTMLSpanElement>(null);
 
   /**
+   * Fungsi untuk mengubah sintaks Markdown Bold/Italic/Underline menjadi HTML
+   */
+  const formatMarkdownStyles = (content: string): string => {
+    if (!content) return '';
+    return content
+      .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>') // Bold: **text**
+      .replace(/__(.*?)__/g, '<u>$1</u>')     // Underline: __text__
+      .replace(/\*(.*?)\*/g, '<i>$1</i>');    // Italic: *text*
+  };
+
+  /**
    * Fungsi untuk mengubah format tabel Markdown (| col | col |) menjadi HTML Table
    */
   const parseMarkdownTable = (content: string): string => {
@@ -23,7 +34,7 @@ const MathText: React.FC<MathTextProps> = ({ text, className, style }) => {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
       
-      // Deteksi baris tabel (diawali dan diakhiri dengan | atau mengandung banyak |)
+      // Deteksi baris tabel (diawali dan diakhiri dengan |)
       if (line.startsWith('|') && line.endsWith('|')) {
         if (!inTable) {
           inTable = true;
@@ -36,7 +47,8 @@ const MathText: React.FC<MathTextProps> = ({ text, className, style }) => {
           inTable = false;
           tableLines = [];
         }
-        html += line + '<br/>';
+        // Jika bukan baris tabel, proses gaya Markdown (bold/italic) dan tambahkan break
+        html += formatMarkdownStyles(line) + '<br/>';
       }
     }
 
@@ -56,21 +68,20 @@ const MathText: React.FC<MathTextProps> = ({ text, className, style }) => {
       // Abaikan baris pemisah |---|---|
       if (line.includes('---') && line.includes('|')) return;
 
-      const cells = line.split('|').filter(cell => cell.trim() !== '' || line.indexOf(cell) > 0 && line.indexOf(cell) < line.length - 1);
-      
-      // Bersihkan array dari cell kosong di ujung
       const cleanCells = line.split('|').slice(1, -1);
 
       if (index === 0) {
         tableHtml += '<thead class="bg-slate-100"><tr>';
         cleanCells.forEach(cell => {
-          tableHtml += `<th class="border border-slate-300 p-2 font-black text-slate-700">${cell.trim()}</th>`;
+          const cellContent = formatMarkdownStyles(cell.trim());
+          tableHtml += `<th class="border border-slate-300 p-2 font-black text-slate-700">${cellContent}</th>`;
         });
         tableHtml += '</tr></thead><tbody>';
       } else {
         tableHtml += '<tr>';
         cleanCells.forEach(cell => {
-          tableHtml += `<td class="border border-slate-300 p-2 text-slate-600">${cell.trim()}</td>`;
+          const cellContent = formatMarkdownStyles(cell.trim());
+          tableHtml += `<td class="border border-slate-300 p-2 text-slate-600">${cellContent}</td>`;
         });
         tableHtml += '</tr>';
       }
@@ -111,9 +122,8 @@ const MathText: React.FC<MathTextProps> = ({ text, className, style }) => {
           }
           containerRef.current?.appendChild(span);
         } else {
-          // Bagian teks biasa: sekarang mendukung HTML dan Tabel Markdown
           const textSpan = document.createElement('span');
-          // Proses tabel markdown dan izinkan tag HTML
+          // Sekarang mendukung: HTML Tag, Markdown Table, dan Markdown Styles (Bold/Italic)
           textSpan.innerHTML = parseMarkdownTable(part);
           containerRef.current?.appendChild(textSpan);
         }
