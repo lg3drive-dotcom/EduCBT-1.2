@@ -89,17 +89,24 @@ export const exportMultiSheetAnalysis = (submissions: any[], questions: Question
   // --- SHEET 2: REFERENSI SOAL & KUNCI ---
   const questionRows = questions.map((q, idx) => {
     const options = q.options || [];
+    const optImages = q.optionImages || [];
     return {
       'No': q.order || idx + 1,
       'ID Soal': q.id,
       'Tipe': q.type,
       'Level': q.level || '-',
       'Butir Pertanyaan': cleanTextRaw(q.text),
+      'Gambar Soal (URL)': q.questionImage || '',
       'Opsi A': cleanTextRaw(options[0] || ''),
+      'Gambar Opsi A (URL)': optImages[0] || '',
       'Opsi B': cleanTextRaw(options[1] || ''),
+      'Gambar Opsi B (URL)': optImages[1] || '',
       'Opsi C': cleanTextRaw(options[2] || ''),
+      'Gambar Opsi C (URL)': optImages[2] || '',
       'Opsi D': cleanTextRaw(options[3] || ''),
+      'Gambar Opsi D (URL)': optImages[3] || '',
       'Opsi E': cleanTextRaw(options[4] || ''),
+      'Gambar Opsi E (URL)': optImages[4] || '',
       'Kunci Jawaban': formatCorrectAnswer(q),
       'Pembahasan': cleanTextRaw(q.explanation || 'Tidak ada pembahasan.')
     };
