@@ -320,6 +320,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
             <p className="font-mono text-3xl font-black leading-none">{Math.floor(timeLeft/60)}:{String(timeLeft%60).padStart(2,'0')}</p>
          </div>
        </header>
+       
        <div className="flex-1 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden">
           <main className="flex-1 overflow-y-auto p-4 lg:p-8 custom-scrollbar">
              <div className="max-w-4xl mx-auto space-y-6">
@@ -340,10 +341,15 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                       )}
                       <MathText text={q?.text} className="leading-relaxed text-slate-800 font-medium block" style={{ fontSize: `${fontSize}px` }} />
                       <div className="pt-4">{renderInput()}</div>
+                   </div>
                 </div>
+                
                 <div className="flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-3xl border-2 border-slate-300 shadow-md gap-3">
                    <button disabled={currentIdx === 0} onClick={() => setCurrentIdx(prev => prev-1)} className="w-full sm:w-auto px-8 py-4 bg-slate-100 text-slate-500 font-black rounded-2xl border-b-4 border-slate-300 uppercase text-xs disabled:opacity-30">Sebelumnya</button>
-                   <label className="flex items-center gap-3 cursor-pointer px-6 py-4 bg-orange-50 rounded-2xl border-2 border-orange-200"><input type="checkbox" checked={isDoubtful} onChange={e => setDoubtfuls({...doubtfuls, [q.id]: e.target.checked})} className="w-6 h-6 accent-orange-500 rounded" /><span className="font-black text-orange-600 uppercase text-xs">Ragu-Ragu</span></label>
+                   <label className="flex items-center gap-3 cursor-pointer px-6 py-4 bg-orange-50 rounded-2xl border-2 border-orange-200">
+                      <input type="checkbox" checked={isDoubtful} onChange={e => setDoubtfuls({...doubtfuls, [q.id]: e.target.checked})} className="w-6 h-6 accent-orange-500 rounded" />
+                      <span className="font-black text-orange-600 uppercase text-xs">Ragu-Ragu</span>
+                   </label>
                    {currentIdx === questions.length - 1 ? (
                      <button onClick={() => { if(confirm('Yakin ingin mengakhiri ujian?')) handleSubmit(); }} className="w-full sm:w-auto px-12 py-4 bg-green-600 text-white font-black rounded-2xl border-b-4 border-green-800 uppercase text-xs">Selesai</button>
                    ) : (
@@ -352,6 +358,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                 </div>
              </div>
           </main>
+          
           <aside className="w-full lg:w-80 bg-white border-l-4 border-slate-300 overflow-y-auto p-6 shrink-0 custom-scrollbar lg:h-full flex flex-col">
              <div className="flex-1">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Navigasi Soal</p>
