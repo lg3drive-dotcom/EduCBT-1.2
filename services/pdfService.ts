@@ -213,7 +213,7 @@ export const generateResultPDF = async (result: QuizResult, questions: Question[
 
   doc.setFontSize(8);
   doc.setTextColor(148, 163, 184);
-  doc.text(`Dicetak melalui EduCBT Pro v1.2 • ${new Date().toLocaleString('id-ID')}`, marginX, pageHeight - 10);
+  doc.text(`Dicetak melalui E-Pro CBT Pro v1.2 • ${new Date().toLocaleString('id-ID')}`, marginX, pageHeight - 10);
 
   doc.save(`Hasil_Ujian_${identity.name.replace(/\s+/g, '_')}.pdf`);
 };

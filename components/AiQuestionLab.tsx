@@ -43,6 +43,7 @@ const AiQuestionLab: React.FC<AiQuestionLabProps> = ({ onBack }) => {
     try {
       const result = await generateBatchAIQuestions(
         subject as any, material, count, type, level,
+        // Fix: Removed 'name' and renamed 'type' to 'mimeType' to match the expected structure of fileData in generateBatchAIQuestions.
         file ? { data: file.data, mimeType: file.type } : undefined,
         customPrompt
       );
@@ -60,7 +61,7 @@ const AiQuestionLab: React.FC<AiQuestionLabProps> = ({ onBack }) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `EduCBT_Import_${subject}_${Date.now()}.json`;
+    a.download = `EProCBT_Import_${subject}_${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(url);
     alert("File JSON siap! Silakan masuk ke Panel Admin CBT dan klik 'Upload File Backup' untuk mengimpor soal ini.");
@@ -76,7 +77,7 @@ const AiQuestionLab: React.FC<AiQuestionLabProps> = ({ onBack }) => {
             </button>
             <div>
               <h1 className="text-xl font-black text-white tracking-tighter flex items-center gap-2">
-                <span className="bg-purple-600 px-2 py-0.5 rounded text-xs uppercase">Lab</span> EduCBT AI Question Generator
+                <span className="bg-purple-600 px-2 py-0.5 rounded text-xs uppercase">Lab</span> E-Pro CBT AI Question Generator
               </h1>
               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-0.5">Direct AI Engine • Export JSON Format</p>
             </div>

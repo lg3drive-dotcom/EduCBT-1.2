@@ -226,7 +226,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
         <div className="space-y-4">
           {isMultiple && (
             <div className="flex items-center gap-2 mb-4 bg-blue-50 p-3 rounded-xl border border-blue-100">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
               <p className="text-blue-700 font-bold text-xs uppercase tracking-tight">Pilih lebih dari satu jawaban yang benar</p>
             </div>
           )}
@@ -313,7 +313,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
        <header className="bg-white border-b-4 border-blue-600 p-4 shadow-md flex justify-between items-center z-10 shrink-0">
          <div className="flex items-center gap-4">
            <div className="bg-blue-600 text-white w-12 h-12 rounded-xl flex items-center justify-center font-black text-2xl">C</div>
-           <div><h1 className="font-black text-slate-800 uppercase text-lg leading-none">EduCBT Pro</h1><p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">{subjectName}</p></div>
+           <div><h1 className="font-black text-slate-800 uppercase text-lg leading-none">E-Pro CBT</h1><p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">{subjectName}</p></div>
          </div>
          <div className={`flex flex-col items-center px-8 border-l-2 border-slate-200 ${timeLeft < 300 ? 'text-red-600 animate-pulse' : 'text-blue-700'}`}>
             <p className="text-[10px] font-black uppercase tracking-widest mb-1">Sisa Waktu</p>
@@ -340,7 +340,6 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                       )}
                       <MathText text={q?.text} className="leading-relaxed text-slate-800 font-medium block" style={{ fontSize: `${fontSize}px` }} />
                       <div className="pt-4">{renderInput()}</div>
-                   </div>
                 </div>
                 <div className="flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-3xl border-2 border-slate-300 shadow-md gap-3">
                    <button disabled={currentIdx === 0} onClick={() => setCurrentIdx(prev => prev-1)} className="w-full sm:w-auto px-8 py-4 bg-slate-100 text-slate-500 font-black rounded-2xl border-b-4 border-slate-300 uppercase text-xs disabled:opacity-30">Sebelumnya</button>

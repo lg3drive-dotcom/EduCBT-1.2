@@ -17,7 +17,7 @@ const AdminGuide: React.FC<AdminGuideProps> = ({ onClose }) => {
               </span>
               Selamat Datang, Administrator!
             </h2>
-            <p className="text-blue-100 text-xs font-bold uppercase tracking-widest mt-1">Sistem Ujian Berbasis Komputer EduCBT Pro 1.2</p>
+            <p className="text-blue-100 text-xs font-bold uppercase tracking-widest mt-1">Sistem Ujian Berbasis Komputer E-Pro CBT Pro 1.2</p>
           </div>
           <button onClick={onClose} className="bg-white/10 hover:bg-white/20 p-3 rounded-full transition-all text-white font-black">✕</button>
         </div>
@@ -25,7 +25,7 @@ const AdminGuide: React.FC<AdminGuideProps> = ({ onClose }) => {
         <div className="flex-1 overflow-y-auto p-8 lg:p-12 space-y-10 custom-scrollbar">
           <div className="bg-blue-50 p-6 rounded-[2rem] border border-blue-100 italic">
             <p className="text-blue-800 font-medium leading-relaxed text-sm">
-              "Halo Bapak/Ibu Guru! Senang sekali Anda menggunakan EduCBT. Panel ini dirancang untuk memudahkan Anda mengelola ujian secara digital dan efisien. Ikuti panduan singkat di bawah ini agar Anda bisa memaksimalkan semua fitur yang tersedia."
+              "Halo Bapak/Ibu Guru! Senang sekali Anda menggunakan E-Pro CBT. Panel ini dirancang untuk memudahkan Anda mengelola ujian secara digital dan efisien. Ikuti panduan singkat di bawah ini agar Anda bisa memaksimalkan semua fitur yang tersedia."
             </p>
           </div>
 

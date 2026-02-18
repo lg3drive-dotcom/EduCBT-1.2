@@ -262,7 +262,7 @@ const App: React.FC = () => {
       }
 
       // Jalankan ekspor multi-sheet
-      const fileName = `Analisis_CBT_${token}_${fullDownloadSchool.trim() ? fullDownloadSchool.replace(/\s+/g, '_') : 'SEMUA'}`;
+      const fileName = `Analisis_EProCBT_${token}_${fullDownloadSchool.trim() ? fullDownloadSchool.replace(/\s+/g, '_') : 'SEMUA'}`;
       exportMultiSheetAnalysis(submissions, cloudQuestions, fileName);
       
       alert("Laporan Analisis Multi-Sheet (.xlsx) berhasil dibuat.");
@@ -320,12 +320,12 @@ const App: React.FC = () => {
           )}
 
           <header className="lg:hidden bg-slate-900 text-white p-4 flex justify-between items-center sticky top-0 z-50">
-            <div className="font-black text-xl flex items-center gap-2"><div className="w-6 h-6 bg-blue-600 rounded"></div>CBT SERVER</div>
+            <div className="font-black text-xl flex items-center gap-2"><div className="w-6 h-6 bg-blue-600 rounded"></div>E-PRO CBT SERVER</div>
             <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 bg-white/10 rounded-lg">Menu</button>
           </header>
 
           <aside className={`${isMobileMenuOpen ? 'flex' : 'hidden'} lg:flex w-full lg:w-72 bg-slate-900 text-white flex-col p-6 lg:sticky top-0 lg:h-screen z-40 transition-all`}>
-            <div className="hidden lg:flex font-black text-2xl mb-12 items-center gap-2"><div className="w-8 h-8 bg-blue-600 rounded-lg"></div>CBT SERVER</div>
+            <div className="hidden lg:flex font-black text-2xl mb-12 items-center gap-2"><div className="w-8 h-8 bg-blue-600 rounded-lg"></div>E-PRO CBT SERVER</div>
             <nav className="space-y-2 flex-1">
               <button 
                 onClick={() => {setAdminSubView('bank-soal'); setIsMobileMenuOpen(false);}}
@@ -432,7 +432,7 @@ const App: React.FC = () => {
           <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col md:flex-row border border-slate-200">
             <div className="md:w-5/12 bg-slate-900 p-12 text-white flex flex-col justify-between">
               <div>
-                <div className="flex items-center gap-3 mb-12"><div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-black">C</div><div className="font-black text-2xl">EduCBT Pro</div></div>
+                <div className="flex items-center gap-3 mb-12"><div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-black">C</div><div className="font-black text-2xl">E-Pro CBT</div></div>
                 <h1 className="text-4xl font-black mb-6 leading-tight">Computer Based Test</h1>
                 <p className="text-slate-400 font-medium italic text-xs leading-relaxed">Pastikan guru mengunduh data Rekap Nilai setelah ujian selesai, karena sewaktu-waktu dapat hilang</p>
               </div>
