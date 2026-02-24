@@ -400,6 +400,24 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                            </div>
                          )}
                       </div>
+
+                      <div className="space-y-1">
+                         <div className="flex justify-between items-center mb-1">
+                            <label className="text-[10px] font-black text-emerald-600 uppercase">Pembahasan / Solusi (Opsional)</label>
+                            <button 
+                              onClick={() => setFormData({...formData, explanation: applyAutoLatex(formData.explanation)})}
+                              className="text-[9px] font-black bg-emerald-100 text-emerald-700 px-2 py-1 rounded-lg hover:bg-emerald-200 transition-colors uppercase flex items-center gap-1"
+                            >
+                              ✨ Auto-LaTeX
+                            </button>
+                         </div>
+                         <textarea 
+                            value={formData.explanation} 
+                            onChange={e => setFormData({...formData, explanation: e.target.value})} 
+                            className="w-full p-4 border bg-emerald-50/30 rounded-2xl h-24 font-mono text-sm outline-none focus:border-emerald-500 focus:bg-white transition-all" 
+                            placeholder="Tulis pembahasan atau kunci jawaban di sini..." 
+                         />
+                      </div>
                    </div>
 
                    <div className="space-y-3">
