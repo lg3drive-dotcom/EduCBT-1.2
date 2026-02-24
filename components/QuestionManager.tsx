@@ -170,12 +170,12 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     // 2. Pecahan Biasa: 3/4 atau 1/4 -> $\frac{3}{4}$
     // Menggunakan global flag (g) agar mendeteksi semua kemunculan dalam teks
     result = result.replace(/(^|[^0-9\$])(\d+)\/(\d+)(?![0-9])/g, (match, p1, p2, p3) => {
-      return `${p1}$$\\frac{${p2}}{${p3}}$$`;
+      return `${p1}$\\frac{${p2}}{${p3}}$`;
     });
 
     // 3. Pangkat: x^2 -> $x^2$
     result = result.replace(/(^|[^0-9\$])([a-zA-Z0-9]+)\^([a-zA-Z0-9]+)(?![0-9\$])/g, (match, p1, p2, p3) => {
-       return `${p1}$$${p2}^{${p3}}$$`;
+       return `${p1}$${p2}^{${p3}}$`;
     });
 
     // 4. Akar Kuadrat: sqrt(144) -> $\sqrt{144}$
