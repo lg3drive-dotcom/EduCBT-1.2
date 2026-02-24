@@ -32,23 +32,28 @@ const MathText: React.FC<MathTextProps> = ({ text, className, style }) => {
     let tableLines: string[] = [];
 
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
+      const originalLine = lines[i];
+      const trimmedLine = originalLine.trim();
       
       // Deteksi baris tabel (diawali dan diakhiri dengan |)
-      if (line.startsWith('|') && line.endsWith('|')) {
+      if (trimmedLine.startsWith('|') && trimmedLine.endsWith('|')) {
         if (!inTable) {
           inTable = true;
           tableLines = [];
         }
-        tableLines.push(line);
+        tableLines.push(trimmedLine);
       } else {
         if (inTable) {
           html += renderTable(tableLines);
           inTable = false;
           tableLines = [];
         }
-        // Jika bukan baris tabel, proses gaya Markdown (bold/italic) dan tambahkan break
-        html += formatMarkdownStyles(line) + '<br/>';
+        // Jika bukan baris tabel, proses gaya Markdown (bold/italic)
+        // Gunakan originalLine agar spasi tidak hilang, dan tambahkan <br/> hanya jika ada baris berikutnya
+        html += formatMarkdownStyles(originalLine);
+        if (i < lines.length - 1) {
+          html += '<br/>';
+        }
       }
     }
 
