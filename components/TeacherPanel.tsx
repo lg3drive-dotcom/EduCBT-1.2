@@ -112,7 +112,7 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ results, questions, onUpdat
                               <p className="font-black text-slate-700">
                                 { /* Fix: Property 'COMPLEX_CATEGORY' does not exist on type 'typeof QuestionType'. Use MATCH and TRUE_FALSE which represent complex types. */ }
                                 {q.type === QuestionType.MATCH || q.type === QuestionType.TRUE_FALSE 
-                                  ? (Array.isArray(answer) ? answer.map((v, i) => `[${q.options?.[i]}: ${v ? 'Sesuai' : 'Tidak'}]`).join(", ") : "Tidak dijawab")
+                                  ? (Array.isArray(answer) ? answer.map((v, i) => `[${q.options?.[i]}: ${v ? (q.tfLabels?.true?.[0] || 'T') : (q.tfLabels?.false?.[0] || 'F')}]`).join(", ") : "Tidak dijawab")
                                   : q.options 
                                     ? (Array.isArray(answer) ? answer.map((i: number) => q.options?.[i]).join(", ") : q.options[answer as number] || "Tidak dijawab")
                                     : String(answer || "KOSONG")
@@ -125,7 +125,7 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ results, questions, onUpdat
                             <p className="font-black text-green-800">
                                { /* Fix: Property 'COMPLEX_CATEGORY' does not exist on type 'typeof QuestionType'. Use MATCH and TRUE_FALSE which represent complex types. */ }
                                {q.type === QuestionType.MATCH || q.type === QuestionType.TRUE_FALSE 
-                                 ? q.options?.map((opt, i) => `[${opt}: ${q.correctAnswer[i] ? 'Sesuai' : 'Tidak'}]`).join(", ")
+                                 ? q.options?.map((opt, i) => `[${opt}: ${q.correctAnswer[i] ? (q.tfLabels?.true?.[0] || 'T') : (q.tfLabels?.false?.[0] || 'F')}]`).join(", ")
                                  : q.options 
                                    ? (Array.isArray(q.correctAnswer) ? q.correctAnswer.map(i => q.options?.[i]).join(", ") : q.options[q.correctAnswer])
                                    : String(q.correctAnswer)

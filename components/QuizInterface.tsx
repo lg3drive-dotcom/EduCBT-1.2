@@ -183,7 +183,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
 
   const renderInput = () => {
     if (q.type === QuestionType.TRUE_FALSE || q.type === QuestionType.MATCH) {
-      const labels = q.tfLabels || { true: 'Benar', false: 'Salah' };
+      const labels = q.tfLabels || { true: 'T', false: 'F' };
       return (
         <div className="bg-white border-2 border-slate-200 rounded-2xl overflow-hidden shadow-sm">
            <table className="w-full text-left">

@@ -2,7 +2,7 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { AppSettings, Question, ExternalLinks } from '../types';
 import { fetchSubmissionsByToken } from '../services/supabaseService';
-import { exportSubmissionsToExcel } from '../services/excelService';
+import { exportSubmissionsToExcel, downloadImportTemplate } from '../services/excelService';
 
 interface AdminSettingsProps {
   settings: AppSettings;
@@ -231,6 +231,13 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
                 <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleFileChange} />
                 <button onClick={() => fileInputRef.current?.click()} className="w-full bg-blue-50 text-blue-600 font-bold py-3 rounded-xl border border-blue-100 text-[10px] uppercase tracking-widest transition-all">Upload JSON (Restore)</button>
                 <button onClick={() => setIsPasteModalOpen(true)} className="w-full bg-slate-100 text-slate-600 font-bold py-3 rounded-xl border border-slate-200 text-[10px] uppercase tracking-widest transition-all">Paste JSON (Manual)</button>
+                <button 
+                  onClick={downloadImportTemplate} 
+                  className="w-full bg-emerald-50 text-emerald-700 font-black py-3 rounded-xl border border-emerald-200 shadow-sm text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                  Download Format Excel (Template)
+                </button>
                 <button onClick={handleResetData} className="w-full text-red-500 font-bold py-2 text-[9px] uppercase tracking-widest hover:bg-red-50 rounded-lg">Kosongkan Bank Soal Lokal</button>
               </div>
             </div>

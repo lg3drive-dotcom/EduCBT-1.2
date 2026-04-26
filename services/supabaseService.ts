@@ -95,7 +95,7 @@ export const pushQuestionsToCloud = async (questions: Question[]) => {
     created_at: q.createdAt || Date.now(),
     order: Number(q.order) || 0,
     quiz_token: (q.quizToken || 'UJI01').trim().toUpperCase(),
-    tf_labels: q.tfLabels || { true: 'Benar', false: 'Salah' }
+    tf_labels: q.tfLabels || { true: 'T', false: 'F' }
   }));
 
   const cleanPayload = sanitizeData(payload);

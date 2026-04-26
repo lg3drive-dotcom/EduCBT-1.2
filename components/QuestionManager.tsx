@@ -3,6 +3,7 @@ import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { Question, Subject, QuestionType, CognitiveLevel } from '../types.ts';
 import { SUBJECT_LIST, BLOOM_LEVELS, PUSPENDIK_LEVELS, COGNITIVE_LEVELS } from '../constants.ts';
 import { generateQuestionBankPDF } from '../services/pdfService.ts';
+import { downloadImportTemplate } from '../services/excelService.ts';
 import MathText from './MathText.tsx';
 
 interface QuestionManagerProps {
@@ -51,7 +52,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     level: CognitiveLevel.C1, options: ['', '', '', ''],
     optionImages: [undefined, undefined, undefined, undefined],
     correctAnswer: 0, subject: Subject.PANCASILA, phase: 'Fase C', order: 1,
-    quizToken: activeToken, tfLabels: { true: 'Benar', false: 'Salah' }
+    quizToken: activeToken, tfLabels: { true: 'T', false: 'F' }
   });
 
   useEffect(() => {
@@ -70,7 +71,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
       level: CognitiveLevel.C1, options: ['', '', '', ''], 
       optionImages: [undefined, undefined, undefined, undefined], 
       correctAnswer: 0, subject: Subject.PANCASILA, phase: 'Fase C', order: 1,
-      quizToken: activeToken, tfLabels: { true: 'Benar', false: 'Salah' }
+      quizToken: activeToken, tfLabels: { true: 'T', false: 'F' }
     });
   };
 
@@ -83,7 +84,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
       optionImages: q.optionImages || (q.options ? q.options.map(() => undefined) : [undefined, undefined, undefined, undefined]),
       correctAnswer: q.correctAnswer, subject: q.subject, phase: q.phase || 'Fase C',
       order: q.order || 1, quizToken: q.quizToken || activeToken,
-      tfLabels: q.tfLabels || { true: 'Benar', false: 'Salah' }
+      tfLabels: q.tfLabels || { true: 'T', false: 'F' }
     });
     setShowForm(true);
   };
@@ -186,7 +187,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
 
   const renderPreviewContent = (q: Question) => {
     const isComplex = q.type === QuestionType.TRUE_FALSE || q.type === QuestionType.MATCH;
-    const labels = q.tfLabels || { true: 'Benar', false: 'Salah' };
+    const labels = q.tfLabels || { true: 'T', false: 'F' };
     
     const checkIsCorrect = (idx: number) => {
       if (q.type === QuestionType.SINGLE) return q.correctAnswer === idx;
@@ -260,6 +261,9 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
              </button>
              <button onClick={handleExportJSON} className="p-2 hover:bg-slate-200 rounded-lg text-slate-500 transition-colors" title="Export JSON">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+             </button>
+             <button onClick={downloadImportTemplate} className="p-2 hover:bg-emerald-100 rounded-lg text-emerald-600 transition-colors border border-emerald-200 bg-emerald-50" title="Download Template Excel">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
              </button>
           </div>
@@ -343,10 +347,10 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                             let newLabels = { ...formData.tfLabels };
 
                             if (newType === QuestionType.TRUE_FALSE) {
-                              newLabels = { true: 'Benar', false: 'Salah' };
+                              newLabels = { true: 'T', false: 'F' };
                               newAns = formData.options.map(() => false);
                             } else if (newType === QuestionType.MATCH) {
-                              newLabels = { true: 'Sesuai', false: 'Tidak Sesuai' };
+                              newLabels = { true: 'T', false: 'F' };
                               newAns = formData.options.map(() => false);
                             } else if (newType === QuestionType.MULTIPLE) {
                               newAns = [];

@@ -20,7 +20,7 @@ const formatCorrectAnswer = (q: Question): string => {
   
   if (q.type === QuestionType.MATCH || q.type === QuestionType.TRUE_FALSE) {
     if (Array.isArray(q.correctAnswer)) {
-      const labels = q.tfLabels || { true: 'B', false: 'S' };
+      const labels = q.tfLabels || { true: 'T', false: 'F' };
       return q.correctAnswer
         .map((val: boolean) => (val === true ? labels.true[0] : labels.false[0]))
         .join(', ');
@@ -242,4 +242,41 @@ export const exportFullSubmissionsToCSV = (submissions: any[], fileName: string)
     link.setAttribute('href', url);
     link.setAttribute('download', `${fileName}.csv`);
     link.click();
+};
+
+export const downloadImportTemplate = () => {
+  const headers = [
+    'No', 'Tipe Soal', 'Level', 'Materi', 'Teks Soal', 'Gambar Soal (URL)',
+    'Opsi A', 'Gambar Opsi A (URL)', 'Opsi B', 'Gambar Opsi B (URL)',
+    'Opsi C', 'Gambar Opsi C (URL)', 'Opsi D', 'Gambar Opsi D (URL)',
+    'Opsi E', 'Gambar Opsi E (URL)', 'Kunci Jawaban', 'Pembahasan', 'Token Paket'
+  ];
+
+  const sampleRow = {
+    'No': 1,
+    'Tipe Soal': '(Pilihan Ganda)',
+    'Level': 'C3',
+    'Materi': 'Pancasila',
+    'Teks Soal': 'Apa lambang sila ke-2?',
+    'Gambar Soal (URL)': '',
+    'Opsi A': 'Bintang',
+    'Gambar Opsi A (URL)': '',
+    'Opsi B': 'Rantai',
+    'Gambar Opsi B (URL)': '',
+    'Opsi C': 'Pohon Beringin',
+    'Gambar Opsi C (URL)': '',
+    'Opsi D': 'Kepala Banteng',
+    'Gambar Opsi D (URL)': '',
+    'Opsi E': 'Padi dan Kapas',
+    'Gambar Opsi E (URL)': '',
+    'Kunci Jawaban': 'B',
+    'Pembahasan': 'Sila ke-2 berlambang Rantai.',
+    'Token Paket': 'UJI01'
+  };
+
+  const ws = XLSX.utils.json_to_sheet([sampleRow], { header: headers });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Template_Soal");
+
+  XLSX.writeFile(wb, "Template_Impor_Soal.xlsx");
 };
