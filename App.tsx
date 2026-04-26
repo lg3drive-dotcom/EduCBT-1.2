@@ -193,6 +193,13 @@ const App: React.FC = () => {
   const handleStartQuiz = async (e: React.FormEvent) => {
     e.preventDefault();
     const token = identity.token.trim().toUpperCase();
+    const npsn = identity.schoolOrigin.trim();
+
+    if (!npsn) return alert('Masukkan NPSN!');
+    if (!/^\d+$/.test(npsn) || npsn.length !== 8) {
+      return alert('NPSN harus diisi dengan angka dan berjumlah tepat 8 karakter!');
+    }
+    
     if (!token) return alert('Masukkan Token!');
     setIsSyncing(true);
     try {
@@ -457,12 +464,7 @@ const App: React.FC = () => {
                   maxLength={8}
                   className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold" 
                   value={identity.schoolOrigin} 
-                  onChange={e => {
-                    const val = e.target.value;
-                    if (val === '' || (/^\d+$/.test(val) && val.length <= 8)) {
-                      setIdentity({...identity, schoolOrigin: val});
-                    }
-                  }} 
+                  onChange={e => setIdentity({...identity, schoolOrigin: e.target.value})} 
                 />
                 <div className="relative">
                   <span className="absolute left-4 -top-2.5 px-2 bg-white text-[10px] font-black text-blue-600 uppercase tracking-widest z-10 border border-slate-100 rounded-full">Tanggal Lahir</span>
