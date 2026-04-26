@@ -450,7 +450,20 @@ const App: React.FC = () => {
                   <input required type="text" placeholder="Nama Peserta" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold" value={identity.name} onChange={e => setIdentity({...identity, name: e.target.value})} />
                   <input required type="text" placeholder="Kelas" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold" value={identity.className} onChange={e => setIdentity({...identity, className: e.target.value})} />
                 </div>
-                <input required type="text" placeholder="Asal Sekolah" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold" value={identity.schoolOrigin} onChange={e => setIdentity({...identity, schoolOrigin: e.target.value})} />
+                <input 
+                  required 
+                  type="text" 
+                  placeholder="NPSN" 
+                  maxLength={8}
+                  className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold" 
+                  value={identity.schoolOrigin} 
+                  onChange={e => {
+                    const val = e.target.value;
+                    if (val === '' || (/^\d+$/.test(val) && val.length <= 8)) {
+                      setIdentity({...identity, schoolOrigin: val});
+                    }
+                  }} 
+                />
                 <div className="relative">
                   <span className="absolute left-4 -top-2.5 px-2 bg-white text-[10px] font-black text-blue-600 uppercase tracking-widest z-10 border border-slate-100 rounded-full">Tanggal Lahir</span>
                   <input required type="date" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold text-slate-700 min-h-[60px]" value={identity.birthDate} onChange={e => setIdentity({...identity, birthDate: e.target.value})} />
@@ -488,7 +501,7 @@ const App: React.FC = () => {
                       </h3>
                       <div className="space-y-3">
                          <input type="text" placeholder="Input Token..." className="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs font-black uppercase tracking-widest outline-none focus:border-blue-500 mb-2" value={fullDownloadToken} onChange={e => setFullDownloadToken(e.target.value)} />
-                         <input type="text" placeholder="Nama Sekolah (Opsional)" className="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-blue-500" value={fullDownloadSchool} onChange={e => setFullDownloadSchool(e.target.value)} />
+                         <input type="text" placeholder="Filter NPSN (Opsional)" className="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs font-black outline-none focus:border-blue-500" value={fullDownloadSchool} onChange={e => setFullDownloadSchool(e.target.value)} />
                          <p className="text-[9px] text-slate-400 font-medium italic mt-1 px-1">Menghasilkan file Excel dengan sheet Jawaban Siswa & Referensi Soal.</p>
                          <button onClick={handleFullDataDownload} disabled={isFullDownloading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-xl text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2">
                             {isFullDownloading ? 'MENGEKSTRAK...' : 'DOWNLOAD DATA LENGKAP'}

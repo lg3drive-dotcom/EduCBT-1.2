@@ -63,7 +63,7 @@ export const exportMultiSheetAnalysis = (submissions: any[], questions: Question
       'No': idx + 1,
       'Nama Siswa': s.student_name,
       'Kelas': s.class_name,
-      'Sekolah': s.school_origin || '-',
+      'NPSN': s.school_origin || '-',
       'Skor Akhir': s.score.toFixed(1),
       'Waktu Selesai': new Date(s.timestamp).toLocaleString('id-ID'),
     };
@@ -172,7 +172,7 @@ export const exportSubmissionsToExcel = (submissions: any[], fileName: string, q
     'No',
     'Nama Lengkap',
     'Kelas',
-    'Asal Sekolah',
+    'NPSN',
     'ID Token',
     'Mapel',
     'Nilai',
@@ -213,7 +213,7 @@ export const exportFullSubmissionsToCSV = (submissions: any[], fileName: string)
     const sortedKeys = Array.from(allKeys).sort();
 
     const headers = [
-        'Nama Siswa', 'Kelas', 'Sekolah', 'Skor Akhir', 'Waktu Selesai',
+        'Nama Siswa', 'Kelas', 'NPSN', 'Skor Akhir', 'Waktu Selesai',
         ...sortedKeys.map(k => `Q_${k}`)
     ];
 

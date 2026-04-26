@@ -29,7 +29,7 @@ const ConfirmIdentity: React.FC<ConfirmIdentityProps> = ({ identity, settings, o
               <p className="text-lg font-black text-slate-800">{identity.className}</p>
             </div>
             <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Asal Sekolah</p>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">NPSN</p>
               <p className="text-lg font-black text-slate-800 truncate">{identity.schoolOrigin || '-'}</p>
             </div>
             <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100">
