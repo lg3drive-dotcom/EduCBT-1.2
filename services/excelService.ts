@@ -252,31 +252,81 @@ export const downloadImportTemplate = () => {
     'Opsi E', 'Gambar Opsi E (URL)', 'Kunci Jawaban', 'Pembahasan', 'Token Paket'
   ];
 
-  const sampleRow = {
-    'No': 1,
-    'Tipe Soal': '(Pilihan Ganda)',
-    'Level': 'C3',
-    'Materi': 'Pancasila',
-    'Teks Soal': 'Apa lambang sila ke-2?',
-    'Gambar Soal (URL)': '',
-    'Opsi A': 'Bintang',
-    'Gambar Opsi A (URL)': '',
-    'Opsi B': 'Rantai',
-    'Gambar Opsi B (URL)': '',
-    'Opsi C': 'Pohon Beringin',
-    'Gambar Opsi C (URL)': '',
-    'Opsi D': 'Kepala Banteng',
-    'Gambar Opsi D (URL)': '',
-    'Opsi E': 'Padi dan Kapas',
-    'Gambar Opsi E (URL)': '',
-    'Kunci Jawaban': 'B',
-    'Pembahasan': 'Sila ke-2 berlambang Rantai.',
-    'Token Paket': 'UJI01'
-  };
+  const samples = [
+    {
+      'No': 1,
+      'Tipe Soal': '(Pilihan Ganda)',
+      'Level': 'C3',
+      'Materi': 'Pancasila',
+      'Teks Soal': 'Apa lambang sila ke-2?',
+      'Gambar Soal (URL)': '',
+      'Opsi A': 'Bintang',
+      'Gambar Opsi A (URL)': '',
+      'Opsi B': 'Rantai',
+      'Gambar Opsi B (URL)': '',
+      'Opsi C': 'Pohon Beringin',
+      'Gambar Opsi C (URL)': '',
+      'Opsi D': 'Kepala Banteng',
+      'Gambar Opsi D (URL)': '',
+      'Opsi E': 'Padi dan Kapas',
+      'Gambar Opsi E (URL)': '',
+      'Kunci Jawaban': 'B',
+      'Pembahasan': 'Sila ke-2 berlambang Rantai.',
+      'Token Paket': 'UJI01'
+    },
+    {
+      'No': 2,
+      'Tipe Soal': '(PG Kompleks)',
+      'Level': 'C4',
+      'Materi': 'Ekosistem',
+      'Teks Soal': 'Mana yang termasuk produsen?',
+      'Opsi A': 'Padi', 'Opsi B': 'Rumput', 'Opsi C': 'Ulat', 'Opsi D': 'Elang', 'Opsi E': 'Lumut',
+      'Kunci Jawaban': 'A, B, E',
+      'Pembahasan': 'Padi, rumput, dan lumut berfotosintesis.',
+      'Token Paket': 'UJI01'
+    },
+    {
+      'No': 3,
+      'Tipe Soal': '(Benar/Salah)',
+      'Level': 'C2',
+      'Materi': 'Biologi',
+      'Teks Soal': 'Tentukan pernyataan berikut benar atau salah:',
+      'Opsi A': 'Ikan bernapas dengan paru-paru',
+      'Opsi B': 'Mamalia menyusui anaknya',
+      'Opsi C': 'Burung adalah reptil',
+      'Kunci Jawaban': 'F, T, F',
+      'Pembahasan': 'Ikan pakai insang, burung aves.',
+      'Token Paket': 'UJI01'
+    },
+    {
+      'No': 4,
+      'Tipe Soal': '(Sesuai/Tidak Sesuai)',
+      'Level': 'C2',
+      'Materi': 'Geografi',
+      'Teks Soal': 'Pasangkan pernyataan dengan kategorinya:',
+      'Opsi A': 'Jakarta - Ibu Kota Indonesia',
+      'Opsi B': 'Surabaya - Ibu Kota Jawa Barat',
+      'Kunci Jawaban': 'T, F',
+      'Pembahasan': 'Surabaya Ibu Kota Jawa Timur.',
+      'Token Paket': 'UJI01'
+    }
+  ];
 
-  const ws = XLSX.utils.json_to_sheet([sampleRow], { header: headers });
+  const instructions = [
+    { 'Kolom': 'Tipe Soal', 'Penjelasan': 'Wajib diisi: (Pilihan Ganda), (PG Kompleks), (Benar/Salah), atau (Sesuai/Tidak Sesuai)' },
+    { 'Kolom': 'Kunci Jawaban (PG)', 'Penjelasan': 'Cukup satu huruf: A atau B atau C atau D atau E' },
+    { 'Kolom': 'Kunci Jawaban (PG Kompleks)', 'Penjelasan': 'Gunakan koma: A, C, D (jawaban benar lebih dari satu)' },
+    { 'Kolom': 'Kunci Jawaban (B/S & Sesuai)', 'Penjelasan': 'Gunakan T (True) atau F (False) dipisah koma sesuai urutan Opsi. Contoh: T, F, T' },
+    { 'Kolom': 'Opsi', 'Penjelasan': 'Untuk B/S dan Sesuai, setiap baris pernyataan diletakkan di Opsi A, B, C, dst.' },
+    { 'Kolom': 'Token Paket', 'Penjelasan': 'Digunakan untuk mengelompokkan soal (misal: PAS2024)' }
+  ];
+
+  const ws = XLSX.utils.json_to_sheet(samples, { header: headers });
+  const wsInfo = XLSX.utils.json_to_sheet(instructions);
+  
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Template_Soal");
+  XLSX.utils.book_append_sheet(wb, wsInfo, "Petunjuk_Pengisian");
 
   XLSX.writeFile(wb, "Template_Impor_Soal.xlsx");
 };
