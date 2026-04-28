@@ -99,29 +99,10 @@ const App: React.FC = () => {
   }, [adminPassword]);
 
   useEffect(() => {
-    const syncWithCloud = async () => {
-      try {
-        const cloudSettings = await getGlobalSettings();
-        if (cloudSettings) {
-          if (cloudSettings.adminPassword) {
-            setAdminPassword(cloudSettings.adminPassword);
-          }
-          setSettings(prev => ({
-            ...prev,
-            timerMinutes: cloudSettings.timerMinutes || prev.timerMinutes,
-            externalLinks: {
-              ...DEFAULT_LINKS,
-              ...(cloudSettings.externalLinks || {})
-            }
-          }));
-          setSyncStatus('success');
-          setLastSyncedAt(new Date().toLocaleTimeString());
-        }
-      } catch (err) {
-        console.warn("Cloud Initialization Warning:", err);
-      }
-    };
-    syncWithCloud();
+    // We removed automatic sync with cloud on mount to respect the user's request
+    // for manual sync only. Settings and questions are now strictly local (localStorage)
+    // until the user clicks "TARIK DATA SERVER" or "KIRIM KE CLOUD".
+    setSyncStatus('idle');
   }, []);
 
   const handleCloudSync = async () => {
@@ -132,9 +113,7 @@ const App: React.FC = () => {
 
     setSyncStatus('loading');
     try {
-      if (adminSubView === 'bank-soal') {
-        await pushQuestionsToCloud(questions);
-      }
+      await pushQuestionsToCloud(questions);
       await updateLiveSettings({ ...settings, adminPassword });
       setSyncStatus('success');
       setLastSyncedAt(new Date().toLocaleTimeString());
@@ -154,8 +133,26 @@ const App: React.FC = () => {
   const handleCloudPull = async () => {
     setPullStatus('loading');
     try {
+      // Pull questions
       const cloudQs = await fetchAllQuestions();
       setQuestions(cloudQs);
+      
+      // Also pull global settings (Password, Timer, Links)
+      const cloudSettings = await getGlobalSettings();
+      if (cloudSettings) {
+        if (cloudSettings.adminPassword) {
+          setAdminPassword(cloudSettings.adminPassword);
+        }
+        setSettings(prev => ({
+          ...prev,
+          timerMinutes: cloudSettings.timerMinutes || prev.timerMinutes,
+          externalLinks: {
+            ...DEFAULT_LINKS,
+            ...(cloudSettings.externalLinks || {})
+          }
+        }));
+      }
+
       setPullStatus('success');
       setSyncStatus('success');
       setLastSyncedAt(new Date().toLocaleTimeString());

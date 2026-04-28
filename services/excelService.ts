@@ -186,15 +186,30 @@ export const importQuestionsFromExcel = (file: File): Promise<Question[]> => {
         };
 
         const parsedQuestions: Question[] = json.map((row, idx) => {
-          const type = row['Tipe Soal'] || QuestionType.SINGLE;
+          const typeStr = String(row['Tipe Soal'] || '').trim();
+          let type = QuestionType.SINGLE;
+          
+          if (typeStr.toLocaleLowerCase().includes('kompleks') || typeStr.toLocaleLowerCase().includes('jamak')) {
+            type = QuestionType.MULTIPLE;
+          } else if (typeStr.toLocaleLowerCase().includes('benar') || typeStr.toLocaleLowerCase().includes('salah')) {
+            type = QuestionType.TRUE_FALSE;
+          } else if (typeStr.toLocaleLowerCase().includes('sesuai')) {
+            type = QuestionType.MATCH;
+          } else {
+            type = QuestionType.SINGLE;
+          }
+
           const rawKey = String(row['Kunci Jawaban'] || '');
           
           let correctAnswer: any = 0;
           if (type === QuestionType.MULTIPLE) {
             correctAnswer = rawKey.split(',').map(s => alphaToIndex(s.trim()));
           } else if (type === QuestionType.TRUE_FALSE || type === QuestionType.MATCH) {
-             // Expecting T, F, T
-             correctAnswer = rawKey.split(',').map(s => s.trim().toUpperCase() === 'T');
+             // Expecting T, F, T or B, S, B
+             correctAnswer = rawKey.split(',').map(s => {
+               const val = s.trim().toUpperCase();
+               return val === 'T' || val === 'B' || val === 'TRUE' || val === 'BENAR';
+             });
           } else {
             correctAnswer = alphaToIndex(rawKey);
           }
