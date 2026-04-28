@@ -3,7 +3,7 @@ import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { Question, Subject, QuestionType, CognitiveLevel } from '../types.ts';
 import { SUBJECT_LIST, BLOOM_LEVELS, PUSPENDIK_LEVELS, COGNITIVE_LEVELS } from '../constants.ts';
 import { generateQuestionBankPDF } from '../services/pdfService.ts';
-import { downloadImportTemplate } from '../services/excelService.ts';
+import { downloadImportTemplate, importQuestionsFromExcel, exportQuestionsToExcel } from '../services/excelService.ts';
 import MathText from './MathText.tsx';
 
 interface QuestionManagerProps {
@@ -116,19 +116,31 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     closeForm();
   };
 
-  const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
+
+    if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
       try {
-        const imported = JSON.parse(event.target?.result as string);
-        if (!Array.isArray(imported)) return alert("Format JSON tidak valid.");
+        const imported = await importQuestionsFromExcel(file);
         onImportQuestions(imported);
-        alert(`Berhasil mengimpor ${imported.length} soal.`);
-      } catch (e) { alert("Gagal membaca file JSON."); }
-    };
-    reader.readAsText(file);
+        alert(`Berhasil mengimpor ${imported.length} soal dari Excel.`);
+      } catch (e) {
+        alert("Gagal membaca file Excel. Pastikan format kolom sesuai template.");
+      }
+    } else {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const imported = JSON.parse(event.target?.result as string);
+          if (!Array.isArray(imported)) return alert("Format JSON tidak valid.");
+          onImportQuestions(imported);
+          alert(`Berhasil mengimpor ${imported.length} soal.`);
+        } catch (e) { alert("Gagal membaca file JSON."); }
+      };
+      reader.readAsText(file);
+    }
+
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -156,6 +168,15 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     link.download = `EduCBT_${fileName}_${new Date().toISOString().split('T')[0]}.json`;
     link.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleExportExcel = () => {
+    if (processedQuestions.length === 0) {
+      alert("Tidak ada soal ditemukan untuk di-export.");
+      return;
+    }
+    const fileName = tokenFilter.trim() ? `BankSoal_${tokenFilter.toUpperCase()}` : 'BankSoal_Semua';
+    exportQuestionsToExcel(processedQuestions, `${fileName}_${new Date().toISOString().split('T')[0]}`);
   };
 
   /**
@@ -253,8 +274,8 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
           <input type="text" value={tokenFilter} onChange={(e) => setTokenFilter(e.target.value)} placeholder="Ketik Token..." className="w-24 bg-white border rounded-xl px-3 py-1.5 text-[10px] font-bold outline-none uppercase" />
           
           <div className="flex gap-1 border-l pl-3 ml-2 border-slate-300">
-             <input type="file" ref={fileInputRef} onChange={handleFileImport} className="hidden" accept=".json" />
-             <button onClick={() => fileInputRef.current?.click()} className="p-2 hover:bg-slate-200 rounded-lg text-slate-500 transition-colors" title="Upload JSON">
+             <input type="file" ref={fileInputRef} onChange={handleFileImport} className="hidden" accept=".json,.xlsx,.xls" />
+             <button onClick={() => fileInputRef.current?.click()} className="p-2 hover:bg-slate-200 rounded-lg text-slate-500 transition-colors" title="Upload JSON/Excel">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
              </button>
              <button onClick={() => setIsPasteModalOpen(true)} className="p-2 hover:bg-slate-200 rounded-lg text-slate-500 transition-colors" title="Paste JSON">
@@ -262,6 +283,9 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
              </button>
              <button onClick={handleExportJSON} className="p-2 hover:bg-slate-200 rounded-lg text-slate-500 transition-colors" title="Export JSON">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+             </button>
+             <button onClick={handleExportExcel} className="p-2 hover:bg-emerald-100 rounded-lg text-emerald-600 transition-colors" title="Export Excel">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2a2 2 0 00-2-2H5a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2zm0-5V7a2 2 0 012-2h2a2 2 0 012 2v5m-6 0h6" /></svg>
              </button>
              <button onClick={downloadImportTemplate} className="p-2 hover:bg-emerald-100 rounded-lg text-emerald-600 transition-colors border border-emerald-200 bg-emerald-50" title="Download Template Excel">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>

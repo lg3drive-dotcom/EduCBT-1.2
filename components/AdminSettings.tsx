@@ -2,7 +2,7 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { AppSettings, Question, ExternalLinks } from '../types';
 import { fetchSubmissionsByToken } from '../services/supabaseService';
-import { exportSubmissionsToExcel, downloadImportTemplate } from '../services/excelService';
+import { exportSubmissionsToExcel, downloadImportTemplate, importQuestionsFromExcel } from '../services/excelService';
 
 interface AdminSettingsProps {
   settings: AppSettings;
@@ -113,25 +113,37 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
+
+    if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
       try {
-        const imported = JSON.parse(event.target?.result as string);
-        if (!Array.isArray(imported)) {
-          alert("Format file tidak valid.");
-          return;
-        }
+        const imported = await importQuestionsFromExcel(file);
         onImportQuestions(imported, 'append');
-        alert(`BERHASIL: ${imported.length} soal baru telah diimpor.`);
+        alert(`BERHASIL: ${imported.length} soal baru telah diimpor dari Excel.`);
         if (fileInputRef.current) fileInputRef.current.value = '';
-      } catch(e) { 
-        alert("Gagal membaca file."); 
+      } catch (e) {
+        alert("Gagal membaca file Excel. Pastikan format kolom sesuai template.");
       }
-    };
-    reader.readAsText(file);
+    } else {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const imported = JSON.parse(event.target?.result as string);
+          if (!Array.isArray(imported)) {
+            alert("Format file tidak valid.");
+            return;
+          }
+          onImportQuestions(imported, 'append');
+          alert(`BERHASIL: ${imported.length} soal baru telah diimpor.`);
+          if (fileInputRef.current) fileInputRef.current.value = '';
+        } catch(e) { 
+          alert("Gagal membaca file."); 
+        }
+      };
+      reader.readAsText(file);
+    }
   };
 
   const handlePasteImport = () => {
@@ -228,8 +240,8 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
               </div>
               <div className="grid grid-cols-1 gap-2">
                 <button onClick={handleExportJSON} disabled={selectedTokens.length === 0} className="w-full bg-slate-900 disabled:opacity-20 text-white font-black py-3 rounded-xl text-[10px] uppercase tracking-widest transition-all">Export JSON (Backup)</button>
-                <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleFileChange} />
-                <button onClick={() => fileInputRef.current?.click()} className="w-full bg-blue-50 text-blue-600 font-bold py-3 rounded-xl border border-blue-100 text-[10px] uppercase tracking-widest transition-all">Upload JSON (Restore)</button>
+                <input type="file" ref={fileInputRef} className="hidden" accept=".json,.xlsx,.xls" onChange={handleFileChange} />
+                <button onClick={() => fileInputRef.current?.click()} className="w-full bg-blue-50 text-blue-600 font-bold py-3 rounded-xl border border-blue-100 text-[10px] uppercase tracking-widest transition-all">Upload JSON/Excel (Restore)</button>
                 <button onClick={() => setIsPasteModalOpen(true)} className="w-full bg-slate-100 text-slate-600 font-bold py-3 rounded-xl border border-slate-200 text-[10px] uppercase tracking-widest transition-all">Paste JSON (Manual)</button>
                 <button 
                   onClick={downloadImportTemplate} 

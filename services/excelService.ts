@@ -135,34 +135,105 @@ export const exportQuestionsToExcel = (questions: Question[], fileName: string) 
     'Opsi E', 'Gambar Opsi E (URL)', 'Kunci Jawaban', 'Pembahasan', 'Token Paket'
   ];
 
-  const rows = questions.map((q, idx) => {
+  const questionRows = questions.map((q, idx) => {
     const options = q.options || [];
     const optImages = q.optionImages || [];
-    return [
-      q.order || idx + 1,
-      q.type,
-      q.level || '-',
-      (q.material || '-').replace(/;/g, ','),
-      (q.text || '').replace(/;/g, ','),
-      q.questionImage || '',
-      (options[0] || '').replace(/;/g, ','), optImages[0] || '',
-      (options[1] || '').replace(/;/g, ','), optImages[1] || '',
-      (options[2] || '').replace(/;/g, ','), optImages[2] || '',
-      (options[3] || '').replace(/;/g, ','), optImages[3] || '',
-      (options[4] || '').replace(/;/g, ','), optImages[4] || '',
-      formatCorrectAnswer(q),
-      (q.explanation || '').replace(/;/g, ','),
-      (q.quizToken || '-')
-    ].join(';');
+    return {
+      'No': q.order || idx + 1,
+      'Tipe Soal': q.type,
+      'Level': q.level || '-',
+      'Materi': (q.material || '-'),
+      'Teks Soal': (q.text || ''),
+      'Gambar Soal (URL)': q.questionImage || '',
+      'Opsi A': (options[0] || ''),
+      'Gambar Opsi A (URL)': optImages[0] || '',
+      'Opsi B': (options[1] || ''),
+      'Gambar Opsi B (URL)': optImages[1] || '',
+      'Opsi C': (options[2] || ''),
+      'Gambar Opsi C (URL)': optImages[2] || '',
+      'Opsi D': (options[3] || ''),
+      'Gambar Opsi D (URL)': optImages[3] || '',
+      'Opsi E': (options[4] || ''),
+      'Gambar Opsi E (URL)': optImages[4] || '',
+      'Kunci Jawaban': formatCorrectAnswer(q),
+      'Pembahasan': (q.explanation || ''),
+      'Token Paket': (q.quizToken || '-')
+    };
   });
 
-  const csvContent = "sep=;\n" + "\uFEFF" + headers.join(';') + '\n' + rows.join('\n');
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.setAttribute('href', url);
-  link.setAttribute('download', `${fileName}.csv`);
-  link.click();
+  const ws = XLSX.utils.json_to_sheet(questionRows, { header: headers });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "BANK_SOAL");
+
+  XLSX.writeFile(wb, `${fileName}.xlsx`);
+};
+
+export const importQuestionsFromExcel = (file: File): Promise<Question[]> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = e.target?.result;
+        const workbook = XLSX.read(data, { type: 'binary' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const json: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+        const alphaToIndex = (alpha: string) => {
+          const char = alpha.trim().toUpperCase().charAt(0);
+          return char.charCodeAt(0) - 65;
+        };
+
+        const parsedQuestions: Question[] = json.map((row, idx) => {
+          const type = row['Tipe Soal'] || QuestionType.SINGLE;
+          const rawKey = String(row['Kunci Jawaban'] || '');
+          
+          let correctAnswer: any = 0;
+          if (type === QuestionType.MULTIPLE) {
+            correctAnswer = rawKey.split(',').map(s => alphaToIndex(s.trim()));
+          } else if (type === QuestionType.TRUE_FALSE || type === QuestionType.MATCH) {
+             // Expecting T, F, T
+             correctAnswer = rawKey.split(',').map(s => s.trim().toUpperCase() === 'T');
+          } else {
+            correctAnswer = alphaToIndex(rawKey);
+          }
+
+          const options = [
+            row['Opsi A'], row['Opsi B'], row['Opsi C'], row['Opsi D'], row['Opsi E']
+          ].filter(o => o !== undefined && o !== '').map(o => String(o));
+
+          const optionImages = [
+            row['Gambar Opsi A (URL)'], row['Gambar Opsi B (URL)'], row['Gambar Opsi C (URL)'], row['Gambar Opsi D (URL)'], row['Gambar Opsi E (URL)']
+          ].map(img => img ? String(img) : undefined);
+
+          return {
+            id: `imported-${Date.now()}-${idx}`,
+            text: String(row['Teks Soal'] || ''),
+            material: String(row['Materi'] || ''),
+            explanation: String(row['Pembahasan'] || ''),
+            questionImage: row['Gambar Soal (URL)'] ? String(row['Gambar Soal (URL)']) : undefined,
+            type: type as QuestionType,
+            level: String(row['Level'] || 'C1'),
+            options: options,
+            optionImages: optionImages.slice(0, options.length),
+            correctAnswer: correctAnswer,
+            subject: String(row['Materi'] || 'Umum'),
+            phase: 'Fase C',
+            order: Number(row['No']) || idx + 1,
+            quizToken: String(row['Token Paket'] || 'UJI01').trim().toUpperCase(),
+            tfLabels: { true: 'T', false: 'F' }, // Default T/F handles custom logic
+            createdAt: Date.now()
+          };
+        });
+
+        resolve(parsedQuestions);
+      } catch (error) {
+        reject(error);
+      }
+    };
+    reader.onerror = (error) => reject(error);
+    reader.readAsBinaryString(file);
+  });
 };
 
 export const exportSubmissionsToExcel = (submissions: any[], fileName: string, questionBank: Question[] = []) => {
