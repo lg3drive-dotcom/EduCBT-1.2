@@ -129,7 +129,7 @@ export const exportQuestionsToExcel = (questions: Question[], fileName: string) 
   if (questions.length === 0) return;
 
   const headers = [
-    'No', 'Tipe Soal', 'Level', 'Materi', 'Teks Soal', 'Gambar Soal (URL)',
+    'No', 'Tipe Soal', 'Level', 'Mata Pelajaran', 'Materi', 'Teks Soal', 'Gambar Soal (URL)',
     'Opsi A', 'Gambar Opsi A (URL)', 'Opsi B', 'Gambar Opsi B (URL)',
     'Opsi C', 'Gambar Opsi C (URL)', 'Opsi D', 'Gambar Opsi D (URL)',
     'Opsi E', 'Gambar Opsi E (URL)', 'Kunci Jawaban', 'Pembahasan', 'Token Paket'
@@ -142,6 +142,7 @@ export const exportQuestionsToExcel = (questions: Question[], fileName: string) 
       'No': q.order || idx + 1,
       'Tipe Soal': q.type,
       'Level': q.level || '-',
+      'Mata Pelajaran': q.subject || '-',
       'Materi': (q.material || '-'),
       'Teks Soal': (q.text || ''),
       'Gambar Soal (URL)': q.questionImage || '',
@@ -217,7 +218,7 @@ export const importQuestionsFromExcel = (file: File): Promise<Question[]> => {
             options: options,
             optionImages: optionImages.slice(0, options.length),
             correctAnswer: correctAnswer,
-            subject: String(row['Materi'] || 'Umum'),
+            subject: String(row['Mata Pelajaran'] || row['Materi'] || 'Umum'),
             phase: 'Fase C',
             order: Number(row['No']) || idx + 1,
             quizToken: String(row['Token Paket'] || 'UJI01').trim().toUpperCase(),
@@ -317,7 +318,7 @@ export const exportFullSubmissionsToCSV = (submissions: any[], fileName: string)
 
 export const downloadImportTemplate = () => {
   const headers = [
-    'No', 'Tipe Soal', 'Level', 'Materi', 'Teks Soal', 'Gambar Soal (URL)',
+    'No', 'Tipe Soal', 'Level', 'Mata Pelajaran', 'Materi', 'Teks Soal', 'Gambar Soal (URL)',
     'Opsi A', 'Gambar Opsi A (URL)', 'Opsi B', 'Gambar Opsi B (URL)',
     'Opsi C', 'Gambar Opsi C (URL)', 'Opsi D', 'Gambar Opsi D (URL)',
     'Opsi E', 'Gambar Opsi E (URL)', 'Kunci Jawaban', 'Pembahasan', 'Token Paket'
@@ -328,6 +329,7 @@ export const downloadImportTemplate = () => {
       'No': 1,
       'Tipe Soal': '(Pilihan Ganda)',
       'Level': 'C3',
+      'Mata Pelajaran': 'PKN',
       'Materi': 'Pancasila',
       'Teks Soal': 'Apa lambang sila ke-2?',
       'Gambar Soal (URL)': '',
@@ -349,6 +351,7 @@ export const downloadImportTemplate = () => {
       'No': 2,
       'Tipe Soal': '(PG Kompleks)',
       'Level': 'C4',
+      'Mata Pelajaran': 'IPA',
       'Materi': 'Ekosistem',
       'Teks Soal': 'Mana yang termasuk produsen?',
       'Opsi A': 'Padi', 'Opsi B': 'Rumput', 'Opsi C': 'Ulat', 'Opsi D': 'Elang', 'Opsi E': 'Lumut',
@@ -360,6 +363,7 @@ export const downloadImportTemplate = () => {
       'No': 3,
       'Tipe Soal': '(Benar/Salah)',
       'Level': 'C2',
+      'Mata Pelajaran': 'IPA',
       'Materi': 'Biologi',
       'Teks Soal': 'Tentukan pernyataan berikut benar atau salah:',
       'Opsi A': 'Ikan bernapas dengan paru-paru',
@@ -373,6 +377,7 @@ export const downloadImportTemplate = () => {
       'No': 4,
       'Tipe Soal': '(Sesuai/Tidak Sesuai)',
       'Level': 'C2',
+      'Mata Pelajaran': 'IPS',
       'Materi': 'Geografi',
       'Teks Soal': 'Pasangkan pernyataan dengan kategorinya:',
       'Opsi A': 'Jakarta - Ibu Kota Indonesia',
@@ -385,6 +390,7 @@ export const downloadImportTemplate = () => {
 
   const instructions = [
     { 'Kolom': 'Tipe Soal', 'Penjelasan': 'Wajib diisi: (Pilihan Ganda), (PG Kompleks), (Benar/Salah), atau (Sesuai/Tidak Sesuai)' },
+    { 'Kolom': 'Mata Pelajaran', 'Penjelasan': 'Contoh: IPA, IPS, MATEMATIKA, PKN, dll.' },
     { 'Kolom': 'Kunci Jawaban (PG)', 'Penjelasan': 'Cukup satu huruf: A atau B atau C atau D atau E' },
     { 'Kolom': 'Kunci Jawaban (PG Kompleks)', 'Penjelasan': 'Gunakan koma: A, C, D (jawaban benar lebih dari satu)' },
     { 'Kolom': 'Kunci Jawaban (B/S & Sesuai)', 'Penjelasan': 'Gunakan T (True) atau F (False) dipisah koma sesuai urutan Opsi. Contoh: T, F, T' },
