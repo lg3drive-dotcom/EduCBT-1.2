@@ -183,7 +183,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
 
   const renderInput = () => {
     if (q.type === QuestionType.TRUE_FALSE || q.type === QuestionType.MATCH) {
-      const labels = q.tfLabels || { true: 'T', false: 'F' };
+      const labels = q.tfLabels || { true: 'Benar', false: 'Salah' };
       return (
         <div className="bg-white border-2 border-slate-200 rounded-2xl overflow-hidden shadow-sm">
            <table className="w-full text-left">
@@ -205,11 +205,11 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                           <button onClick={() => {
                             const next = [...(currentAnswer || q.options!.map(() => null))]; next[idx] = true;
                             setAnswers({...answers, [q.id]: next});
-                          }} className={`flex-1 py-2 px-1 rounded-lg text-[9px] font-black transition-all ${val === true ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400'}`}>{labels.true.toUpperCase()}</button>
+                          }} className={`flex-1 py-2 px-1 rounded-lg text-[9px] font-black transition-all ${val === true ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400'}`}>{labels.true}</button>
                           <button onClick={() => {
                             const next = [...(currentAnswer || q.options!.map(() => null))]; next[idx] = false;
                             setAnswers({...answers, [q.id]: next});
-                          }} className={`flex-1 py-2 px-1 rounded-lg text-[9px] font-black transition-all ${val === false ? 'bg-red-600 text-white shadow-md' : 'text-slate-400'}`}>{labels.false.toUpperCase()}</button>
+                          }} className={`flex-1 py-2 px-1 rounded-lg text-[9px] font-black transition-all ${val === false ? 'bg-red-600 text-white shadow-md' : 'text-slate-400'}`}>{labels.false}</button>
                         </div>
                      </td>
                    </tr>

@@ -20,7 +20,7 @@ const formatCorrectAnswer = (q: Question): string => {
   
   if (q.type === QuestionType.MATCH || q.type === QuestionType.TRUE_FALSE) {
     if (Array.isArray(q.correctAnswer)) {
-      const labels = q.tfLabels || { true: 'T', false: 'F' };
+      const labels = q.tfLabels || { true: 'Benar', false: 'Salah' };
       return q.correctAnswer
         .map((val: boolean) => (val === true ? labels.true[0] : labels.false[0]))
         .join(', ');
@@ -237,7 +237,7 @@ export const importQuestionsFromExcel = (file: File): Promise<Question[]> => {
             phase: 'Fase C',
             order: Number(row['No']) || idx + 1,
             quizToken: String(row['Token Paket'] || 'UJI01').trim().toUpperCase(),
-            tfLabels: { true: 'T', false: 'F' }, // Default T/F handles custom logic
+            tfLabels: { true: 'Benar', false: 'Salah' }, // Default Benar/Salah handles custom logic
             createdAt: Date.now()
           };
         });
@@ -384,7 +384,7 @@ export const downloadImportTemplate = () => {
       'Opsi A': 'Ikan bernapas dengan paru-paru',
       'Opsi B': 'Mamalia menyusui anaknya',
       'Opsi C': 'Burung adalah reptil',
-      'Kunci Jawaban': 'F, T, F',
+      'Kunci Jawaban': 'S, B, S',
       'Pembahasan': 'Ikan pakai insang, burung aves.',
       'Token Paket': 'UJI01'
     },
@@ -397,7 +397,7 @@ export const downloadImportTemplate = () => {
       'Teks Soal': 'Pasangkan pernyataan dengan kategorinya:',
       'Opsi A': 'Jakarta - Ibu Kota Indonesia',
       'Opsi B': 'Surabaya - Ibu Kota Jawa Barat',
-      'Kunci Jawaban': 'T, F',
+      'Kunci Jawaban': 'B, S',
       'Pembahasan': 'Surabaya Ibu Kota Jawa Timur.',
       'Token Paket': 'UJI01'
     }
@@ -408,7 +408,7 @@ export const downloadImportTemplate = () => {
     { 'Kolom': 'Mata Pelajaran', 'Penjelasan': 'Contoh: IPA, IPS, MATEMATIKA, PKN, dll.' },
     { 'Kolom': 'Kunci Jawaban (PG)', 'Penjelasan': 'Cukup satu huruf: A atau B atau C atau D atau E' },
     { 'Kolom': 'Kunci Jawaban (PG Kompleks)', 'Penjelasan': 'Gunakan koma: A, C, D (jawaban benar lebih dari satu)' },
-    { 'Kolom': 'Kunci Jawaban (B/S & Sesuai)', 'Penjelasan': 'Gunakan T (True) atau F (False) dipisah koma sesuai urutan Opsi. Contoh: T, F, T' },
+    { 'Kolom': 'Kunci Jawaban (B/S & Sesuai)', 'Penjelasan': 'Gunakan B (Benar) atau S (Salah) dipisah koma sesuai urutan Opsi. Contoh: B, S, B' },
     { 'Kolom': 'Opsi', 'Penjelasan': 'Untuk B/S dan Sesuai, setiap baris pernyataan diletakkan di Opsi A, B, C, dst.' },
     { 'Kolom': 'Token Paket', 'Penjelasan': 'Digunakan untuk mengelompokkan soal (misal: PAS2024)' }
   ];
