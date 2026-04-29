@@ -186,11 +186,11 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
       const labels = q.tfLabels || { true: 'Benar', false: 'Salah' };
       return (
         <div className="bg-white border-2 border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-           <table className="w-full text-left">
+           <table className="w-full text-left table-fixed sm:table-auto">
              <thead className="bg-slate-800 text-white">
                <tr>
-                 <th className="p-4 text-[10px] font-black uppercase tracking-widest">Pernyataan Analisis</th>
-                 <th className="p-4 text-center text-[10px] font-black uppercase tracking-widest w-64">Pilihan</th>
+                 <th className="p-3 sm:p-4 text-[10px] font-black uppercase tracking-widest">Pernyataan Analisis</th>
+                 <th className="p-3 sm:p-4 text-center text-[10px] font-black uppercase tracking-widest w-20 sm:w-64">Pilihan</th>
                </tr>
              </thead>
              <tbody className="divide-y divide-slate-200">
@@ -199,17 +199,17 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                  const val = resArr[idx];
                  return (
                    <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                     <td className="p-4 font-bold text-slate-700"><MathText text={opt} style={{ fontSize: `${fontSize - 4}px` }} /></td>
-                     <td className="p-4">
-                        <div className="flex bg-slate-100 p-1 rounded-xl gap-1">
+                     <td className="p-3 sm:p-4 font-bold text-slate-700"><MathText text={opt} style={{ fontSize: `${fontSize - 4}px` }} /></td>
+                     <td className="p-2 sm:p-4">
+                        <div className="flex flex-col sm:flex-row bg-slate-100 p-1 rounded-xl gap-1">
                           <button onClick={() => {
                             const next = [...(currentAnswer || q.options!.map(() => null))]; next[idx] = true;
                             setAnswers({...answers, [q.id]: next});
-                          }} className={`flex-1 py-2 px-1 rounded-lg text-[9px] font-black transition-all ${val === true ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400'}`}>{labels.true}</button>
+                          }} className={`flex-1 py-1.5 sm:py-2 px-1 rounded-lg text-[8px] sm:text-[9px] font-black transition-all ${val === true ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400'}`}>{labels.true}</button>
                           <button onClick={() => {
                             const next = [...(currentAnswer || q.options!.map(() => null))]; next[idx] = false;
                             setAnswers({...answers, [q.id]: next});
-                          }} className={`flex-1 py-2 px-1 rounded-lg text-[9px] font-black transition-all ${val === false ? 'bg-red-600 text-white shadow-md' : 'text-slate-400'}`}>{labels.false}</button>
+                          }} className={`flex-1 py-1.5 sm:py-2 px-1 rounded-lg text-[8px] sm:text-[9px] font-black transition-all ${val === false ? 'bg-red-600 text-white shadow-md' : 'text-slate-400'}`}>{labels.false}</button>
                         </div>
                      </td>
                    </tr>
