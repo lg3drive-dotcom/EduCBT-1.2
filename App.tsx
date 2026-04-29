@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { motion } from 'motion/react';
 import { Question, Subject, StudentIdentity, QuizResult, AppSettings, QuestionType, CognitiveLevel, ExternalLinks } from './types.ts';
 import { INITIAL_QUESTIONS } from './constants.ts';
 import QuizInterface from './components/QuizInterface.tsx';
@@ -290,6 +291,7 @@ const App: React.FC = () => {
   };
 
   const [nameSuggestions, setNameSuggestions] = useState<string[]>([]);
+  const [isManualClass, setIsManualClass] = useState(false);
 
   const handleNameChange = (val: string) => {
     setIdentity({ ...identity, name: val });
@@ -524,7 +526,54 @@ const App: React.FC = () => {
                       </div>
                     )}
                   </div>
-                  <input required type="text" placeholder="Kelas" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold" value={identity.className} onChange={e => setIdentity({...identity, className: e.target.value})} />
+                  <div className="relative">
+                    {!isManualClass ? (
+                      <>
+                        <select 
+                          required 
+                          className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold appearance-none pr-10"
+                          value={identity.className}
+                          onChange={e => {
+                            const val = e.target.value;
+                            if (val === 'Lainnya') {
+                              setIsManualClass(true);
+                              setIdentity({...identity, className: ''});
+                            } else {
+                              setIdentity({...identity, className: val});
+                            }
+                          }}
+                        >
+                          <option value="" disabled>Pilih Kelas</option>
+                          {['1A', '1B', '2A', '2B', '3A', '3B', '4A', '4B', '5A', '5B', '6A', '6B', 'Lainnya'].map(grade => (
+                            <option key={grade} value={grade}>{grade}</option>
+                          ))}
+                        </select>
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="relative">
+                        <input 
+                          required 
+                          autoFocus
+                          type="text" 
+                          placeholder="Kelas (e.g. 6C)" 
+                          className="w-full p-4 bg-blue-50 border-2 border-blue-200 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold pr-12" 
+                          value={identity.className} 
+                          onChange={e => setIdentity({...identity, className: e.target.value})} 
+                        />
+                        <button 
+                          type="button"
+                          onClick={() => setIsManualClass(false)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 p-2 hover:bg-red-100 text-red-500 rounded-xl transition-colors"
+                          title="Kembali ke daftar"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <input 
                   required 
