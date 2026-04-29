@@ -482,7 +482,7 @@ const App: React.FC = () => {
 
       {view === 'login' && (
         <div className="min-h-screen flex items-center justify-center p-4">
-          <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col md:flex-row border border-slate-200">
+          <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col-reverse md:flex-row border border-slate-200">
             <div className="md:w-5/12 bg-slate-900 p-12 text-white flex flex-col justify-between">
               <div>
                 <div className="flex items-center gap-3 mb-12"><div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-black">C</div><div className="font-black text-2xl">E-Pro CBT</div></div>
