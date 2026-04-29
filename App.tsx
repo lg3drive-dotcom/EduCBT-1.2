@@ -21,6 +21,8 @@ import {
   fetchQuestionsByToken
 } from './services/supabaseService.ts';
 
+import { getSimilarity, STUDENT_LIST } from './utils.ts';
+
 type ViewMode = 'login' | 'confirm-data' | 'quiz' | 'result' | 'admin-auth' | 'admin-panel' | 'analysis-panel';
 type AdminSubView = 'bank-soal' | 'admin-pusat';
 
@@ -287,6 +289,51 @@ const App: React.FC = () => {
     setQuestions(prev => [...prev, ...sanitized]);
   };
 
+  const [nameSuggestions, setNameSuggestions] = useState<string[]>([]);
+
+  const handleNameChange = (val: string) => {
+    setIdentity({ ...identity, name: val });
+    
+    if (val.trim().length > 1) {
+      const input = val.toLowerCase().trim();
+      const filtered = STUDENT_LIST.filter(student => {
+        const parts = student.toLowerCase().split(' ');
+        return parts.some(part => part.startsWith(input)) || student.toLowerCase().includes(input);
+      }).slice(0, 5); // Limit to top 5 suggestions
+      setNameSuggestions(filtered);
+    } else {
+      setNameSuggestions([]);
+    }
+  };
+
+  const selectSuggestion = (name: string) => {
+    setIdentity({ ...identity, name: name });
+    setNameSuggestions([]);
+  };
+
+  const handleNameBlur = () => {
+    // Delay hiding suggestions to allow click events on suggestions to fire
+    setTimeout(() => setNameSuggestions([]), 200);
+    
+    const currentName = identity.name.trim();
+    if (!currentName) return;
+
+    let bestMatch = null;
+    let maxSimilarity = 0;
+
+    for (const student of STUDENT_LIST) {
+      const sim = getSimilarity(currentName, student);
+      if (sim > maxSimilarity) {
+        maxSimilarity = sim;
+        bestMatch = student;
+      }
+    }
+
+    if (bestMatch && maxSimilarity >= 0.9 && maxSimilarity < 1) {
+      setIdentity({ ...identity, name: bestMatch });
+    }
+  };
+
   const currentLinks = settings.externalLinks || DEFAULT_LINKS;
 
   return (
@@ -451,7 +498,32 @@ const App: React.FC = () => {
               <p className="text-slate-400 font-medium mb-10 italic">Lengkapi identitas untuk memulai pengerjaan.</p>
               <form onSubmit={handleStartQuiz} className="space-y-5">
                 <div className="grid grid-cols-2 gap-4">
-                  <input required type="text" placeholder="Nama Peserta" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold" value={identity.name} onChange={e => setIdentity({...identity, name: e.target.value})} />
+                  <div className="relative">
+                    <input 
+                      required 
+                      type="text" 
+                      placeholder="Nama Peserta" 
+                      className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold" 
+                      value={identity.name} 
+                      onChange={e => handleNameChange(e.target.value)}
+                      onBlur={handleNameBlur}
+                      autoComplete="off"
+                    />
+                    {nameSuggestions.length > 0 && (
+                      <div className="absolute left-0 right-0 top-full mt-1 bg-white border-2 border-slate-100 rounded-xl shadow-xl z-50 overflow-hidden">
+                        {nameSuggestions.map((name, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => selectSuggestion(name)}
+                            className="w-full text-left px-4 py-3 hover:bg-blue-50 text-[11px] font-bold text-slate-700 transition-colors border-b last:border-0 border-slate-50"
+                          >
+                            {name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <input required type="text" placeholder="Kelas" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold" value={identity.className} onChange={e => setIdentity({...identity, className: e.target.value})} />
                 </div>
                 <input 
