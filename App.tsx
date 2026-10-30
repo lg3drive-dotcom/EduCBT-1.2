@@ -133,6 +133,11 @@ const App: React.FC = () => {
     }
   };
 
+  const handleDeleteQuestionsByTokens = (tokens: string[]) => {
+    const cleanTokens = tokens.map(t => t.trim().toUpperCase());
+    setQuestions(prev => prev.filter(q => !q.quizToken || !cleanTokens.includes(q.quizToken.trim().toUpperCase())));
+  };
+
   const handleCloudPull = async () => {
     setPullStatus('loading');
     try {
@@ -474,6 +479,7 @@ const App: React.FC = () => {
                 onUpdateSettings={handleUpdateSettings}
                 onImportQuestions={handleImportQuestions}
                 onReset={() => setQuestions([])}
+                onDeleteQuestionsByTokens={handleDeleteQuestionsByTokens}
               />
             )}
           </main>

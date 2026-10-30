@@ -1,7 +1,6 @@
-
 import React, { useState, useRef, useMemo } from 'react';
 import { AppSettings, Question, ExternalLinks } from '../types';
-import { fetchSubmissionsByToken } from '../services/supabaseService';
+import { fetchSubmissionsByToken, deleteQuestionsByTokenFromCloud } from '../services/supabaseService';
 import { exportSubmissionsToExcel, downloadImportTemplate, importQuestionsFromExcel } from '../services/excelService';
 
 interface AdminSettingsProps {
@@ -10,6 +9,13 @@ interface AdminSettingsProps {
   onUpdateSettings: (newSettings: AppSettings) => void;
   onImportQuestions: (newQuestions: Question[], mode: 'replace' | 'append') => void;
   onReset: () => void;
+  onDeleteQuestionsByTokens?: (tokens: string[]) => void;
+}
+
+interface ToastNotification {
+  type: 'success' | 'error' | 'info';
+  title?: string;
+  message: string;
 }
 
 const AdminSettings: React.FC<AdminSettingsProps> = ({ 
@@ -17,12 +23,13 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
   questions, 
   onUpdateSettings, 
   onImportQuestions, 
-  onReset
+  onReset,
+  onDeleteQuestionsByTokens
 }) => {
   const [timer, setTimer] = useState(settings.timerMinutes.toString());
   const [newAdminPass, setNewAdminPass] = useState(settings.adminPassword || '');
   
-  // External Links States - Ensuring all fields are covered
+  // External Links States
   const [links, setLinks] = useState<ExternalLinks>(settings.externalLinks || {
     passwordHelp: '',
     aiGenerator: '',
@@ -32,9 +39,35 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
 
   const [selectedTokens, setSelectedTokens] = useState<string[]>([]);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [manualDeleteToken, setManualDeleteToken] = useState('');
+  
+  // Modals & In-App UI States (No window.alert/prompt/confirm)
+  const [toast, setToast] = useState<ToastNotification | null>(null);
   const [isPasteModalOpen, setIsPasteModalOpen] = useState(false);
   const [pasteContent, setPasteContent] = useState('');
+  
+  // Reset confirmation modal
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+
+  // Cloud & Local Deletion Modal states
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState('');
+  const [isDeletingCloud, setIsDeletingCloud] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteSuccessData, setDeleteSuccessData] = useState<{
+    count: number | null;
+    localCount: number;
+    tokens: string[];
+  } | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const showToast = (type: 'success' | 'error' | 'info', message: string, title?: string) => {
+    setToast({ type, message, title });
+    setTimeout(() => {
+      setToast(prev => (prev?.message === message ? null : prev));
+    }, 4500);
+  };
 
   const availableTokens = useMemo(() => {
     const tokens = questions
@@ -50,7 +83,7 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
       adminPassword: newAdminPass,
       externalLinks: links
     });
-    alert('SELURUH PENGATURAN BERHASIL DISIMPAN!\n\nKlik tombol "KIRIM KE CLOUD" di sidebar untuk menyinkronkan ke server.');
+    showToast('success', 'Konfigurasi disimpan di perangkat. Klik tombol "KIRIM KE CLOUD" di panel navigasi jika ingin menyinkronkan ke server.', 'Pengaturan Berhasil Disimpan');
   };
 
   const toggleToken = (token: string) => {
@@ -69,14 +102,14 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
 
   const handleExportJSON = () => {
     if (selectedTokens.length === 0) {
-      alert("Pilih minimal satu paket (token) untuk di-backup.");
+      showToast('error', 'Pilih minimal satu paket (token) melalui checklist di atas untuk membuat backup JSON.', 'Pilih Token');
       return;
     }
     const filteredQs = questions.filter(q => 
       !q.isDeleted && q.quizToken && selectedTokens.includes(q.quizToken.toUpperCase())
     );
     if (filteredQs.length === 0) {
-      alert("Tidak ada soal ditemukan pada token yang dipilih.");
+      showToast('error', 'Tidak ada butir soal ditemukan pada token yang dipilih.', 'Data Kosong');
       return;
     }
     const blob = new Blob([JSON.stringify(filteredQs, null, 2)], { type: 'application/json' });
@@ -89,25 +122,32 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
     link.download = `EduCBT_Backup_${tokenNames}_${new Date().toISOString().split('T')[0]}.json`;
     link.click();
     URL.revokeObjectURL(url);
+    showToast('success', `File backup JSON untuk ${filteredQs.length} butir soal berhasil diunduh.`, 'Export Berhasil');
   };
 
   const handleDownloadRecap = async () => {
     if (selectedTokens.length === 0) {
-      alert("Pilih minimal satu paket (token) untuk mendownload rekap nilai.");
+      showToast('error', 'Pilih minimal satu paket (token) di atas untuk mengunduh rekap nilai siswa.', 'Pilih Token');
       return;
     }
 
     setIsDownloading(true);
     try {
+      let totalDownloaded = 0;
       for (const token of selectedTokens) {
         const data = await fetchSubmissionsByToken(token);
         if (data && data.length > 0) {
           exportSubmissionsToExcel(data, `Rekap_Nilai_${token}_${new Date().toISOString().split('T')[0]}`, questions);
+          totalDownloaded += data.length;
         }
       }
-      alert("Proses download selesai.");
+      if (totalDownloaded > 0) {
+        showToast('success', `Berhasil mengunduh rekap nilai (${totalDownloaded} catatan siswa).`, 'Download Selesai');
+      } else {
+        showToast('info', 'Belum ada data nilai ujian siswa yang tersimpan di server untuk token ini.', 'Tidak Ada Data Nilai');
+      }
     } catch (err: any) {
-      alert(`Gagal mengambil data dari server: ${err.message}`);
+      showToast('error', `Gagal mengambil data dari server: ${err.message}`, 'Gagal Mengunduh');
     } finally {
       setIsDownloading(false);
     }
@@ -121,10 +161,10 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
       try {
         const imported = await importQuestionsFromExcel(file);
         onImportQuestions(imported, 'append');
-        alert(`BERHASIL: ${imported.length} soal baru telah diimpor dari Excel.`);
+        showToast('success', `${imported.length} soal baru telah berhasil diimpor dari file Excel.`, 'Import Excel Berhasil');
         if (fileInputRef.current) fileInputRef.current.value = '';
-      } catch (e) {
-        alert("Gagal membaca file Excel. Pastikan format kolom sesuai template.");
+      } catch (err: any) {
+        showToast('error', 'Gagal membaca file Excel. Pastikan format kolom sesuai dengan template standar.', 'Format Excel Salah');
       }
     } else {
       const reader = new FileReader();
@@ -132,14 +172,14 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
         try {
           const imported = JSON.parse(event.target?.result as string);
           if (!Array.isArray(imported)) {
-            alert("Format file tidak valid.");
+            showToast('error', 'Format file JSON tidak valid. Harus berupa array butir soal.', 'Gagal Import');
             return;
           }
           onImportQuestions(imported, 'append');
-          alert(`BERHASIL: ${imported.length} soal baru telah diimpor.`);
+          showToast('success', `${imported.length} soal baru telah berhasil diimpor dari file JSON.`, 'Import JSON Berhasil');
           if (fileInputRef.current) fileInputRef.current.value = '';
-        } catch(e) { 
-          alert("Gagal membaca file."); 
+        } catch(err: any) { 
+          showToast('error', 'Gagal membaca file JSON. Pastikan isi file valid.', 'Gagal Import'); 
         }
       };
       reader.readAsText(file);
@@ -148,44 +188,151 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
 
   const handlePasteImport = () => {
     if (!pasteContent.trim()) {
-      alert("Silakan tempel teks JSON terlebih dahulu.");
+      showToast('error', 'Silakan tempel teks JSON terlebih dahulu.', 'Teks Kosong');
       return;
     }
 
     try {
       const imported = JSON.parse(pasteContent);
       if (!Array.isArray(imported)) {
-        alert("Data JSON harus berupa array (kumpulan soal).");
+        showToast('error', 'Data JSON harus berupa array kumpulan soal.', 'Format Salah');
         return;
       }
       onImportQuestions(imported, 'append');
-      alert(`BERHASIL: ${imported.length} soal baru telah diimpor dari teks.`);
+      showToast('success', `${imported.length} soal baru telah berhasil diimpor.`, 'Import Berhasil');
       setPasteContent('');
       setIsPasteModalOpen(false);
     } catch (e) {
-      alert("Format JSON tidak valid. Pastikan Anda menyalin seluruh teks dengan benar.");
+      showToast('error', 'Format JSON tidak valid. Pastikan Anda menyalin seluruh teks dengan lengkap.', 'Format Salah');
     }
   };
 
-  const handleResetData = () => {
-    const confirmed = confirm(
-      "PERINGATAN KERAS!\n\n" +
-      "Seluruh data soal yang ada di perangkat ini (LOKAL) akan dihapus total.\n" +
-      "Tindakan ini tidak akan menghapus data di Cloud Supabase, namun bank soal di layar ini akan kosong.\n\n" +
-      "Apakah Anda yakin ingin melakukan RESET LOKAL?"
-    );
-    if (confirmed) {
-      onReset();
-      alert("Bank soal lokal telah dikosongkan.");
+  const handleOpenDeleteModal = () => {
+    const tokensToDelete = [...selectedTokens];
+    if (manualDeleteToken.trim()) {
+      const cleanManual = manualDeleteToken.trim().toUpperCase();
+      if (!tokensToDelete.includes(cleanManual)) {
+        tokensToDelete.push(cleanManual);
+      }
+    }
+
+    if (tokensToDelete.length === 0) {
+      showToast('error', 'Pilih token dari checklist di atas atau ketik token manual pada kolom yang tersedia.', 'Pilih Token Dulu');
+      return;
+    }
+
+    setDeleteConfirmInput('');
+    setDeleteError(null);
+    setDeleteSuccessData(null);
+    setIsDeleteModalOpen(true);
+  };
+
+  const executeDeleteQuestions = async () => {
+    const tokensToDelete = [...selectedTokens];
+    if (manualDeleteToken.trim()) {
+      const cleanManual = manualDeleteToken.trim().toUpperCase();
+      if (!tokensToDelete.includes(cleanManual)) {
+        tokensToDelete.push(cleanManual);
+      }
+    }
+
+    if (tokensToDelete.length === 0) return;
+    if (deleteConfirmInput.trim() !== 'HAPUS') return;
+
+    setIsDeletingCloud(true);
+    setDeleteError(null);
+
+    const localMatchCount = questions.filter(
+      q => q.quizToken && tokensToDelete.includes(q.quizToken.trim().toUpperCase())
+    ).length;
+
+    try {
+      const res = await deleteQuestionsByTokenFromCloud(tokensToDelete);
+      if (!res.success) {
+        throw new Error(res.error || 'Terjadi kesalahan saat menghapus di database Supabase.');
+      }
+
+      // Update local state via callback
+      if (onDeleteQuestionsByTokens) {
+        onDeleteQuestionsByTokens(tokensToDelete);
+      }
+
+      // Uncheck deleted tokens
+      setSelectedTokens(prev => prev.filter(t => !tokensToDelete.includes(t)));
+      setManualDeleteToken('');
+
+      // Show in-modal success message
+      setDeleteSuccessData({
+        count: res.count ?? 0,
+        localCount: localMatchCount,
+        tokens: tokensToDelete
+      });
+    } catch (err: any) {
+      console.error("Delete failed:", err);
+      setDeleteError(err.message || 'Gagal menghapus soal dari Supabase Cloud.');
+    } finally {
+      setIsDeletingCloud(false);
     }
   };
+
+  const targetTokensList = useMemo(() => {
+    const list = [...selectedTokens];
+    if (manualDeleteToken.trim()) {
+      const cleanManual = manualDeleteToken.trim().toUpperCase();
+      if (!list.includes(cleanManual)) list.push(cleanManual);
+    }
+    return list;
+  }, [selectedTokens, manualDeleteToken]);
+
+  const targetLocalMatchCount = useMemo(() => {
+    return questions.filter(
+      q => q.quizToken && targetTokensList.includes(q.quizToken.trim().toUpperCase())
+    ).length;
+  }, [questions, targetTokensList]);
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12">
+    <div className="space-y-6 max-w-4xl mx-auto pb-12 relative">
+      {/* IN-APP TOAST NOTIFICATION BANNER */}
+      {toast && (
+        <div className="fixed top-5 right-5 z-[300] max-w-md w-full animate-bounce-short">
+          <div className={`p-4 rounded-2xl shadow-2xl border flex items-start gap-3 backdrop-blur-md ${
+            toast.type === 'success' 
+              ? 'bg-emerald-950/90 text-emerald-100 border-emerald-500/50 shadow-emerald-900/40' 
+              : toast.type === 'error'
+              ? 'bg-red-950/90 text-red-100 border-red-500/50 shadow-red-900/40'
+              : 'bg-slate-900/90 text-slate-100 border-slate-700 shadow-slate-900/40'
+          }`}>
+            <div className="shrink-0 mt-0.5">
+              {toast.type === 'success' ? (
+                <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+              ) : toast.type === 'error' ? (
+                <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              )}
+            </div>
+            <div className="flex-1 text-xs">
+              {toast.title && <p className="font-black uppercase tracking-wider mb-0.5">{toast.title}</p>}
+              <p className="font-medium opacity-90 leading-relaxed">{toast.message}</p>
+            </div>
+            <button 
+              onClick={() => setToast(null)}
+              className="text-white/60 hover:text-white font-black text-sm p-1 ml-1"
+            >×</button>
+          </div>
+        </div>
+      )}
+
       {/* HEADER SECTION */}
       <div className="bg-emerald-600 p-8 rounded-[2.5rem] text-white shadow-xl shadow-emerald-100 mb-8">
         <h2 className="text-2xl font-black uppercase tracking-tight">Admin Pusat — Konfigurasi Sistem</h2>
-        <p className="text-emerald-100 text-xs font-medium mt-2">Kelola durasi ujian, keamanan password, dan link bantuan eksternal di sini.</p>
+        <p className="text-emerald-100 text-xs font-medium mt-2">Kelola durasi ujian, keamanan password, pembersihan paket soal Cloud/Lokal, dan link bantuan di sini.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -225,18 +372,39 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
           </div>
 
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
-            <h2 className="text-sm font-black text-slate-800 mb-6 flex items-center gap-2 uppercase tracking-widest">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-emerald-600" viewBox="0 0 20 20" fill="currentColor"><path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" /></svg>
-              Utilitas Data Lokal
-            </h2>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-sm font-black text-slate-800 flex items-center gap-2 uppercase tracking-widest">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-emerald-600" viewBox="0 0 20 20" fill="currentColor"><path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" /></svg>
+                Utilitas Data Lokal
+              </h2>
+              {availableTokens.length > 0 && (
+                <button
+                  type="button"
+                  onClick={selectAllTokens}
+                  className="text-[9px] font-black text-blue-600 hover:text-blue-800 uppercase tracking-wider"
+                >
+                  {selectedTokens.length === availableTokens.length ? 'Batal Semua' : 'Pilih Semua'}
+                </button>
+              )}
+            </div>
             <div className="space-y-4">
-              <div className="max-h-32 overflow-y-auto border border-slate-100 rounded-2xl p-2 bg-slate-50 custom-scrollbar">
-                {availableTokens.map(token => (
-                  <label key={token} className="flex items-center gap-3 p-2 hover:bg-white rounded-xl cursor-pointer">
-                    <input type="checkbox" checked={selectedTokens.includes(token)} onChange={() => toggleToken(token)} className="w-4 h-4 accent-blue-600" />
-                    <span className="text-[10px] font-black text-slate-500 uppercase">{token}</span>
-                  </label>
-                ))}
+              <div className="max-h-36 overflow-y-auto border border-slate-100 rounded-2xl p-2 bg-slate-50 custom-scrollbar">
+                {availableTokens.length === 0 ? (
+                  <p className="text-[10px] text-slate-400 p-3 italic text-center">Belum ada token soal yang dimuat di lokal.</p>
+                ) : (
+                  availableTokens.map(token => {
+                    const qCount = questions.filter(q => !q.isDeleted && q.quizToken?.toUpperCase() === token).length;
+                    return (
+                      <label key={token} className="flex items-center justify-between p-2 hover:bg-white rounded-xl cursor-pointer">
+                        <div className="flex items-center gap-3">
+                          <input type="checkbox" checked={selectedTokens.includes(token)} onChange={() => toggleToken(token)} className="w-4 h-4 accent-blue-600" />
+                          <span className="text-[10px] font-black text-slate-700 uppercase">{token}</span>
+                        </div>
+                        <span className="text-[9px] font-bold text-slate-400">{qCount} soal</span>
+                      </label>
+                    );
+                  })
+                )}
               </div>
               <div className="grid grid-cols-1 gap-2">
                 <button onClick={handleExportJSON} disabled={selectedTokens.length === 0} className="w-full bg-slate-900 disabled:opacity-20 text-white font-black py-3 rounded-xl text-[10px] uppercase tracking-widest transition-all">Export JSON (Backup)</button>
@@ -250,13 +418,92 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                   Download Format Excel (Template)
                 </button>
-                <button onClick={handleResetData} className="w-full text-red-500 font-bold py-2 text-[9px] uppercase tracking-widest hover:bg-red-50 rounded-lg">Kosongkan Bank Soal Lokal</button>
+                <button 
+                  onClick={() => setIsResetModalOpen(true)} 
+                  className="w-full text-slate-400 font-bold py-2 text-[9px] uppercase tracking-widest hover:bg-slate-100 hover:text-red-500 rounded-lg transition-colors"
+                >
+                  Kosongkan Bank Soal Lokal
+                </button>
               </div>
+            </div>
+          </div>
+
+          {/* FITUR HAPUS SOAL PER TOKEN (SUPABASE CLOUD & LOKAL) */}
+          <div className="bg-white p-6 rounded-3xl shadow-sm border-2 border-red-200/80">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-black text-red-600 flex items-center gap-2 uppercase tracking-widest">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                Hapus Soal per Token
+              </h2>
+              <span className="text-[9px] bg-red-100 text-red-700 font-black px-2.5 py-1 rounded-full uppercase tracking-wider">
+                Cloud & Lokal
+              </span>
+            </div>
+
+            <p className="text-[10px] text-slate-500 font-medium leading-relaxed mb-4">
+              Fitur ini akan menghapus seluruh butir soal dengan token yang dipilih secara permanen dari <strong className="text-red-600 font-bold">Database Supabase Cloud</strong> dan dari memori bank soal lokal.
+            </p>
+
+            <div className="space-y-4">
+              {selectedTokens.length > 0 ? (
+                <div className="p-3 bg-red-50 border border-red-100 rounded-2xl">
+                  <p className="text-[9px] font-black text-red-500 uppercase tracking-widest mb-1.5">
+                    Token Terpilih ({selectedTokens.length}):
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedTokens.map(t => (
+                      <span key={t} className="inline-flex items-center gap-1.5 bg-red-600 text-white font-black text-[10px] px-2.5 py-1 rounded-xl">
+                        {t}
+                        <button 
+                          type="button" 
+                          onClick={() => toggleToken(t)} 
+                          className="hover:text-red-200 font-black ml-0.5"
+                          title="Hapus dari pilihan"
+                        >×</button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 bg-slate-50 border border-slate-100 rounded-2xl text-center">
+                  <p className="text-[10px] text-slate-400 font-medium italic">
+                    Centang token pada daftar di atas, atau masukkan token manual di bawah.
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Ketik Token Manual (Opsional)</label>
+                <input 
+                  type="text" 
+                  value={manualDeleteToken} 
+                  onChange={(e) => setManualDeleteToken(e.target.value.toUpperCase())}
+                  placeholder="Contoh: PAS-MTK26"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-black outline-none focus:border-red-500 uppercase tracking-widest text-xs"
+                />
+                <p className="text-[9px] text-slate-400 font-medium mt-1 ml-1 italic">
+                  Gunakan input ini jika soal sudah terhapus di perangkat lokal namun masih tersisa di Supabase Cloud.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleOpenDeleteModal}
+                disabled={selectedTokens.length === 0 && !manualDeleteToken.trim()}
+                className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-30 text-white font-black py-4 rounded-xl text-[10px] uppercase tracking-widest shadow-lg shadow-red-200 flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                HAPUS SOAL DARI SUPABASE & LOKAL
+              </button>
             </div>
           </div>
         </div>
 
-        {/* KONFIGURASI LINK EKSTERNAL — DIPERLENGKAP */}
+        {/* KONFIGURASI LINK EKSTERNAL */}
         <div className="space-y-6">
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
             <h2 className="text-sm font-black text-slate-800 mb-6 flex items-center gap-2 uppercase tracking-widest">
@@ -323,9 +570,17 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
              <button 
               onClick={handleDownloadRecap} 
               disabled={selectedTokens.length === 0 || isDownloading} 
-              className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-30 text-white font-black py-4 rounded-xl text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-100 flex items-center justify-center gap-2 transition-all"
+              className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-30 text-white font-black py-4 rounded-xl text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-100 flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
-              {isDownloading ? 'MEMPROSES...' : 'Download Rekap Nilai (Format Excel)'}
+              {isDownloading ? (
+                <>
+                  <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                  </svg>
+                  MEMPROSES UNDUHAN...
+                </>
+              ) : 'Download Rekap Nilai (Format Excel)'}
             </button>
             <p className="text-[9px] text-slate-400 font-bold mt-4 italic text-center uppercase tracking-widest leading-relaxed">
               Data ditarik secara real-time dari Server Cloud Supabase berdasarkan token yang Anda pilih di atas.
@@ -338,11 +593,201 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
       <div className="mt-10 p-4 sticky bottom-4 z-10">
         <button 
           onClick={handleSaveAllSettings} 
-          className="w-full max-w-md mx-auto block bg-blue-600 hover:bg-blue-700 text-white font-black py-5 rounded-[2rem] shadow-2xl shadow-blue-300 transition-all active:scale-95 uppercase tracking-[0.2em] text-xs"
+          className="w-full max-w-md mx-auto block bg-blue-600 hover:bg-blue-700 text-white font-black py-5 rounded-[2rem] shadow-2xl shadow-blue-300 transition-all active:scale-95 uppercase tracking-[0.2em] text-xs cursor-pointer"
         >
           Simpan Seluruh Konfigurasi & Link
         </button>
       </div>
+
+      {/* IN-APP MODAL: KONFIRMASI HAPUS SOAL CLOUD & LOKAL (NO NATIVE PROMPT/CONFIRM) */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[250] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-xl overflow-hidden shadow-2xl border border-red-200 flex flex-col max-h-[95vh] animate-scale-up">
+            {/* Header */}
+            <div className="p-6 bg-red-600 text-white flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-base font-black uppercase tracking-tight">Konfirmasi Hapus Soal Permanen</h3>
+                  <p className="text-[11px] text-red-100 font-medium">Tindakan ini tidak dapat dibatalkan</p>
+                </div>
+              </div>
+              {!isDeletingCloud && (
+                <button 
+                  onClick={() => setIsDeleteModalOpen(false)} 
+                  className="w-9 h-9 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center font-black text-white transition-colors cursor-pointer"
+                >×</button>
+              )}
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 sm:p-8 flex-1 overflow-y-auto space-y-5">
+              {deleteSuccessData ? (
+                /* SUCCESS STATE */
+                <div className="text-center py-4 space-y-4">
+                  <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-3xl mx-auto flex items-center justify-center shadow-lg shadow-emerald-50">
+                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-black text-slate-800 uppercase tracking-tight">Penghapusan Berhasil!</h4>
+                    <p className="text-xs text-slate-500 font-medium mt-1">Soal untuk paket token terpilih telah berhasil dibersihkan.</p>
+                  </div>
+
+                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-left space-y-2 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-600">Token Dihapus:</span>
+                      <span className="font-black text-slate-900 bg-slate-200 px-2 py-0.5 rounded-lg">{deleteSuccessData.tokens.join(', ')}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-600">Database Supabase Cloud:</span>
+                      <span className="font-black text-emerald-600">{deleteSuccessData.count !== null ? `${deleteSuccessData.count} butir soal` : 'Data server dibersihkan'}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-600">Bank Soal Lokal:</span>
+                      <span className="font-black text-emerald-600">{deleteSuccessData.localCount} butir soal dihapus</span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setIsDeleteModalOpen(false);
+                      setDeleteSuccessData(null);
+                    }}
+                    className="w-full bg-slate-900 hover:bg-slate-800 text-white font-black py-4 rounded-2xl text-xs uppercase tracking-widest shadow-xl transition-all cursor-pointer"
+                  >
+                    Tutup & Selesai
+                  </button>
+                </div>
+              ) : (
+                /* CONFIRMATION FORM */
+                <>
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-2xl">
+                    <p className="text-[10px] font-black text-red-700 uppercase tracking-widest mb-1.5">
+                      Token yang akan dihapus:
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {targetTokensList.map(t => (
+                        <span key={t} className="px-3 py-1 bg-red-600 text-white font-black text-xs rounded-xl shadow-sm">
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 text-xs text-slate-600">
+                    <p className="font-bold text-slate-800">Cakupan penghapusan saat Anda melanjutkan:</p>
+                    <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2 text-[11px]">
+                      <div className="flex items-start gap-2">
+                        <span className="text-red-500 font-bold shrink-0">1.</span>
+                        <p><strong className="text-slate-800">Cloud Supabase:</strong> Seluruh baris soal dengan token di atas akan dihapus langsung dari database server.</p>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="text-red-500 font-bold shrink-0">2.</span>
+                        <p><strong className="text-slate-800">Bank Soal Lokal:</strong> <span className="font-black text-red-600">{targetLocalMatchCount} butir soal</span> yang tersimpan di perangkat ini akan dibersihkan.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {deleteError && (
+                    <div className="p-4 bg-red-100 border border-red-300 rounded-2xl text-xs text-red-800 space-y-1">
+                      <p className="font-black uppercase tracking-wider">Gagal Menghapus:</p>
+                      <p className="font-medium">{deleteError}</p>
+                    </div>
+                  )}
+
+                  <div className="space-y-2 pt-2 border-t border-slate-100">
+                    <label className="block text-[11px] font-black text-slate-700">
+                      Ketik kata <span className="text-red-600 font-black">HAPUS</span> (huruf besar) untuk membuka kunci konfirmasi:
+                    </label>
+                    <input 
+                      type="text" 
+                      value={deleteConfirmInput} 
+                      onChange={(e) => setDeleteConfirmInput(e.target.value.toUpperCase())}
+                      placeholder="Ketik HAPUS"
+                      disabled={isDeletingCloud}
+                      className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-300 focus:border-red-600 rounded-xl font-black text-sm uppercase tracking-widest outline-none transition-all"
+                    />
+                  </div>
+
+                  <div className="pt-3 flex gap-3">
+                    <button
+                      type="button"
+                      disabled={isDeletingCloud}
+                      onClick={() => setIsDeleteModalOpen(false)}
+                      className="flex-1 py-4 font-black text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-2xl uppercase tracking-widest text-[10px] transition-all cursor-pointer"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="button"
+                      disabled={deleteConfirmInput !== 'HAPUS' || isDeletingCloud}
+                      onClick={executeDeleteQuestions}
+                      className="flex-[2] bg-red-600 hover:bg-red-700 disabled:opacity-30 disabled:cursor-not-allowed text-white font-black py-4 rounded-2xl text-[10px] uppercase tracking-widest shadow-xl shadow-red-200 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                    >
+                      {isDeletingCloud ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                          </svg>
+                          MENGHAPUS DI SUPABASE & LOKAL...
+                        </>
+                      ) : (
+                        'YA, HAPUS PERMANEN SEKARANG'
+                      )}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* IN-APP MODAL: KONFIRMASI RESET DATA LOKAL (NO NATIVE CONFIRM) */}
+      {isResetModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-[250] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-md overflow-hidden shadow-2xl p-6 sm:p-8 space-y-5 animate-scale-up border border-slate-200">
+            <div className="w-14 h-14 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mx-auto">
+              <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div className="text-center">
+              <h3 className="text-base font-black text-slate-800 uppercase tracking-tight">Kosongkan Bank Soal Lokal?</h3>
+              <p className="text-xs text-slate-500 font-medium mt-2 leading-relaxed">
+                Seluruh data soal di memori perangkat ini akan dikosongkan. Tindakan ini <strong className="text-slate-800">tidak</strong> menghapus data di Supabase Cloud.
+              </p>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsResetModalOpen(false)}
+                className="flex-1 py-3.5 font-black text-slate-500 hover:bg-slate-100 rounded-xl uppercase tracking-widest text-[10px] transition-all cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onReset();
+                  setIsResetModalOpen(false);
+                  showToast('info', 'Bank soal lokal telah dikosongkan.', 'Reset Berhasil');
+                }}
+                className="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-black py-3.5 rounded-xl uppercase tracking-widest text-[10px] shadow-lg shadow-amber-200 transition-all cursor-pointer"
+              >
+                Ya, Kosongkan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL PASTE JSON */}
       {isPasteModalOpen && (
@@ -352,7 +797,7 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
               <div>
                 <h3 className="text-xl font-black uppercase tracking-tight">Paste Bank Soal</h3>
               </div>
-              <button onClick={() => setIsPasteModalOpen(false)} className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center font-black">×</button>
+              <button onClick={() => setIsPasteModalOpen(false)} className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center font-black cursor-pointer">×</button>
             </div>
             <div className="p-8 flex-1 overflow-y-auto">
               <textarea 
@@ -363,8 +808,8 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
               />
             </div>
             <div className="p-8 border-t bg-slate-50 flex gap-4">
-              <button onClick={() => setIsPasteModalOpen(false)} className="flex-1 py-4 font-black text-slate-400 uppercase tracking-widest text-[10px]">Tutup</button>
-              <button onClick={handlePasteImport} className="flex-[2] bg-blue-600 text-white font-black py-4 rounded-2xl shadow-xl uppercase tracking-widest text-[10px]">Import</button>
+              <button onClick={() => setIsPasteModalOpen(false)} className="flex-1 py-4 font-black text-slate-400 uppercase tracking-widest text-[10px] cursor-pointer">Tutup</button>
+              <button onClick={handlePasteImport} className="flex-[2] bg-blue-600 text-white font-black py-4 rounded-2xl shadow-xl uppercase tracking-widest text-[10px] cursor-pointer">Import</button>
             </div>
           </div>
         </div>

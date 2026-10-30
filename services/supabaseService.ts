@@ -226,3 +226,47 @@ export const fetchSubmissionsByToken = async (token: string): Promise<any[]> => 
   if (error) throw error;
   return data || [];
 };
+
+export const deleteQuestionsByTokenFromCloud = async (tokens: string[] | string): Promise<{ success: boolean; count?: number | null; error?: string }> => {
+  try {
+    const rawList = Array.isArray(tokens) ? tokens : [tokens];
+    const tokenList = rawList
+      .map(t => (t || '').trim())
+      .filter(Boolean);
+
+    if (tokenList.length === 0) return { success: true, count: 0 };
+
+    // Include variants (exact, uppercase, lowercase) to guarantee matching in Supabase
+    const variants = Array.from(new Set([
+      ...tokenList,
+      ...tokenList.map(t => t.toUpperCase()),
+      ...tokenList.map(t => t.toLowerCase())
+    ]));
+
+    // 1. Attempt hard DELETE from Supabase
+    let { data, error, count } = await supabase
+      .from('questions')
+      .delete({ count: 'exact' })
+      .in('quiz_token', variants);
+
+    // 2. If hard delete fails (e.g. RLS policy prevents DELETE on anon key), fallback to soft-delete
+    if (error) {
+      console.warn("Hard delete error, attempting soft delete fallback:", error.message);
+      const softRes = await supabase
+        .from('questions')
+        .update({ is_deleted: true }, { count: 'exact' })
+        .in('quiz_token', variants);
+
+      if (softRes.error) {
+        throw new Error(`Gagal menghapus di Supabase (${error.message}). Percobaan alternatif juga gagal (${softRes.error.message})`);
+      }
+      return { success: true, count: softRes.count ?? 0 };
+    }
+
+    return { success: true, count: count ?? 0 };
+  } catch (err: any) {
+    console.error("Error deleting questions by token from cloud:", err);
+    return { success: false, error: err.message || 'Gagal menghapus soal di cloud Supabase' };
+  }
+};
+
