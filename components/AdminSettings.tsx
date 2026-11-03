@@ -1,6 +1,6 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { AppSettings, Question, ExternalLinks } from '../types';
-import { fetchSubmissionsByToken, deleteQuestionsByTokenFromCloud } from '../services/supabaseService';
+import { fetchSubmissionsByToken, deleteQuestionsByTokenFromCloud, updateQuestionTokenInCloud } from '../services/supabaseService';
 import { exportSubmissionsToExcel, downloadImportTemplate, importQuestionsFromExcel } from '../services/excelService';
 
 interface AdminSettingsProps {
@@ -10,6 +10,7 @@ interface AdminSettingsProps {
   onImportQuestions: (newQuestions: Question[], mode: 'replace' | 'append') => void;
   onReset: () => void;
   onDeleteQuestionsByTokens?: (tokens: string[]) => void;
+  onRenameToken?: (oldToken: string, newToken: string) => void;
 }
 
 interface ToastNotification {
@@ -24,7 +25,8 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
   onUpdateSettings, 
   onImportQuestions, 
   onReset,
-  onDeleteQuestionsByTokens
+  onDeleteQuestionsByTokens,
+  onRenameToken
 }) => {
   const [timer, setTimer] = useState(settings.timerMinutes.toString());
   const [newAdminPass, setNewAdminPass] = useState(settings.adminPassword || '');
@@ -40,6 +42,22 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
   const [selectedTokens, setSelectedTokens] = useState<string[]>([]);
   const [isDownloading, setIsDownloading] = useState(false);
   const [manualDeleteToken, setManualDeleteToken] = useState('');
+
+  // Rename Token States
+  const [renameOldToken, setRenameOldToken] = useState('');
+  const [renameCustomOldToken, setRenameCustomOldToken] = useState('');
+  const [renameNewToken, setRenameNewToken] = useState('');
+  const [isSyncRenameToCloud, setIsSyncRenameToCloud] = useState(true);
+  const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
+  const [isRenamingCloud, setIsRenamingCloud] = useState(false);
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const [renameSuccessData, setRenameSuccessData] = useState<{
+    oldToken: string;
+    newToken: string;
+    localCount: number;
+    cloudCount: number | null;
+    submissionsCount?: number | null;
+  } | null>(null);
   
   // Modals & In-App UI States (No window.alert/prompt/confirm)
   const [toast, setToast] = useState<ToastNotification | null>(null);
@@ -204,6 +222,92 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
       setIsPasteModalOpen(false);
     } catch (e) {
       showToast('error', 'Format JSON tidak valid. Pastikan Anda menyalin seluruh teks dengan lengkap.', 'Format Salah');
+    }
+  };
+
+  const effectiveOldToken = renameOldToken === '__MANUAL__'
+    ? renameCustomOldToken.trim().toUpperCase()
+    : renameOldToken.trim().toUpperCase();
+
+  const handleOpenRenameModal = () => {
+    const oldT = effectiveOldToken;
+    const newT = renameNewToken.trim().toUpperCase();
+
+    if (!oldT) {
+      showToast('error', 'Pilih atau masukkan token lama yang ingin diubah.', 'Token Lama Belum Dipilih');
+      return;
+    }
+    if (!newT) {
+      showToast('error', 'Ketik kode token baru yang diinginkan.', 'Token Baru Kosong');
+      return;
+    }
+    if (oldT === newT) {
+      showToast('error', 'Token baru harus berbeda dengan token lama.', 'Token Sama');
+      return;
+    }
+
+    setRenameError(null);
+    setRenameSuccessData(null);
+    setIsRenameModalOpen(true);
+  };
+
+  const executeRenameToken = async () => {
+    const oldT = effectiveOldToken;
+    const newT = renameNewToken.trim().toUpperCase();
+    if (!oldT || !newT || oldT === newT) return;
+
+    setIsRenamingCloud(true);
+    setRenameError(null);
+
+    const localMatchCount = questions.filter(
+      q => q.quizToken && q.quizToken.trim().toUpperCase() === oldT
+    ).length;
+
+    let cloudUpdatedCount: number | null = null;
+    let submissionsUpdatedCount: number | null = null;
+
+    try {
+      if (isSyncRenameToCloud) {
+        const res = await updateQuestionTokenInCloud(oldT, newT, true);
+        if (!res.success) {
+          throw new Error(res.error || 'Gagal mengubah token soal di Supabase Cloud.');
+        }
+        cloudUpdatedCount = res.count ?? 0;
+        submissionsUpdatedCount = res.submissionsCount ?? 0;
+      }
+
+      // Update di memori perangkat lokal
+      if (onRenameToken) {
+        onRenameToken(oldT, newT);
+      }
+
+      setRenameSuccessData({
+        oldToken: oldT,
+        newToken: newT,
+        localCount: localMatchCount,
+        cloudCount: cloudUpdatedCount,
+        submissionsCount: submissionsUpdatedCount
+      });
+
+      showToast(
+        'success',
+        `Token "${oldT}" berhasil diubah menjadi "${newT}"${cloudUpdatedCount !== null ? ` (${cloudUpdatedCount} butir di server)` : ''}.`,
+        'Token Berhasil Diubah'
+      );
+
+      // Reset form
+      setRenameNewToken('');
+      if (renameOldToken === '__MANUAL__') {
+        setRenameCustomOldToken('');
+      } else {
+        setRenameOldToken(newT);
+      }
+    } catch (err: any) {
+      console.error("Rename token error:", err);
+      setRenameError(err.message || 'Terjadi kesalahan saat mengubah token di server.');
+      showToast('error', err.message || 'Gagal mengubah token.', 'Gagal Mengubah Token');
+    } finally {
+      setIsRenamingCloud(false);
     }
   };
 
@@ -428,6 +532,99 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
             </div>
           </div>
 
+          {/* FITUR UBAH TOKEN SOAL (SUPABASE CLOUD & LOKAL) */}
+          <div className="bg-white p-6 rounded-3xl shadow-sm border-2 border-indigo-200/90">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-black text-indigo-700 flex items-center gap-2 uppercase tracking-widest">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+                Ubah Token Soal
+              </h2>
+              <span className="text-[9px] bg-indigo-100 text-indigo-800 font-black px-2.5 py-1 rounded-full uppercase tracking-wider">
+                Cloud & Lokal
+              </span>
+            </div>
+
+            <p className="text-[10px] text-slate-500 font-medium leading-relaxed mb-4">
+              Ganti nama token paket soal lama ke kode token baru. Perubahan ini dapat langsung disinkronkan ke <strong className="text-indigo-600 font-bold">Database Supabase Cloud</strong> sehingga siswa langsung bisa mengakses ujian dengan token baru.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Pilih Token Lama yang Ingin Diubah</label>
+                <select 
+                  value={renameOldToken} 
+                  onChange={(e) => setRenameOldToken(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-black outline-none focus:border-indigo-600 text-xs uppercase transition-all"
+                >
+                  <option value="">-- Pilih Token Dari Bank Soal --</option>
+                  {availableTokens.map(token => {
+                    const count = questions.filter(q => !q.isDeleted && q.quizToken?.toUpperCase() === token).length;
+                    return (
+                      <option key={token} value={token}>
+                        {token} ({count} butir soal)
+                      </option>
+                    );
+                  })}
+                  <option value="__MANUAL__">+ Ketik Token Manual (Khusus Server Cloud)</option>
+                </select>
+              </div>
+
+              {renameOldToken === '__MANUAL__' && (
+                <div className="animate-in fade-in duration-200">
+                  <label className="block text-[10px] font-black text-indigo-600 uppercase mb-1 ml-1">Ketik Token Lama Manual</label>
+                  <input 
+                    type="text" 
+                    value={renameCustomOldToken} 
+                    onChange={(e) => setRenameCustomOldToken(e.target.value.toUpperCase())}
+                    placeholder="Contoh: PAS-IPA-2025"
+                    className="w-full px-4 py-3 bg-indigo-50/50 border-2 border-indigo-200 rounded-xl font-black outline-none focus:border-indigo-600 uppercase tracking-widest text-xs"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Token Baru yang Diinginkan</label>
+                <input 
+                  type="text" 
+                  value={renameNewToken} 
+                  onChange={(e) => setRenameNewToken(e.target.value.toUpperCase())}
+                  placeholder="Contoh: PAS-IPA2026"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-black outline-none focus:border-indigo-600 uppercase tracking-widest text-xs"
+                />
+              </div>
+
+              {/* Opsi Sinkronisasi Supabase */}
+              <label className="flex items-start gap-3 p-3.5 bg-indigo-50/80 rounded-2xl border border-indigo-100 cursor-pointer select-none">
+                <input 
+                  type="checkbox" 
+                  checked={isSyncRenameToCloud} 
+                  onChange={(e) => setIsSyncRenameToCloud(e.target.checked)} 
+                  className="w-5 h-5 accent-indigo-600 mt-0.5 rounded cursor-pointer"
+                />
+                <div>
+                  <span className="text-[11px] font-black text-indigo-950 block">Sinkronkan Langsung ke Supabase Cloud</span>
+                  <span className="text-[10px] text-indigo-700 font-medium leading-relaxed block mt-0.5">
+                    Memperbarui tabel <strong>questions</strong> & riwayat jawaban <strong>submissions</strong> di database Supabase Cloud.
+                  </span>
+                </div>
+              </label>
+
+              <button
+                type="button"
+                onClick={handleOpenRenameModal}
+                disabled={!effectiveOldToken || !renameNewToken.trim() || effectiveOldToken === renameNewToken.trim().toUpperCase()}
+                className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-30 text-white font-black py-4 rounded-xl text-[10px] uppercase tracking-widest shadow-lg shadow-indigo-100 flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                GANTI KODE TOKEN SOAL
+              </button>
+            </div>
+          </div>
+
           {/* FITUR HAPUS SOAL PER TOKEN (SUPABASE CLOUD & LOKAL) */}
           <div className="bg-white p-6 rounded-3xl shadow-sm border-2 border-red-200/80">
             <div className="flex items-center justify-between mb-4">
@@ -598,6 +795,166 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
           Simpan Seluruh Konfigurasi & Link
         </button>
       </div>
+
+      {/* IN-APP MODAL: KONFIRMASI UBAH TOKEN SOAL CLOUD & LOKAL */}
+      {isRenameModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[250] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-xl overflow-hidden shadow-2xl border border-indigo-200 flex flex-col max-h-[95vh] animate-scale-up">
+            {/* Header */}
+            <div className="p-6 bg-indigo-600 text-white flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-base font-black uppercase tracking-tight">Konfirmasi Ganti Token Soal</h3>
+                  <p className="text-[11px] text-indigo-100 font-medium">Perbarui kode token di bank soal & database</p>
+                </div>
+              </div>
+              {!isRenamingCloud && (
+                <button 
+                  onClick={() => setIsRenameModalOpen(false)} 
+                  className="w-9 h-9 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center font-black text-white transition-colors cursor-pointer"
+                >×</button>
+              )}
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 sm:p-8 flex-1 overflow-y-auto space-y-5">
+              {renameSuccessData ? (
+                /* SUCCESS STATE */
+                <div className="text-center py-4 space-y-4">
+                  <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-3xl mx-auto flex items-center justify-center shadow-lg shadow-emerald-50">
+                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-black text-slate-800 uppercase tracking-tight">Token Berhasil Diubah!</h4>
+                    <p className="text-xs text-slate-500 font-medium mt-1">Paket soal kini menggunakan kode token baru.</p>
+                  </div>
+
+                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-left space-y-2 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-600">Token Sebelumnya:</span>
+                      <span className="font-black text-slate-500 bg-slate-200 px-2 py-0.5 rounded-lg line-through">{renameSuccessData.oldToken}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-600">Token Baru (Aktif):</span>
+                      <span className="font-black text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-lg">{renameSuccessData.newToken}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-600">Bank Soal Lokal:</span>
+                      <span className="font-black text-emerald-600">{renameSuccessData.localCount} butir soal diperbarui</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-600">Database Supabase Cloud:</span>
+                      <span className="font-black text-emerald-600">
+                        {renameSuccessData.cloudCount !== null ? `${renameSuccessData.cloudCount} butir soal di server` : 'Tidak disinkronkan ke server'}
+                      </span>
+                    </div>
+                    {typeof renameSuccessData.submissionsCount === 'number' && renameSuccessData.submissionsCount > 0 && (
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-600">Riwayat Nilai Siswa:</span>
+                        <span className="font-black text-emerald-600">{renameSuccessData.submissionsCount} catatan siswa diperbarui</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setIsRenameModalOpen(false);
+                      setRenameSuccessData(null);
+                    }}
+                    className="w-full bg-slate-900 hover:bg-slate-800 text-white font-black py-4 rounded-2xl text-xs uppercase tracking-widest shadow-xl transition-all cursor-pointer"
+                  >
+                    Tutup & Selesai
+                  </button>
+                </div>
+              ) : (
+                /* CONFIRMATION FORM */
+                <>
+                  <div className="flex items-center justify-between p-4 bg-indigo-50 border border-indigo-200 rounded-2xl gap-2">
+                    <div className="text-center flex-1 min-w-0">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Token Lama</p>
+                      <p className="text-sm sm:text-base font-black text-slate-800 uppercase truncate mt-0.5">{effectiveOldToken}</p>
+                    </div>
+                    <div className="text-indigo-600 px-2 shrink-0">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                      </svg>
+                    </div>
+                    <div className="text-center flex-1 min-w-0">
+                      <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">Token Baru</p>
+                      <p className="text-sm sm:text-base font-black text-indigo-700 uppercase truncate mt-0.5">{renameNewToken.trim().toUpperCase()}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 text-xs text-slate-600">
+                    <p className="font-bold text-slate-800">Dampak perubahan token:</p>
+                    <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2 text-[11px]">
+                      <div className="flex items-start gap-2">
+                        <span className="text-indigo-600 font-bold shrink-0">1.</span>
+                        <p>
+                          <strong className="text-slate-800">Bank Soal Lokal:</strong> Seluruh soal dengan token lama ({questions.filter(q => q.quizToken?.toUpperCase() === effectiveOldToken).length} soal) akan diubah menjadi <strong className="text-indigo-600 font-bold">{renameNewToken.trim().toUpperCase()}</strong>.
+                        </p>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="text-indigo-600 font-bold shrink-0">2.</span>
+                        <p>
+                          <strong className="text-slate-800">Supabase Cloud:</strong> {isSyncRenameToCloud ? (
+                            <>Tabel <strong>questions</strong> di server akan langsung diperbarui sehingga siswa yang login dengan token baru dapat langsung mengakses paket soal ini.</>
+                          ) : (
+                            <span className="text-amber-600 font-bold">Sinkronisasi Cloud dimatikan. Data hanya diubah di perangkat ini.</span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {renameError && (
+                    <div className="p-4 bg-red-100 border border-red-300 rounded-2xl text-xs text-red-800 space-y-1">
+                      <p className="font-black uppercase tracking-wider">Gagal Mengubah Token:</p>
+                      <p className="font-medium">{renameError}</p>
+                    </div>
+                  )}
+
+                  <div className="pt-3 flex gap-3">
+                    <button
+                      type="button"
+                      disabled={isRenamingCloud}
+                      onClick={() => setIsRenameModalOpen(false)}
+                      className="flex-1 py-4 font-black text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-2xl uppercase tracking-widest text-[10px] transition-all cursor-pointer"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isRenamingCloud}
+                      onClick={executeRenameToken}
+                      className="flex-[2] bg-indigo-600 hover:bg-indigo-700 disabled:opacity-30 disabled:cursor-not-allowed text-white font-black py-4 rounded-2xl text-[10px] uppercase tracking-widest shadow-xl shadow-indigo-200 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                    >
+                      {isRenamingCloud ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                          </svg>
+                          MEMPERBARUI DI SUPABASE...
+                        </>
+                      ) : (
+                        'YA, UBAH TOKEN SEKARANG'
+                      )}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* IN-APP MODAL: KONFIRMASI HAPUS SOAL CLOUD & LOKAL (NO NATIVE PROMPT/CONFIRM) */}
       {isDeleteModalOpen && (

@@ -148,6 +148,17 @@ const App: React.FC = () => {
     setQuestions(prev => prev.filter(q => !q.quizToken || !cleanTokens.includes(q.quizToken.trim().toUpperCase())));
   };
 
+  const handleRenameToken = (oldToken: string, newToken: string) => {
+    const cleanOld = oldToken.trim().toUpperCase();
+    const cleanNew = newToken.trim().toUpperCase();
+    setQuestions(prev => prev.map(q => {
+      if (q.quizToken && q.quizToken.trim().toUpperCase() === cleanOld) {
+        return { ...q, quizToken: cleanNew };
+      }
+      return q;
+    }));
+  };
+
   const handleCloudPull = async () => {
     setPullStatus('loading');
     try {
@@ -509,6 +520,7 @@ const App: React.FC = () => {
                 onImportQuestions={handleImportQuestions}
                 onReset={() => setQuestions([])}
                 onDeleteQuestionsByTokens={handleDeleteQuestionsByTokens}
+                onRenameToken={handleRenameToken}
               />
             )}
           </main>

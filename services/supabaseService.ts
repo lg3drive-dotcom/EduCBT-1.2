@@ -270,3 +270,56 @@ export const deleteQuestionsByTokenFromCloud = async (tokens: string[] | string)
   }
 };
 
+export const updateQuestionTokenInCloud = async (
+  oldToken: string, 
+  newToken: string,
+  updateSubmissions: boolean = true
+): Promise<{ success: boolean; count?: number | null; submissionsCount?: number | null; error?: string }> => {
+  try {
+    const cleanOld = (oldToken || '').trim();
+    const cleanNew = (newToken || '').trim().toUpperCase();
+
+    if (!cleanOld || !cleanNew) {
+      return { success: false, error: 'Token lama dan token baru wajib diisi.' };
+    }
+    if (cleanOld.toUpperCase() === cleanNew) {
+      return { success: false, error: 'Token baru harus berbeda dengan token lama.' };
+    }
+
+    const variants = Array.from(new Set([
+      cleanOld,
+      cleanOld.toUpperCase(),
+      cleanOld.toLowerCase()
+    ]));
+
+    // 1. Perbarui token butir soal di tabel questions
+    const { error, count } = await supabase
+      .from('questions')
+      .update({ quiz_token: cleanNew }, { count: 'exact' })
+      .in('quiz_token', variants);
+
+    if (error) {
+      throw new Error(`Gagal mengubah token soal di Supabase: ${error.message}`);
+    }
+
+    let submissionsCount = 0;
+    // 2. Perbarui juga riwayat jawaban di tabel submissions (jika ada)
+    if (updateSubmissions) {
+      try {
+        const subRes = await supabase
+          .from('submissions')
+          .update({ subject: cleanNew, subject_token: cleanNew }, { count: 'exact' })
+          .in('subject', variants);
+        submissionsCount = subRes.count ?? 0;
+      } catch (subErr) {
+        console.warn("Notice: update submissions optional warning:", subErr);
+      }
+    }
+
+    return { success: true, count: count ?? 0, submissionsCount };
+  } catch (err: any) {
+    console.error("Error updating question token in cloud:", err);
+    return { success: false, error: err.message || 'Gagal mengubah token soal di Supabase' };
+  }
+};
+
