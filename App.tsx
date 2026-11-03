@@ -9,6 +9,7 @@ import QuestionManager from './components/QuestionManager.tsx';
 import AdminSettings from './components/AdminSettings.tsx';
 import ConfirmIdentity from './components/ConfirmIdentity.tsx';
 import AdminGuide from './components/AdminGuide.tsx';
+import ExamPrintModal from './components/ExamPrintModal.tsx';
 import { generateResultPDF } from './services/pdfService.ts';
 import { exportSubmissionsToExcel, exportMultiSheetAnalysis } from './services/excelService.ts';
 import { 
@@ -71,6 +72,9 @@ const App: React.FC = () => {
   const [showInvalidTokenModal, setShowInvalidTokenModal] = useState(false);
   const [invalidTokenEntered, setInvalidTokenEntered] = useState('');
   const [waNumberCopied, setWaNumberCopied] = useState(false);
+
+  // Global Exam Print Modal State
+  const [isGlobalPrintOpen, setIsGlobalPrintOpen] = useState(false);
 
   // Quick Recap States
   const [quickDownloadToken, setQuickDownloadToken] = useState('');
@@ -532,6 +536,16 @@ const App: React.FC = () => {
                   {sidebarPromptCopied ? 'TERSALIN!' : 'COPY'}
                 </span>
               </button>
+              <button 
+                onClick={() => setIsGlobalPrintOpen(true)}
+                className="w-full flex items-center gap-3 p-4 hover:bg-white/5 rounded-xl font-bold uppercase text-[10px] tracking-widest text-sky-400 border border-transparent hover:border-sky-500/20 transition-all text-left cursor-pointer"
+                title="Cetak Naskah Soal Ujian Sekolah Standar Berdasarkan Token"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-sky-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                </svg>
+                <span>Cetak Naskah Ujian 🖨️</span>
+              </button>
               <button onClick={() => setShowGuide(true)} className="w-full flex items-center gap-3 p-4 hover:bg-white/5 rounded-xl font-bold uppercase text-[10px] tracking-widest text-emerald-400 border border-transparent hover:border-emerald-500/20 transition-all">Panduan</button>
             </nav>
 
@@ -932,6 +946,14 @@ const App: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* GLOBAL EXAM PRINT MODAL (STANDAR UJIAN SEKOLAH) */}
+      <ExamPrintModal
+        isOpen={isGlobalPrintOpen}
+        onClose={() => setIsGlobalPrintOpen(false)}
+        questions={questions}
+        appSettings={settings}
+      />
     </div>
   );
 };

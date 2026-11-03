@@ -2,6 +2,7 @@ import React, { useState, useRef, useMemo } from 'react';
 import { AppSettings, Question, ExternalLinks } from '../types';
 import { fetchSubmissionsByToken, deleteQuestionsByTokenFromCloud, updateQuestionTokenInCloud } from '../services/supabaseService';
 import { exportSubmissionsToExcel, downloadImportTemplate, importQuestionsFromExcel } from '../services/excelService';
+import ExamPrintModal from './ExamPrintModal';
 
 interface AdminSettingsProps {
   settings: AppSettings;
@@ -63,6 +64,10 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
   const [toast, setToast] = useState<ToastNotification | null>(null);
   const [isPasteModalOpen, setIsPasteModalOpen] = useState(false);
   const [pasteContent, setPasteContent] = useState('');
+  
+  // Print Modal states
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [printModalToken, setPrintModalToken] = useState('');
   
   // Reset confirmation modal
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
@@ -499,18 +504,44 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
                   availableTokens.map(token => {
                     const qCount = questions.filter(q => !q.isDeleted && q.quizToken?.toUpperCase() === token).length;
                     return (
-                      <label key={token} className="flex items-center justify-between p-2 hover:bg-white rounded-xl cursor-pointer">
-                        <div className="flex items-center gap-3">
+                      <div key={token} className="flex items-center justify-between p-2 hover:bg-white rounded-xl">
+                        <label className="flex items-center gap-3 cursor-pointer flex-1">
                           <input type="checkbox" checked={selectedTokens.includes(token)} onChange={() => toggleToken(token)} className="w-4 h-4 accent-blue-600" />
                           <span className="text-[10px] font-black text-slate-700 uppercase">{token}</span>
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[9px] font-bold text-slate-400">{qCount} soal</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPrintModalToken(token);
+                              setIsPrintModalOpen(true);
+                            }}
+                            className="p-1 px-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-[9px] font-black flex items-center gap-1 transition-colors cursor-pointer"
+                            title="Cetak Naskah Soal Ujian untuk token ini"
+                          >
+                            <span>🖨️ Cetak</span>
+                          </button>
                         </div>
-                        <span className="text-[9px] font-bold text-slate-400">{qCount} soal</span>
-                      </label>
+                      </div>
                     );
                   })
                 )}
               </div>
               <div className="grid grid-cols-1 gap-2">
+                <button 
+                  type="button"
+                  onClick={() => {
+                    setPrintModalToken(selectedTokens[0] || (availableTokens[0] || ''));
+                    setIsPrintModalOpen(true);
+                  }}
+                  className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:opacity-95 text-white font-black py-3 rounded-xl shadow-md shadow-blue-100 text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                  </svg>
+                  <span>🖨️ CETAK NASKAH SOAL (STANDAR SEKOLAH)</span>
+                </button>
                 <button onClick={handleExportJSON} disabled={selectedTokens.length === 0} className="w-full bg-slate-900 disabled:opacity-20 text-white font-black py-3 rounded-xl text-[10px] uppercase tracking-widest transition-all">Export JSON (Backup)</button>
                 <input type="file" ref={fileInputRef} className="hidden" accept=".json,.xlsx,.xls" onChange={handleFileChange} />
                 <button onClick={() => fileInputRef.current?.click()} className="w-full bg-blue-50 text-blue-600 font-bold py-3 rounded-xl border border-blue-100 text-[10px] uppercase tracking-widest transition-all">Upload JSON/Excel (Restore)</button>
@@ -1171,6 +1202,15 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
           </div>
         </div>
       )}
+
+      {/* MODAL CETAK NASKAH SOAL UJIAN STANDAR SEKOLAH */}
+      <ExamPrintModal
+        isOpen={isPrintModalOpen}
+        onClose={() => setIsPrintModalOpen(false)}
+        questions={questions}
+        initialToken={printModalToken}
+        appSettings={settings}
+      />
     </div>
   );
 };

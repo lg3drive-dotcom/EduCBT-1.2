@@ -253,3 +253,278 @@ export const generateQuestionBankPDF = async (questions: Question[], mode: 'kisi
   
   doc.save(`BankSoal_${token || 'Export'}.pdf`);
 };
+
+export interface ExamPdfConfig {
+  institutionName: string;
+  schoolName: string;
+  schoolAddress: string;
+  examTitle: string;
+  academicYear: string;
+  subjectName: string;
+  className: string;
+  examDate: string;
+  timeAllocation: string;
+  showOfficialKop: boolean;
+  showInstructions: boolean;
+  fontSize?: 'compact' | 'normal' | 'large';
+  optionsLayout?: '1-col' | '2-col';
+}
+
+export const generateStandardExamPDF = async (
+  questions: Question[], 
+  config: ExamPdfConfig, 
+  mode: 'student' | 'master' | 'key_only' | 'ljk', 
+  token?: string
+) => {
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const marginX = 15;
+  const contentWidth = pageWidth - (marginX * 2);
+
+  let y = 15;
+
+  const checkPageBreak = (requiredHeight: number) => {
+    if (y + requiredHeight > pageHeight - 15) {
+      doc.addPage();
+      y = 15;
+      return true;
+    }
+    return false;
+  };
+
+  // 1. KOP NASKAH SOAL RESMI
+  if (config.showOfficialKop) {
+    doc.setFont("times", "bold");
+    doc.setFontSize(10);
+    const instLines = doc.splitTextToSize(config.institutionName.toUpperCase(), contentWidth);
+    doc.text(instLines, pageWidth / 2, y, { align: 'center' });
+    y += (instLines.length * 4) + 1;
+
+    doc.setFontSize(13);
+    doc.text(config.schoolName.toUpperCase(), pageWidth / 2, y, { align: 'center' });
+    y += 5;
+
+    doc.setFont("times", "italic");
+    doc.setFontSize(8);
+    doc.text(config.schoolAddress, pageWidth / 2, y, { align: 'center' });
+    y += 3;
+
+    // Double line KOP
+    doc.setLineWidth(0.8);
+    doc.line(marginX, y, pageWidth - marginX, y);
+    doc.setLineWidth(0.3);
+    doc.line(marginX, y + 1, pageWidth - marginX, y + 1);
+    y += 5;
+  }
+
+  // 2. JUDUL UJIAN
+  doc.setFont("times", "bold");
+  doc.setFontSize(11);
+  doc.text(config.examTitle.toUpperCase(), pageWidth / 2, y, { align: 'center' });
+  y += 4.5;
+  doc.setFontSize(9.5);
+  doc.text(config.academicYear.toUpperCase(), pageWidth / 2, y, { align: 'center' });
+  y += 6;
+
+  // 3. TABEL IDENTITAS
+  doc.setFont("times", "normal");
+  doc.setFontSize(9);
+  const col1X = marginX;
+  const col2X = marginX + 28;
+  const col3X = marginX + 95;
+  const col4X = marginX + 125;
+
+  doc.text("Mata Pelajaran", col1X, y);
+  doc.text(`: ${config.subjectName}`, col2X, y);
+  doc.text("Hari, Tanggal", col3X, y);
+  doc.text(`: ${config.examDate}`, col4X, y);
+  y += 4;
+
+  doc.text("Kelas / Fase", col1X, y);
+  doc.text(`: ${config.className}`, col2X, y);
+  doc.text("Alokasi Waktu", col3X, y);
+  doc.text(`: ${config.timeAllocation}`, col4X, y);
+  y += 4;
+
+  doc.text("Kode / Token", col1X, y);
+  doc.text(`: ${token || '-'}`, col2X, y);
+  doc.text("Nama Peserta", col3X, y);
+  doc.text(`: .......................................`, col4X, y);
+  y += 6;
+
+  // 4. PETUNJUK UMUM
+  if (config.showInstructions) {
+    doc.setDrawColor(80, 80, 80);
+    doc.setLineWidth(0.2);
+    doc.rect(marginX, y, contentWidth, 22);
+
+    doc.setFont("times", "bold");
+    doc.setFontSize(8);
+    doc.text("PETUNJUK UMUM:", marginX + 2, y + 4);
+
+    doc.setFont("times", "normal");
+    doc.setFontSize(7.5);
+    doc.text("1. Berdoalah sebelum mulai mengerjakan soal. | 2. Tulis nama dan nomor pada lembar jawaban.", marginX + 2, y + 8);
+    doc.text("3. Periksa dan bacalah setiap butir soal dengan saksama sebelum menjawab.", marginX + 2, y + 12);
+    doc.text("4. Dahulukan menjawab soal-soal yang Anda anggap lebih mudah.", marginX + 2, y + 16);
+    doc.text("5. Periksalah kembali seluruh pekerjaan Anda sebelum diserahkan kepada pengawas ujian.", marginX + 2, y + 20);
+    y += 26;
+  }
+
+  // 5. ISI SOAL ATAU KUNCI JAWABAN
+  if (mode === 'key_only') {
+    doc.setFont("times", "bold");
+    doc.setFontSize(11);
+    doc.text("LEMBAR KUNCI JAWABAN REKAPITULASI", pageWidth / 2, y, { align: 'center' });
+    y += 6;
+
+    doc.setFontSize(9);
+    doc.rect(marginX, y, contentWidth, 7);
+    doc.text("No", marginX + 4, y + 5);
+    doc.text("Tipe Soal", marginX + 16, y + 5);
+    doc.text("Kunci Jawaban", marginX + 65, y + 5);
+    doc.text("Level", marginX + 130, y + 5);
+    y += 7;
+
+    doc.setFont("times", "normal");
+    for (let i = 0; i < questions.length; i++) {
+      checkPageBreak(8);
+      const q = questions[i];
+      let keyStr = "-";
+      if (q.type === QuestionType.SINGLE) {
+        keyStr = q.correctAnswer !== undefined ? String.fromCharCode(65 + q.correctAnswer) : '-';
+      } else if (q.type === QuestionType.MULTIPLE && Array.isArray(q.correctAnswer)) {
+        keyStr = q.correctAnswer.map(ans => String.fromCharCode(65 + ans)).join(', ');
+      } else if ((q.type === QuestionType.TRUE_FALSE || q.type === QuestionType.MATCH) && Array.isArray(q.correctAnswer)) {
+        keyStr = q.correctAnswer.map((v, idx) => `${idx + 1}:${v === true ? 'B' : 'S'}`).join(' ');
+      }
+
+      doc.rect(marginX, y, contentWidth, 6);
+      doc.text(`${q.order || i + 1}`, marginX + 4, y + 4.5);
+      doc.text(`${q.type.substring(0, 18)}`, marginX + 16, y + 4.5);
+      doc.setFont("times", "bold");
+      doc.text(`${keyStr}`, marginX + 65, y + 4.5);
+      doc.setFont("times", "normal");
+      doc.text(`${(q.level || '-').substring(0, 16)}`, marginX + 130, y + 4.5);
+      y += 6;
+    }
+  } else {
+    // Mode Siswa atau Master Guru
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i];
+      const qNum = `${q.order || i + 1}.`;
+      const cleanText = cleanMathForPDF(q.text);
+      const textLines = doc.splitTextToSize(cleanText, contentWidth - 10);
+      const qHeight = (textLines.length * 4.5) + (q.questionImage ? 45 : 0) + (q.options ? q.options.length * 5 : 10);
+
+      checkPageBreak(Math.min(qHeight, 60));
+
+      doc.setFont("times", "bold");
+      doc.setFontSize(10);
+      doc.text(qNum, marginX, y);
+
+      doc.setFont("times", "normal");
+      doc.text(textLines, marginX + 7, y);
+      y += (textLines.length * 4.5) + 2;
+
+      // Gambar Soal jika ada
+      if (q.questionImage) {
+        try {
+          const imgBase64 = await getImageBase64(q.questionImage);
+          if (imgBase64) {
+            checkPageBreak(45);
+            const format = imgBase64.toLowerCase().includes('png') ? 'PNG' : 'JPEG';
+            doc.addImage(imgBase64, format, marginX + 7, y, 65, 38);
+            y += 42;
+          }
+        } catch (imgErr) {
+          // Ignore
+        }
+      }
+
+      // Opsi Pilihan Ganda
+      if (q.type === QuestionType.SINGLE && q.options) {
+        for (let optIdx = 0; optIdx < q.options.length; optIdx++) {
+          checkPageBreak(6);
+          const letter = String.fromCharCode(65 + optIdx);
+          const isCorrect = q.correctAnswer === optIdx;
+          const optClean = cleanMathForPDF(q.options[optIdx]);
+          const optLines = doc.splitTextToSize(optClean, contentWidth - 25);
+
+          if (mode === 'master' && isCorrect) {
+            doc.setFont("times", "bold");
+            doc.text(`${letter}. ${optLines[0]}`, marginX + 10, y);
+            doc.setFontSize(7.5);
+            doc.text("[KUNCI]", marginX + contentWidth - 20, y);
+            doc.setFontSize(10);
+          } else {
+            doc.setFont("times", "normal");
+            doc.text(`${letter}. ${optLines[0]}`, marginX + 10, y);
+          }
+          y += 4.5;
+        }
+      } else if (q.type === QuestionType.MULTIPLE && q.options) {
+        for (let optIdx = 0; optIdx < q.options.length; optIdx++) {
+          checkPageBreak(6);
+          const isCorrect = Array.isArray(q.correctAnswer) && q.correctAnswer.includes(optIdx);
+          const optClean = cleanMathForPDF(q.options[optIdx]);
+          doc.rect(marginX + 10, y - 3, 3, 3);
+          if (mode === 'master' && isCorrect) {
+            doc.text("✓", marginX + 10.5, y - 0.5);
+          }
+          doc.text(optClean, marginX + 15, y);
+          y += 4.5;
+        }
+      } else if (q.type === QuestionType.TRUE_FALSE || q.type === QuestionType.MATCH) {
+        if (q.options) {
+          checkPageBreak(15);
+          doc.setFontSize(8);
+          doc.text("Pernyataan:", marginX + 10, y);
+          y += 3.5;
+          for (let sIdx = 0; sIdx < q.options.length; sIdx++) {
+            checkPageBreak(5);
+            const ans = Array.isArray(q.correctAnswer) ? q.correctAnswer[sIdx] : null;
+            const optClean = cleanMathForPDF(q.options[sIdx]);
+            const ansTag = mode === 'master' ? (ans === true ? '[BENAR]' : ans === false ? '[SALAH]' : '') : '[   ]';
+            doc.text(`- ${optClean} ${ansTag}`, marginX + 12, y);
+            y += 4;
+          }
+          doc.setFontSize(10);
+        }
+      }
+
+      if (mode === 'master' && q.explanation) {
+        checkPageBreak(8);
+        doc.setFont("times", "italic");
+        doc.setFontSize(8);
+        doc.text(`Pembahasan: ${cleanMathForPDF(q.explanation)}`, marginX + 7, y);
+        doc.setFont("times", "normal");
+        doc.setFontSize(10);
+        y += 4.5;
+      }
+
+      y += 4; // Space between questions
+    }
+  }
+
+  // Footer on all pages
+  const totalPages = (doc as any).internal.getNumberOfPages();
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p);
+    doc.setFont("times", "italic");
+    doc.setFontSize(7.5);
+    doc.setDrawColor(200, 200, 200);
+    doc.line(marginX, pageHeight - 8, pageWidth - marginX, pageHeight - 8);
+    doc.text(
+      `Naskah Soal: ${config.subjectName} (${token || 'Umum'}) • Halaman ${p} dari ${totalPages}`,
+      pageWidth / 2,
+      pageHeight - 5,
+      { align: 'center' }
+    );
+  }
+
+  const safeFilename = (token || config.subjectName || 'Ujian').replace(/[^a-zA-Z0-9_-]/g, '_');
+  doc.save(`Naskah_Soal_${safeFilename}_${mode}.pdf`);
+};
+

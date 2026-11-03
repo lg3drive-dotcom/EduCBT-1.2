@@ -7,6 +7,7 @@ import { downloadImportTemplate, importQuestionsFromExcel, exportQuestionsToExce
 import MathText from './MathText.tsx';
 import { GEMINI_QUESTION_PROMPT_TEMPLATE } from '../constants/aiPrompt.ts';
 import { copyToClipboard } from '../utils.ts';
+import ExamPrintModal from './ExamPrintModal.tsx';
 
 interface QuestionManagerProps {
   questions: Question[];
@@ -33,6 +34,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   const [isPasteModalOpen, setIsPasteModalOpen] = useState(false);
   const [pasteContent, setPasteContent] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
   // States for Prompt AI (Gemini)
   const [isPromptModalOpen, setIsPromptModalOpen] = useState(false);
@@ -305,6 +307,16 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
              </button>
              <button onClick={downloadImportTemplate} className="p-2 hover:bg-emerald-100 rounded-lg text-emerald-600 transition-colors border border-emerald-200 bg-emerald-50" title="Download Template Excel">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+             </button>
+             <button 
+               onClick={() => setIsPrintModalOpen(true)} 
+               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white transition-all shadow-sm active:scale-95 cursor-pointer ml-1"
+               title="Cetak Naskah Soal Ujian Sekolah Standar Resmi (Print / Simpan PDF)"
+             >
+               <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+               </svg>
+               <span>CETAK NASKAH SOAL</span>
              </button>
           </div>
 
@@ -741,6 +753,14 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
           </div>
         </div>
       )}
+
+      {/* MODAL CETAK NASKAH SOAL UJIAN STANDAR SEKOLAH */}
+      <ExamPrintModal
+        isOpen={isPrintModalOpen}
+        onClose={() => setIsPrintModalOpen(false)}
+        questions={questions}
+        initialToken={tokenFilter || activeToken}
+      />
     </div>
   );
 };
