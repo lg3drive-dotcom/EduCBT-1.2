@@ -22,7 +22,13 @@ import {
   fetchQuestionsByToken
 } from './services/supabaseService.ts';
 
-import { getSimilarity, STUDENT_LIST, copyToClipboard } from './utils.ts';
+import { 
+  getDeviceStudents, 
+  saveDeviceStudent, 
+  removeDeviceStudent, 
+  copyToClipboard, 
+  DeviceStudent 
+} from './utils.ts';
 import { GEMINI_QUESTION_PROMPT_TEMPLATE } from './constants/aiPrompt.ts';
 
 type ViewMode = 'login' | 'confirm-data' | 'quiz' | 'result' | 'admin-auth' | 'admin-panel' | 'analysis-panel';
@@ -239,6 +245,15 @@ const App: React.FC = () => {
         // Cek juga apakah paket soal ada di memori bank soal lokal
         const localMatch = questions.filter(q => !q.isDeleted && q.quizToken?.trim().toUpperCase() === token);
         if (localMatch.length > 0) {
+          if (identity.name.trim()) {
+            saveDeviceStudent({
+              name: identity.name,
+              className: identity.className,
+              schoolOrigin: identity.schoolOrigin,
+              birthDate: identity.birthDate
+            });
+            setDeviceStudents(getDeviceStudents());
+          }
           setSettings(prev => ({ ...prev, activeSubject: localMatch[0].subject || 'Ujian Digital' }));
           setQuestions(localMatch);
           setView('confirm-data');
@@ -250,6 +265,15 @@ const App: React.FC = () => {
         setShowInvalidTokenModal(true);
         return; 
       }
+      if (identity.name.trim()) {
+        saveDeviceStudent({
+          name: identity.name,
+          className: identity.className,
+          schoolOrigin: identity.schoolOrigin,
+          birthDate: identity.birthDate
+        });
+        setDeviceStudents(getDeviceStudents());
+      }
       setSettings(cloudData.settings);
       setQuestions(cloudData.questions);
       setView('confirm-data');
@@ -257,6 +281,15 @@ const App: React.FC = () => {
       // Jika terjadi kendala koneksi ke server, cek bank soal lokal terlebih dahulu
       const localMatch = questions.filter(q => !q.isDeleted && q.quizToken?.trim().toUpperCase() === token);
       if (localMatch.length > 0) {
+        if (identity.name.trim()) {
+          saveDeviceStudent({
+            name: identity.name,
+            className: identity.className,
+            schoolOrigin: identity.schoolOrigin,
+            birthDate: identity.birthDate
+          });
+          setDeviceStudents(getDeviceStudents());
+        }
         setSettings(prev => ({ ...prev, activeSubject: localMatch[0].subject || 'Ujian Digital' }));
         setQuestions(localMatch);
         setView('confirm-data');
@@ -348,50 +381,77 @@ const App: React.FC = () => {
     setQuestions(prev => [...prev, ...sanitized]);
   };
 
-  const [nameSuggestions, setNameSuggestions] = useState<string[]>([]);
+  const [deviceStudents, setDeviceStudents] = useState<DeviceStudent[]>([]);
+  const [nameSuggestions, setNameSuggestions] = useState<DeviceStudent[]>([]);
+  const [isNameFocused, setIsNameFocused] = useState(false);
   const [isManualClass, setIsManualClass] = useState(false);
 
-  const handleNameChange = (val: string) => {
-    setIdentity({ ...identity, name: val });
-    
-    if (val.trim().length > 1) {
-      const input = val.toLowerCase().trim();
-      const filtered = STUDENT_LIST.filter(student => {
-        const parts = student.toLowerCase().split(' ');
-        return parts.some(part => part.startsWith(input)) || student.toLowerCase().includes(input);
-      }).slice(0, 5); // Limit to top 5 suggestions
-      setNameSuggestions(filtered);
+  useEffect(() => {
+    const list = getDeviceStudents();
+    setDeviceStudents(list);
+  }, [view]);
+
+  const handleNameFocus = () => {
+    setIsNameFocused(true);
+    const students = getDeviceStudents();
+    setDeviceStudents(students);
+    const input = identity.name.trim().toLowerCase();
+    if (input.length > 0) {
+      setNameSuggestions(
+        students.filter(s => s.name.toLowerCase().includes(input)).slice(0, 6)
+      );
     } else {
-      setNameSuggestions([]);
+      setNameSuggestions(students.slice(0, 6));
     }
   };
 
-  const selectSuggestion = (name: string) => {
-    setIdentity({ ...identity, name: name });
-    setNameSuggestions([]);
+  const handleNameChange = (val: string) => {
+    setIdentity(prev => ({ ...prev, name: val }));
+    const input = val.trim().toLowerCase();
+    if (input.length > 0) {
+      const filtered = deviceStudents.filter(student =>
+        student.name.toLowerCase().includes(input)
+      ).slice(0, 6);
+      setNameSuggestions(filtered);
+    } else {
+      setNameSuggestions(deviceStudents.slice(0, 6));
+    }
   };
 
-  const handleNameBlur = () => {
-    // Delay hiding suggestions to allow click events on suggestions to fire
-    setTimeout(() => setNameSuggestions([]), 200);
-    
-    const currentName = identity.name.trim();
-    if (!currentName) return;
-
-    let bestMatch = null;
-    let maxSimilarity = 0;
-
-    for (const student of STUDENT_LIST) {
-      const sim = getSimilarity(currentName, student);
-      if (sim > maxSimilarity) {
-        maxSimilarity = sim;
-        bestMatch = student;
+  const selectSuggestion = (student: DeviceStudent) => {
+    const standardClasses = ['1A', '1B', '2A', '2B', '3A', '3B', '4A', '4B', '5A', '5B', '6A', '6B'];
+    if (student.className) {
+      if (standardClasses.includes(student.className)) {
+        setIsManualClass(false);
+      } else {
+        setIsManualClass(true);
       }
     }
 
-    if (bestMatch && maxSimilarity >= 0.9 && maxSimilarity < 1) {
-      setIdentity({ ...identity, name: bestMatch });
-    }
+    setIdentity(prev => ({
+      ...prev,
+      name: student.name,
+      className: student.className || prev.className,
+      schoolOrigin: student.schoolOrigin || prev.schoolOrigin,
+      birthDate: student.birthDate || prev.birthDate
+    }));
+    setNameSuggestions([]);
+    setIsNameFocused(false);
+  };
+
+  const handleDeleteDeviceStudent = (e: React.MouseEvent, name: string) => {
+    e.stopPropagation();
+    const updated = removeDeviceStudent(name);
+    setDeviceStudents(updated);
+    setNameSuggestions(prev => prev.filter(s => s.name.toLowerCase() !== name.toLowerCase()));
+  };
+
+  const handleNameBlur = () => {
+    // Delay hiding suggestions to allow mouse down events on suggestions to fire
+    setTimeout(() => {
+      setIsNameFocused(false);
+      setNameSuggestions([]);
+    }, 250);
   };
 
   const currentLinks = settings.externalLinks || DEFAULT_LINKS;
@@ -586,21 +646,53 @@ const App: React.FC = () => {
                       className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold" 
                       value={identity.name} 
                       onChange={e => handleNameChange(e.target.value)}
+                      onFocus={handleNameFocus}
                       onBlur={handleNameBlur}
                       autoComplete="off"
                     />
-                    {nameSuggestions.length > 0 && (
-                      <div className="absolute left-0 right-0 top-full mt-1 bg-white border-2 border-slate-100 rounded-xl shadow-xl z-50 overflow-hidden">
-                        {nameSuggestions.map((name, idx) => (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => selectSuggestion(name)}
-                            className="w-full text-left px-4 py-3 hover:bg-blue-50 text-[11px] font-bold text-slate-700 transition-colors border-b last:border-0 border-slate-50"
-                          >
-                            {name}
-                          </button>
-                        ))}
+                    {isNameFocused && nameSuggestions.length > 0 && (
+                      <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border-2 border-blue-100 rounded-2xl shadow-2xl z-50 overflow-hidden divide-y divide-slate-100">
+                        <div className="px-3.5 py-2 bg-slate-50 flex items-center justify-between text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                          <span className="flex items-center gap-1.5">
+                            <svg className="w-3.5 h-3.5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Riwayat di Perangkat Ini
+                          </span>
+                          <span className="text-[9px] text-slate-400 font-bold lowercase">pilih nama</span>
+                        </div>
+                        <div className="max-h-56 overflow-y-auto">
+                          {nameSuggestions.map((student, idx) => (
+                            <div
+                              key={idx}
+                              onMouseDown={() => selectSuggestion(student)}
+                              className="w-full px-4 py-2.5 hover:bg-blue-50/80 cursor-pointer transition-colors flex items-center justify-between group text-left border-b last:border-0 border-slate-50"
+                            >
+                              <div className="flex-1 min-w-0 pr-2">
+                                <p className="text-xs font-black text-slate-800 group-hover:text-blue-700 truncate">
+                                  {student.name}
+                                </p>
+                                {(student.className || student.schoolOrigin) && (
+                                  <p className="text-[10px] font-bold text-slate-400 truncate">
+                                    {student.className ? `Kelas ${student.className}` : ''}
+                                    {student.className && student.schoolOrigin ? ' • ' : ''}
+                                    {student.schoolOrigin ? `NPSN: ${student.schoolOrigin}` : ''}
+                                  </p>
+                                )}
+                              </div>
+                              <button
+                                type="button"
+                                onMouseDown={(e) => handleDeleteDeviceStudent(e, student.name)}
+                                title="Hapus dari riwayat perangkat"
+                                className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -726,7 +818,24 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {view === 'confirm-data' && <ConfirmIdentity identity={identity} settings={settings} onConfirm={() => setView('quiz')} onCancel={() => setView('login')} />}
+      {view === 'confirm-data' && (
+        <ConfirmIdentity 
+          identity={identity} 
+          settings={settings} 
+          onConfirm={() => {
+            if (identity.name.trim()) {
+              saveDeviceStudent({
+                name: identity.name,
+                className: identity.className,
+                schoolOrigin: identity.schoolOrigin,
+                birthDate: identity.birthDate
+              });
+            }
+            setView('quiz');
+          }} 
+          onCancel={() => setView('login')} 
+        />
+      )}
       {view === 'quiz' && <QuizInterface questions={questions.filter(q => !q.isDeleted)} identity={identity} timeLimitMinutes={settings.timerMinutes} subjectName={settings.activeSubject || 'Ujian Digital'} onFinish={handleFinishQuiz} onViolation={handleViolation} />}
       
       {view === 'result' && lastResult && (

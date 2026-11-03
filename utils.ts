@@ -30,35 +30,81 @@ export const getSimilarity = (s1: string, s2: string): number => {
   return 1 - distance / maxLength;
 };
 
-export const STUDENT_LIST = [
-  "Aditya Naufal Syarif",
-  "Ahmad Shidiq Badruzzaman",
-  "Aila Fathiyyaturahma",
-  "Arsyil Amirullah Akbar",
-  "Az Zahra Rahayu",
-  "Dennis Satya Albinov",
-  "Fahmi Arsyl Alfiansyah",
-  "Farrel Rais Nur Muhammad",
-  "Hauzan Irhab Nabil",
-  "Iqbhal Fiqih Anggara",
-  "Ismi Fadhilatul Ayyami",
-  "Muhamad Ardiansyah",
-  "Muhamad Rayhan Andrianto",
-  "Muhammad Fadlan Giyan Ramadhan",
-  "Muhammad Faizi Lathiif",
-  "Muhammad Hamzah Ramadhan",
-  "Muhammad Rasyid Alfaqih",
-  "Muhammad Reyva Pramodza",
-  "Nada Fajria Salsabila",
-  "Qisya Izz Zara Suhendar",
-  "Raisa Agustina Zahra",
-  "Rega Micka Alfarizky",
-  "Satria Putra Ardian",
-  "Shakira Alisha Raihanda",
-  "Soekarno Fariz Nugroho",
-  "Sopia Wardani",
-  "Sri Puji Wulandari"
-];
+export interface DeviceStudent {
+  name: string;
+  className?: string;
+  schoolOrigin?: string;
+  birthDate?: string;
+  lastUsed: number;
+}
+
+const STORAGE_KEY_DEVICE_STUDENTS = 'epro_cbt_device_students';
+
+export const getDeviceStudents = (): DeviceStudent[] => {
+  try {
+    const data = localStorage.getItem(STORAGE_KEY_DEVICE_STUDENTS);
+    if (!data) return [];
+    const list: DeviceStudent[] = JSON.parse(data);
+    if (Array.isArray(list)) {
+      return list.sort((a, b) => (b.lastUsed || 0) - (a.lastUsed || 0));
+    }
+    return [];
+  } catch (err) {
+    console.error('Error reading device students:', err);
+    return [];
+  }
+};
+
+export const saveDeviceStudent = (student: {
+  name: string;
+  className?: string;
+  schoolOrigin?: string;
+  birthDate?: string;
+}): void => {
+  try {
+    const trimmed = student.name.trim();
+    if (!trimmed || trimmed.length < 2) return;
+
+    const list = getDeviceStudents();
+    const filtered = list.filter(s => s.name.toLowerCase() !== trimmed.toLowerCase());
+
+    const newRecord: DeviceStudent = {
+      name: trimmed,
+      className: student.className?.trim() || '',
+      schoolOrigin: student.schoolOrigin?.trim() || '',
+      birthDate: student.birthDate || '',
+      lastUsed: Date.now()
+    };
+
+    const updated = [newRecord, ...filtered].slice(0, 30);
+    localStorage.setItem(STORAGE_KEY_DEVICE_STUDENTS, JSON.stringify(updated));
+  } catch (err) {
+    console.error('Error saving device student:', err);
+  }
+};
+
+export const removeDeviceStudent = (nameToRemove: string): DeviceStudent[] => {
+  try {
+    const list = getDeviceStudents();
+    const filtered = list.filter(s => s.name.toLowerCase() !== nameToRemove.trim().toLowerCase());
+    localStorage.setItem(STORAGE_KEY_DEVICE_STUDENTS, JSON.stringify(filtered));
+    return filtered;
+  } catch (err) {
+    console.error('Error deleting device student:', err);
+    return [];
+  }
+};
+
+export const clearDeviceStudents = (): void => {
+  try {
+    localStorage.removeItem(STORAGE_KEY_DEVICE_STUDENTS);
+  } catch (err) {
+    console.error('Error clearing device students:', err);
+  }
+};
+
+// Deprecated empty array for backward compatibility
+export const STUDENT_LIST: string[] = [];
 
 export const copyToClipboard = async (text: string): Promise<boolean> => {
   try {
