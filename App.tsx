@@ -22,7 +22,8 @@ import {
   fetchQuestionsByToken
 } from './services/supabaseService.ts';
 
-import { getSimilarity, STUDENT_LIST } from './utils.ts';
+import { getSimilarity, STUDENT_LIST, copyToClipboard } from './utils.ts';
+import { GEMINI_QUESTION_PROMPT_TEMPLATE } from './constants/aiPrompt.ts';
 
 type ViewMode = 'login' | 'confirm-data' | 'quiz' | 'result' | 'admin-auth' | 'admin-panel' | 'analysis-panel';
 type AdminSubView = 'bank-soal' | 'admin-pusat';
@@ -45,6 +46,15 @@ const App: React.FC = () => {
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [sidebarPromptCopied, setSidebarPromptCopied] = useState(false);
+
+  const handleCopyPromptSidebar = async () => {
+    const success = await copyToClipboard(GEMINI_QUESTION_PROMPT_TEMPLATE);
+    if (success) {
+      setSidebarPromptCopied(true);
+      setTimeout(() => setSidebarPromptCopied(false), 2500);
+    }
+  };
   
   // Security States for Admin Pusat
   const [showPusatLock, setShowPusatLock] = useState(false);
@@ -400,6 +410,25 @@ const App: React.FC = () => {
               <a href={currentLinks.aiGenerator} target="_blank" rel="noopener noreferrer" className="w-full flex items-center gap-3 p-4 hover:bg-white/5 rounded-xl font-bold uppercase text-[10px] tracking-widest text-purple-400 border border-transparent hover:border-purple-500/20 transition-all group">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg> Generate Soal AI ✨
               </a>
+              <button 
+                onClick={handleCopyPromptSidebar}
+                className={`w-full flex items-center justify-between p-4 rounded-xl font-bold uppercase text-[10px] tracking-widest transition-all border ${
+                  sidebarPromptCopied
+                    ? 'bg-emerald-600 text-white border-emerald-500 shadow-lg'
+                    : 'text-purple-300 bg-purple-950/20 border-purple-500/20 hover:bg-purple-900/30 hover:text-white'
+                }`}
+                title="Salin template master prompt pembuat soal untuk Gemini"
+              >
+                <span className="flex items-center gap-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                  </svg>
+                  Salin Prompt Gemini
+                </span>
+                <span className={`text-[8px] font-black px-2 py-0.5 rounded transition-all ${sidebarPromptCopied ? 'bg-white text-emerald-800' : 'bg-purple-500/30 text-purple-200'}`}>
+                  {sidebarPromptCopied ? 'TERSALIN!' : 'COPY'}
+                </span>
+              </button>
               <button onClick={() => setShowGuide(true)} className="w-full flex items-center gap-3 p-4 hover:bg-white/5 rounded-xl font-bold uppercase text-[10px] tracking-widest text-emerald-400 border border-transparent hover:border-emerald-500/20 transition-all">Panduan</button>
             </nav>
 

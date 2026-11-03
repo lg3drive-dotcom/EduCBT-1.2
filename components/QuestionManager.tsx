@@ -5,6 +5,8 @@ import { SUBJECT_LIST, BLOOM_LEVELS, PUSPENDIK_LEVELS, COGNITIVE_LEVELS } from '
 import { generateQuestionBankPDF } from '../services/pdfService.ts';
 import { downloadImportTemplate, importQuestionsFromExcel, exportQuestionsToExcel } from '../services/excelService.ts';
 import MathText from './MathText.tsx';
+import { GEMINI_QUESTION_PROMPT_TEMPLATE } from '../constants/aiPrompt.ts';
+import { copyToClipboard } from '../utils.ts';
 
 interface QuestionManagerProps {
   questions: Question[];
@@ -31,6 +33,20 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   const [isPasteModalOpen, setIsPasteModalOpen] = useState(false);
   const [pasteContent, setPasteContent] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // States for Prompt AI (Gemini)
+  const [isPromptModalOpen, setIsPromptModalOpen] = useState(false);
+  const [copyFeedback, setCopyFeedback] = useState(false);
+
+  const handleCopyPrompt = async () => {
+    const success = await copyToClipboard(GEMINI_QUESTION_PROMPT_TEMPLATE);
+    if (success) {
+      setCopyFeedback(true);
+      setTimeout(() => setCopyFeedback(false), 3000);
+    } else {
+      setIsPromptModalOpen(true);
+    }
+  };
 
   const [formData, setFormData] = useState<{
     text: string;
@@ -289,6 +305,43 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
              </button>
              <button onClick={downloadImportTemplate} className="p-2 hover:bg-emerald-100 rounded-lg text-emerald-600 transition-colors border border-emerald-200 bg-emerald-50" title="Download Template Excel">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+             </button>
+          </div>
+
+          <div className="flex items-center gap-1.5 border-l pl-3 ml-1 border-slate-300">
+             <button 
+                onClick={handleCopyPrompt} 
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black transition-all shadow-sm active:scale-95 ${
+                  copyFeedback 
+                    ? 'bg-emerald-600 text-white shadow-emerald-200' 
+                    : 'bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 text-white hover:opacity-95'
+                }`}
+                title="Klik untuk langsung menyalin Master Prompt Pembuat Soal AI untuk Gemini"
+             >
+                {copyFeedback ? (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    <span>PROMPT TERSALIN!</span>
+                  </>
+                ) : (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                    </svg>
+                    <span>SALIN PROMPT GEMINI</span>
+                  </>
+                )}
+             </button>
+             <button 
+                onClick={() => setIsPromptModalOpen(true)}
+                className="p-1.5 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                title="Lihat isi lengkap prompt AI"
+             >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
              </button>
           </div>
         </div>
@@ -599,13 +652,33 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
             <div className="p-8 bg-slate-900 text-white flex justify-between items-center shrink-0">
               <div>
                 <h3 className="text-xl font-black uppercase tracking-tight">Paste Bank Soal</h3>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Impor butir soal dari JSON</p>
               </div>
               <button onClick={() => setIsPasteModalOpen(false)} className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center font-black">×</button>
             </div>
-            <div className="p-8 flex-1 overflow-y-auto">
+            
+            <div className="p-8 flex-1 overflow-y-auto space-y-4">
+              <div className="p-4 bg-purple-50 border border-purple-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+                <div>
+                  <p className="text-xs font-black text-purple-900 flex items-center gap-1.5">
+                    <span>✨</span> Belum punya soal JSON? Buat dengan Gemini!
+                  </p>
+                  <p className="text-[11px] text-purple-700 font-medium mt-0.5">
+                    Salin prompt aturan standar, tempel ke Gemini, lalu salin hasil JSON-nya ke kotak di bawah.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCopyPrompt}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-black text-[10px] rounded-xl uppercase tracking-wider shrink-0 transition-all shadow-md active:scale-95 flex items-center gap-1.5"
+                >
+                  {copyFeedback ? '✓ Tersalin!' : 'Salin Prompt Gemini'}
+                </button>
+              </div>
+
               <textarea 
-                className="w-full h-80 p-6 bg-slate-50 border-2 border-slate-100 rounded-3xl font-mono text-xs outline-none focus:border-blue-500 transition-all"
-                placeholder='Tempel kumpulan soal di sini...'
+                className="w-full h-72 p-6 bg-slate-50 border-2 border-slate-100 rounded-3xl font-mono text-xs outline-none focus:border-blue-500 transition-all custom-scrollbar"
+                placeholder='Tempel array JSON soal di sini, contoh: [ { "id": "1", "quizToken": "...", ... } ]'
                 value={pasteContent}
                 onChange={(e) => setPasteContent(e.target.value)}
               />
@@ -613,6 +686,57 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
             <div className="p-8 border-t bg-slate-50 flex gap-4">
               <button onClick={() => setIsPasteModalOpen(false)} className="flex-1 py-4 font-black text-slate-400 uppercase tracking-widest text-[10px]">Tutup</button>
               <button onClick={handlePasteImport} className="flex-[2] bg-blue-600 text-white font-black py-4 rounded-2xl shadow-xl uppercase tracking-widest text-[10px]">Import</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL LIHAT & SALIN MASTER PROMPT AI GEMINI */}
+      {isPromptModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[2100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] border border-white/20 animate-in zoom-in-95 duration-200">
+            <div className="p-6 bg-gradient-to-r from-slate-900 via-purple-950 to-indigo-950 text-white flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-purple-600 rounded-xl flex items-center justify-center text-white font-black text-lg shadow-lg">✨</div>
+                <div>
+                  <h3 className="text-lg font-black uppercase tracking-tight">Prompt Pembuat Soal AI (Gemini)</h3>
+                  <p className="text-[10px] text-purple-200 font-semibold uppercase tracking-widest mt-0.5">Format Standar Kompatibel E-Pro CBT</p>
+                </div>
+              </div>
+              <button onClick={() => setIsPromptModalOpen(false)} className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center font-black hover:bg-white/20 transition-all">✕</button>
+            </div>
+            <div className="p-5 bg-purple-50/70 border-b border-purple-100 text-xs text-purple-900 font-medium leading-relaxed">
+              Salin prompt di bawah ini dan tempelkan ke <b>Gemini</b> (atau AI lainnya). Anda cukup menyesuaikan 5 baris di bagian paling bawah teks (Mata Pelajaran, Topik, Fase, Token, dan Jumlah Soal). Hasil JSON dapat langsung di-paste ke E-Pro CBT!
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
+              <textarea
+                readOnly
+                value={GEMINI_QUESTION_PROMPT_TEMPLATE}
+                className="w-full h-80 p-4 bg-white border border-slate-200 rounded-2xl font-mono text-[11px] leading-relaxed text-slate-800 outline-none select-all custom-scrollbar"
+              />
+            </div>
+            <div className="p-6 border-t bg-white flex justify-between items-center gap-4">
+              <button onClick={() => setIsPromptModalOpen(false)} className="px-6 py-3 font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest text-[10px]">TUTUP</button>
+              <button
+                onClick={handleCopyPrompt}
+                className="px-8 py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black rounded-xl text-xs uppercase tracking-widest shadow-xl hover:opacity-95 active:scale-95 flex items-center gap-2"
+              >
+                {copyFeedback ? (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    <span>BERHASIL DISALIN!</span>
+                  </>
+                ) : (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                    </svg>
+                    <span>SALIN SELURUH PROMPT</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

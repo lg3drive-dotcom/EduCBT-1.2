@@ -1,11 +1,23 @@
 
-import React from 'react';
+import React, { useState } from 'react';
+import { GEMINI_QUESTION_PROMPT_TEMPLATE } from '../constants/aiPrompt.ts';
+import { copyToClipboard } from '../utils.ts';
 
 interface AdminGuideProps {
   onClose: () => void;
 }
 
 const AdminGuide: React.FC<AdminGuideProps> = ({ onClose }) => {
+  const [isGuidePromptCopied, setIsGuidePromptCopied] = useState(false);
+
+  const handleCopyGuidePrompt = async () => {
+    const success = await copyToClipboard(GEMINI_QUESTION_PROMPT_TEMPLATE);
+    if (success) {
+      setIsGuidePromptCopied(true);
+      setTimeout(() => setIsGuidePromptCopied(false), 2500);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
       <div className="bg-white rounded-[2.5rem] w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
@@ -59,19 +71,33 @@ const AdminGuide: React.FC<AdminGuideProps> = ({ onClose }) => {
           {/* STEP 3 */}
           <section className="flex gap-6">
             <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center font-black text-xl shrink-0 shadow-sm">3</div>
-            <div>
+            <div className="flex-1">
               <h3 className="text-xl font-black text-slate-800 mb-2">Membuat Soal dengan AI ✨</h3>
               <p className="text-slate-500 text-sm leading-relaxed font-medium mb-3">
                 Buat puluhan soal dalam detik dengan fitur kecerdasan buatan:
               </p>
-              <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl">
+              <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl mb-4">
                 <ol className="text-xs text-emerald-800 space-y-2 font-bold">
-                  <li>1. Klik <b>"Generate Soal Otomatis ✨"</b> di sidebar.</li>
-                  <li>2. Masukkan topik atau upload file materi acuan.</li>
-                  <li>3. Klik <b>"DOWNLOAD UNTUK CBT"</b> untuk mendapatkan file JSON.</li>
-                  <li>4. Di panel ini, gunakan tombol <b>"Upload File .JSON"</b> di panel kanan.</li>
+                  <li>1. Klik tombol <b>"Salin Prompt Gemini"</b> di bawah ini atau di menu Bank Soal.</li>
+                  <li>2. Buka <b>Gemini</b>, tempelkan teks prompt tersebut dan sesuaikan materi/topik yang diinginkan.</li>
+                  <li>3. Salin hasil kode JSON dari Gemini.</li>
+                  <li>4. Buka menu <b>"Bank Soal &rarr; Paste JSON"</b> di aplikasi ini lalu klik <b>Import</b>.</li>
                 </ol>
               </div>
+              <button
+                onClick={handleCopyGuidePrompt}
+                className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md active:scale-95 flex items-center gap-2 ${
+                  isGuidePromptCopied
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-purple-600 hover:bg-purple-700 text-white'
+                }`}
+              >
+                {isGuidePromptCopied ? (
+                  <>✓ Prompt Berhasil Disalin!</>
+                ) : (
+                  <>📋 Salin Prompt Gemini (JSON CBT)</>
+                )}
+              </button>
             </div>
           </section>
 
