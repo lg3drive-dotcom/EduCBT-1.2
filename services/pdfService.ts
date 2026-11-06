@@ -7,25 +7,110 @@ import { QuizResult, Question, QuestionType } from '../types';
  * Penting agar jsPDF bisa merender gambar dari URL eksternal.
  */
 const getImageBase64 = async (url: string): Promise<string | null> => {
-  if (!url) return null;
-  // Jika sudah base64, langsung kembalikan
-  if (url.startsWith('data:')) return url;
+  if (!url || typeof url !== 'string') return null;
+  const trimmedUrl = url.trim();
+  if (!trimmedUrl) return null;
 
-  try {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error('Gagal mengambil gambar dari server');
-    const blob = await response.blob();
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
-    });
-  } catch (err) {
-    console.error("PDF Image Fetch Error:", url, err);
-    return null;
+  // Jika sudah berupa data URI (base64)
+  if (trimmedUrl.startsWith('data:')) return trimmedUrl;
+
+  // Daftar kandidat URL: langsung, lalu proxy CORS wsrv.nl & images.weserv.nl
+  const candidateUrls: string[] = [
+    trimmedUrl,
+    `https://wsrv.nl/?url=${encodeURIComponent(trimmedUrl)}&output=png`,
+    `https://images.weserv.nl/?url=${encodeURIComponent(trimmedUrl)}&output=png`
+  ];
+
+  for (const candidate of candidateUrls) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      
+      const response = await fetch(candidate, {
+        signal: controller.signal,
+        mode: 'cors',
+        headers: {
+          'Accept': 'image/*'
+        }
+      });
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        const blob = await response.blob();
+        if (blob && blob.size > 0) {
+          const dataUrl = await new Promise<string | null>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              const res = reader.result;
+              resolve(typeof res === 'string' ? res : null);
+            };
+            reader.onerror = () => resolve(null);
+            reader.readAsDataURL(blob);
+          });
+          if (dataUrl) return dataUrl;
+        }
+      }
+    } catch {
+      // Abaikan dan coba kandidat berikutnya tanpa console.error
+    }
   }
+
+  // Fallback sekunder: Gunakan Image() element dengan CrossOrigin + Canvas
+  try {
+    const canvasResult = await new Promise<string | null>((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      let done = false;
+
+      const timer = setTimeout(() => {
+        if (!done) {
+          done = true;
+          img.src = '';
+          resolve(null);
+        }
+      }, 4000);
+
+      img.onload = () => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth || img.width || 300;
+          canvas.height = img.naturalHeight || img.height || 200;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(null);
+            return;
+          }
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL('image/png'));
+        } catch {
+          resolve(null);
+        }
+      };
+
+      img.onerror = () => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        resolve(null);
+      };
+
+      // Coba load via proxy weserv
+      img.src = `https://wsrv.nl/?url=${encodeURIComponent(trimmedUrl)}&output=png`;
+    });
+
+    if (canvasResult) return canvasResult;
+  } catch {
+    // Abaikan
+  }
+
+  // Jika tetap gagal diakses karena batasan CORS asal, beri catatan ramah (bukan console.error)
+  console.warn("[PDF] Info: Gambar tidak dapat dimuat ke PDF karena pembatasan host eksternal:", trimmedUrl);
+  return null;
 };
+
 
 /**
  * Fungsi untuk mengubah notasi LaTeX sederhana menjadi teks yang rapi untuk PDF
@@ -241,11 +326,16 @@ export const generateQuestionBankPDF = async (questions: Question[], mode: 'kisi
     y += (textLines.length * 5) + 2;
 
     if (q.questionImage) {
-      const base64 = await getImageBase64(q.questionImage);
-      if (base64) {
-        const format = base64.toLowerCase().includes('png') ? 'PNG' : 'JPEG';
-        doc.addImage(base64, format, 20, y, 80, 45);
-        y += 50;
+      try {
+        const base64 = await getImageBase64(q.questionImage);
+        if (base64) {
+          const isPng = base64.toLowerCase().startsWith('data:image/png') || base64.toLowerCase().includes('.png');
+          const format = isPng ? 'PNG' : 'JPEG';
+          doc.addImage(base64, format, 20, y, 80, 45);
+          y += 50;
+        }
+      } catch {
+        // Abaikan jika format gambar tidak didukung jsPDF
       }
     }
     y += 5;
@@ -434,12 +524,24 @@ export const generateStandardExamPDF = async (
           const imgBase64 = await getImageBase64(q.questionImage);
           if (imgBase64) {
             checkPageBreak(45);
-            const format = imgBase64.toLowerCase().includes('png') ? 'PNG' : 'JPEG';
+            const isPng = imgBase64.toLowerCase().startsWith('data:image/png') || imgBase64.toLowerCase().includes('.png');
+            const format = isPng ? 'PNG' : 'JPEG';
             doc.addImage(imgBase64, format, marginX + 7, y, 65, 38);
             y += 42;
+          } else {
+            // Jika gambar eksternal gagal di-load, berikan catatan informatif agar tata letak tetap rapi
+            checkPageBreak(8);
+            doc.setFont("times", "italic");
+            doc.setFontSize(8);
+            doc.setTextColor(100, 116, 139);
+            doc.text("[Lihat Gambar Lampiran pada Soal Digital / Perangkat]", marginX + 7, y + 2.5);
+            doc.setTextColor(0, 0, 0);
+            doc.setFont("times", "normal");
+            doc.setFontSize(10);
+            y += 6;
           }
-        } catch (imgErr) {
-          // Ignore
+        } catch {
+          // Abaikan kesalahan rendering gambar agar pembuatan dokumen PDF tidak gagal
         }
       }
 
@@ -489,6 +591,22 @@ export const generateStandardExamPDF = async (
             const ansTag = mode === 'master' ? (ans === true ? '[BENAR]' : ans === false ? '[SALAH]' : '') : '[   ]';
             doc.text(`- ${optClean} ${ansTag}`, marginX + 12, y);
             y += 4;
+
+            const optImg = q.optionImages?.[sIdx];
+            if (optImg) {
+              try {
+                const optImgBase64 = await getImageBase64(optImg);
+                if (optImgBase64) {
+                  checkPageBreak(25);
+                  const isPng = optImgBase64.toLowerCase().startsWith('data:image/png') || optImgBase64.toLowerCase().includes('.png');
+                  const format = isPng ? 'PNG' : 'JPEG';
+                  doc.addImage(optImgBase64, format, marginX + 14, y, 40, 22);
+                  y += 24;
+                }
+              } catch {
+                // Abaikan kesalahan rendering gambar
+              }
+            }
           }
           doc.setFontSize(10);
         }

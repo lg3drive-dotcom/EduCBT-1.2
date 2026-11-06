@@ -197,9 +197,25 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                {q.options?.map((opt, idx) => {
                  const resArr = currentAnswer || q.options?.map(() => null);
                  const val = resArr[idx];
+                 const optImg = q.optionImages?.[idx];
                  return (
                    <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                     <td className="p-3 sm:p-4 font-bold text-slate-700"><MathText text={opt} style={{ fontSize: `${fontSize - 4}px` }} /></td>
+                     <td className="p-3 sm:p-4 font-bold text-slate-700">
+                       <div className="flex flex-col gap-2">
+                         {opt && <MathText text={opt} style={{ fontSize: `${fontSize - 4}px` }} />}
+                         {optImg && (
+                           <div className="mt-1">
+                             <img 
+                               src={optImg} 
+                               alt={`Pernyataan ${idx + 1}`} 
+                               className="max-h-48 max-w-full sm:max-w-md object-contain rounded-xl border border-slate-200 bg-white shadow-sm cursor-zoom-in hover:brightness-95 transition-all"
+                               onClick={() => setZoomImage(optImg)}
+                             />
+                             <span className="text-[9px] text-slate-400 font-semibold block mt-0.5">🔍 Klik gambar untuk memperbesar</span>
+                           </div>
+                         )}
+                       </div>
+                     </td>
                      <td className="p-2 sm:p-4">
                         <div className="flex flex-col sm:flex-row bg-slate-100 p-1 rounded-xl gap-1">
                           <button onClick={() => {

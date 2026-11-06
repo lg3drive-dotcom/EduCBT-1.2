@@ -17,7 +17,8 @@ IKUTI ATURAN STRUKTUR JSON BERIKUT DENGAN KETAT:
    - "order": nomor urut soal (angka integer: 1, 2, 3, dst).
    - "text": teks stimulus atau pertanyaan soal. Bila ada rumus matematika, gunakan sintaks LaTeX seperti $\\frac{1}{2}$ atau $x^2$.
    - "explanation": pembahasan / alasan jawaban benar.
-   - "questionImage": isi string kosong "" (jika tidak menggunakan gambar).
+   - "questionImage": isi string URL gambar stimulus utama atau string kosong "" (jika tidak ada gambar).
+   - "optionImages": Array URL gambar untuk masing-masing opsi/pernyataan jika setiap butir menggunakan gambar (opsional, contoh: ["https://link-gambar-1.png", "https://link-gambar-2.png"]).
    - "isDeleted": nilai boolean false.
    - "createdAt": angka timestamp milidetik (contoh: 1714500000000).
 

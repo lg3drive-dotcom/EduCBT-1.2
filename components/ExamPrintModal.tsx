@@ -853,16 +853,24 @@ const ExamPrintModal: React.FC<ExamPrintModalProps> = ({
                                     <tbody>
                                       {q.options.map((statement, sIdx) => {
                                         const ans = Array.isArray(q.correctAnswer) ? q.correctAnswer[sIdx] : null;
+                                        const optImg = q.optionImages?.[sIdx];
                                         return (
                                           <tr key={sIdx}>
-                                            <td className="border border-slate-900 p-1 text-center">{sIdx + 1}</td>
+                                            <td className="border border-slate-900 p-1 text-center align-top">{sIdx + 1}</td>
                                             <td className="border border-slate-900 p-1">
-                                              <MathText text={statement} />
+                                              <div>
+                                                {statement && <MathText text={statement} />}
+                                                {optImg && (
+                                                  <div className="mt-1">
+                                                    <img src={optImg} alt={`Pernyataan ${sIdx + 1}`} className="max-h-24 max-w-xs object-contain border border-slate-300 rounded" />
+                                                  </div>
+                                                )}
+                                              </div>
                                             </td>
-                                            <td className="border border-slate-900 p-1 text-center font-bold">
+                                            <td className="border border-slate-900 p-1 text-center font-bold align-middle">
                                               {printMode === 'master' && ans === true ? '✓' : ''}
                                             </td>
-                                            <td className="border border-slate-900 p-1 text-center font-bold">
+                                            <td className="border border-slate-900 p-1 text-center font-bold align-middle">
                                               {printMode === 'master' && ans === false ? '✓' : ''}
                                             </td>
                                           </tr>

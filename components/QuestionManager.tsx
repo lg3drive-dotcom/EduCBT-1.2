@@ -244,13 +244,35 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
             <table className="w-full text-left">
               <thead className="bg-slate-800 text-white"><tr className="text-[9px] font-black uppercase"><th className="p-3">Pernyataan</th><th className="p-3 text-center">Kunci</th></tr></thead>
               <tbody className="divide-y divide-slate-100">
-                {q.options?.map((opt, idx) => (
-                  <tr key={idx}><td className="p-3"><MathText text={opt} className="text-xs font-bold text-slate-600" /></td>
-                    <td className="p-3 flex gap-1 justify-center">
-                      <div className={`px-3 py-1 rounded text-[8px] font-black ${Array.isArray(q.correctAnswer) && q.correctAnswer[idx] === true ? 'bg-green-600 text-white' : 'bg-slate-100 text-slate-300'}`}>{labels.true.toUpperCase()}</div>
-                      <div className={`px-3 py-1 rounded text-[8px] font-black ${Array.isArray(q.correctAnswer) && q.correctAnswer[idx] === false ? 'bg-red-600 text-white' : 'bg-slate-100 text-slate-300'}`}>{labels.false.toUpperCase()}</div>
-                    </td></tr>
-                ))}
+                {q.options?.map((opt, idx) => {
+                  const optImg = q.optionImages?.[idx];
+                  return (
+                    <tr key={idx}>
+                      <td className="p-3">
+                        <div className="flex flex-col gap-2">
+                          {opt && <MathText text={opt} className="text-xs font-bold text-slate-600" />}
+                          {optImg && (
+                            <div className="mt-1">
+                              <img 
+                                src={optImg} 
+                                alt={`Pernyataan ${idx + 1}`} 
+                                onClick={() => setZoomImage(optImg)} 
+                                className="max-h-36 max-w-full sm:max-w-xs object-contain rounded-xl border border-slate-200 shadow-sm cursor-zoom-in hover:brightness-95 transition-all" 
+                              />
+                            </div>
+                          )}
+                          {!opt && !optImg && <span className="text-xs font-bold text-slate-300">...</span>}
+                        </div>
+                      </td>
+                      <td className="p-3">
+                        <div className="flex gap-1 justify-center items-center">
+                          <div className={`px-3 py-1 rounded text-[8px] font-black ${Array.isArray(q.correctAnswer) && q.correctAnswer[idx] === true ? 'bg-green-600 text-white' : 'bg-slate-100 text-slate-300'}`}>{labels.true.toUpperCase()}</div>
+                          <div className={`px-3 py-1 rounded text-[8px] font-black ${Array.isArray(q.correctAnswer) && q.correctAnswer[idx] === false ? 'bg-red-600 text-white' : 'bg-slate-100 text-slate-300'}`}>{labels.false.toUpperCase()}</div>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -612,15 +634,35 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                                  <tr className="text-[9px] font-black uppercase"><th className="p-3">Pernyataan</th><th className="p-3 text-center">Kunci</th></tr>
                                </thead>
                                <tbody className="divide-y divide-slate-100">
-                                 {formData.options.map((opt, i) => (
-                                   <tr key={i}>
-                                     <td className="p-3"><MathText text={opt || "..."} className="text-xs font-bold text-slate-700" /></td>
-                                     <td className="p-3 flex gap-1 justify-center">
-                                       <div className={`px-2 py-1 rounded text-[8px] font-black ${formData.correctAnswer?.[i] === true ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-300'}`}>{formData.tfLabels.true.toUpperCase()}</div>
-                                       <div className={`px-2 py-1 rounded text-[8px] font-black ${formData.correctAnswer?.[i] === false ? 'bg-red-600 text-white' : 'bg-slate-100 text-slate-300'}`}>{formData.tfLabels.false.toUpperCase()}</div>
-                                     </td>
-                                   </tr>
-                                 ))}
+                                 {formData.options.map((opt, i) => {
+                                   const optImg = formData.optionImages?.[i];
+                                   return (
+                                     <tr key={i}>
+                                       <td className="p-3">
+                                         <div className="flex flex-col gap-2">
+                                           {opt && <MathText text={opt} className="text-xs font-bold text-slate-700" />}
+                                           {optImg && (
+                                             <div className="mt-1">
+                                               <img 
+                                                 src={optImg} 
+                                                 alt={`Pernyataan ${i + 1}`} 
+                                                 className="max-h-36 max-w-full sm:max-w-xs object-contain rounded-xl border border-slate-200 bg-white shadow-sm cursor-zoom-in hover:opacity-95 transition-all" 
+                                                 onClick={() => setZoomImage(optImg)} 
+                                               />
+                                             </div>
+                                           )}
+                                           {!opt && !optImg && <span className="text-xs font-bold text-slate-300">...</span>}
+                                         </div>
+                                       </td>
+                                       <td className="p-3">
+                                         <div className="flex gap-1 justify-center items-center">
+                                           <div className={`px-2 py-1 rounded text-[8px] font-black ${formData.correctAnswer?.[i] === true ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-100 text-slate-300'}`}>{formData.tfLabels.true.toUpperCase()}</div>
+                                           <div className={`px-2 py-1 rounded text-[8px] font-black ${formData.correctAnswer?.[i] === false ? 'bg-red-600 text-white shadow-sm' : 'bg-slate-100 text-slate-300'}`}>{formData.tfLabels.false.toUpperCase()}</div>
+                                         </div>
+                                       </td>
+                                     </tr>
+                                   );
+                                 })}
                                </tbody>
                              </table>
                            </div>
