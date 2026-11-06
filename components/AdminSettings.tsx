@@ -216,17 +216,18 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
     }
 
     try {
-      const imported = JSON.parse(pasteContent);
-      if (!Array.isArray(imported)) {
-        showToast('error', 'Data JSON harus berupa array kumpulan soal.', 'Format Salah');
+      const parsed = JSON.parse(pasteContent.trim());
+      const imported: Question[] = Array.isArray(parsed) ? parsed : [parsed];
+      if (imported.length === 0 || typeof imported[0] !== 'object' || !imported[0].text) {
+        showToast('error', 'Data JSON tidak valid atau butir soal kosong.', 'Format Salah');
         return;
       }
       onImportQuestions(imported, 'append');
-      showToast('success', `${imported.length} soal baru telah berhasil diimpor.`, 'Import Berhasil');
+      showToast('success', `${imported.length} soal baru telah berhasil ditambahkan ke bank soal.`, 'Import Berhasil');
       setPasteContent('');
       setIsPasteModalOpen(false);
-    } catch (e) {
-      showToast('error', 'Format JSON tidak valid. Pastikan Anda menyalin seluruh teks dengan lengkap.', 'Format Salah');
+    } catch (e: any) {
+      showToast('error', `Format JSON tidak valid: ${e.message}`, 'Format Salah');
     }
   };
 

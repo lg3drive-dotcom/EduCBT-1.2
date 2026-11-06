@@ -17,7 +17,7 @@ interface QuestionManagerProps {
   onSoftDelete: (id: string) => void;
   onPermanentDelete: (id: string) => void;
   onRestore: (id: string) => void;
-  onImportQuestions: (newQuestions: Question[]) => void;
+  onImportQuestions: (newQuestions: Question[], mode?: 'append' | 'replace') => void;
 }
 
 const QuestionManager: React.FC<QuestionManagerProps> = ({ 
@@ -33,6 +33,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   
   const [isPasteModalOpen, setIsPasteModalOpen] = useState(false);
   const [pasteContent, setPasteContent] = useState('');
+  const [importMode, setImportMode] = useState<'append' | 'replace'>('append');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
@@ -141,8 +142,8 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
       try {
         const imported = await importQuestionsFromExcel(file);
-        onImportQuestions(imported);
-        alert(`Berhasil mengimpor ${imported.length} soal dari Excel.`);
+        onImportQuestions(imported, 'append');
+        alert(`Berhasil mengimpor ${imported.length} butir soal dari Excel.`);
       } catch (e) {
         alert("Gagal membaca file Excel. Pastikan format kolom sesuai template.");
       }
@@ -150,11 +151,14 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
       const reader = new FileReader();
       reader.onload = (event) => {
         try {
-          const imported = JSON.parse(event.target?.result as string);
-          if (!Array.isArray(imported)) return alert("Format JSON tidak valid.");
-          onImportQuestions(imported);
-          alert(`Berhasil mengimpor ${imported.length} soal.`);
-        } catch (e) { alert("Gagal membaca file JSON."); }
+          const parsed = JSON.parse(event.target?.result as string);
+          const rawList = Array.isArray(parsed) ? parsed : [parsed];
+          if (rawList.length === 0 || !rawList[0].text) {
+            return alert("Format file JSON tidak valid. Pastikan berisi butir soal.");
+          }
+          onImportQuestions(rawList, 'append');
+          alert(`Berhasil mengimpor ${rawList.length} butir soal.`);
+        } catch (e) { alert("Gagal membaca file JSON. Pastikan format sintaks valid."); }
       };
       reader.readAsText(file);
     }
@@ -163,14 +167,28 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   };
 
   const handlePasteImport = () => {
+    const trimmed = pasteContent.trim();
+    if (!trimmed) {
+      alert("Silakan tempel teks JSON terlebih dahulu.");
+      return;
+    }
+
     try {
-      const imported = JSON.parse(pasteContent);
-      if (!Array.isArray(imported)) return alert("Data harus berupa kumpulan soal (Array).");
-      onImportQuestions(imported);
-      alert(`Berhasil mengimpor ${imported.length} soal.`);
+      const parsed = JSON.parse(trimmed);
+      // Mendukung baik single object { ... } maupun array [ { ... } ]
+      const rawList = Array.isArray(parsed) ? parsed : [parsed];
+      if (rawList.length === 0 || typeof rawList[0] !== 'object' || !rawList[0].text) {
+        return alert("Format data JSON tidak valid. Pastikan berisi butir soal yang memiliki teks pertanyaan.");
+      }
+
+      onImportQuestions(rawList, importMode);
+      const actionText = importMode === 'append' ? 'ditambahkan ke bank soal' : 'disimpan (mengganti soal lama pada token terkait)';
+      alert(`Berhasil! ${rawList.length} butir soal telah ${actionText}.`);
       setIsPasteModalOpen(false);
       setPasteContent('');
-    } catch (e) { alert("Teks JSON tidak valid."); }
+    } catch (e: any) { 
+      alert(`Teks JSON tidak valid: ${e.message}\nPastikan teks disalin lengkap.`); 
+    }
   };
 
   const handleExportJSON = () => {
@@ -730,16 +748,65 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                 </button>
               </div>
 
-              <textarea 
-                className="w-full h-72 p-6 bg-slate-50 border-2 border-slate-100 rounded-3xl font-mono text-xs outline-none focus:border-blue-500 transition-all custom-scrollbar"
-                placeholder='Tempel array JSON soal di sini, contoh: [ { "id": "1", "quizToken": "...", ... } ]'
-                value={pasteContent}
-                onChange={(e) => setPasteContent(e.target.value)}
-              />
+              {/* Pilihan Mode Impor: Append vs Replace */}
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">
+                      Mode Penambahan Soal:
+                    </label>
+                    <p className="text-[11px] text-slate-600 font-medium">
+                      {importMode === 'append' 
+                        ? '🟢 Tambah Data (Append): Soal baru otomatis masuk dan melanjutkan nomor urut tanpa menghapus soal yang sudah ada.'
+                        : '🔄 Timpa Token (Replace): Menghapus soal lama pada token ini dan menggantikannya dengan soal baru.'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setImportMode('append')}
+                      className={`px-3 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 ${
+                        importMode === 'append' 
+                          ? 'bg-emerald-600 text-white shadow-md' 
+                          : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      <span>➕</span>
+                      <span>Tambah (Append)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setImportMode('replace')}
+                      className={`px-3 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 ${
+                        importMode === 'replace' 
+                          ? 'bg-amber-600 text-white shadow-md' 
+                          : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      <span>🔄</span>
+                      <span>Timpa (Replace)</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <textarea 
+                  className="w-full h-64 p-6 bg-slate-50 border-2 border-slate-100 rounded-3xl font-mono text-xs outline-none focus:border-blue-500 transition-all custom-scrollbar"
+                  placeholder='Tempel JSON soal di sini. Bisa 1 soal langsung { ... } atau kumpulan soal [ { ... }, { ... } ]'
+                  value={pasteContent}
+                  onChange={(e) => setPasteContent(e.target.value)}
+                />
+                <p className="text-[10px] text-slate-400 font-medium mt-1.5 px-2">
+                  💡 <b>Mendukung Paste 1 per 1</b>: Anda bisa mem-paste 1 soal langsung (objek <code>&#123; ... &#125;</code>) atau array <code>[ ... ]</code>. Sistem akan otomatis memberikan nomor urut baru dan ID unik anti-bentrok.
+                </p>
+              </div>
             </div>
             <div className="p-8 border-t bg-slate-50 flex gap-4">
               <button onClick={() => setIsPasteModalOpen(false)} className="flex-1 py-4 font-black text-slate-400 uppercase tracking-widest text-[10px]">Tutup</button>
-              <button onClick={handlePasteImport} className="flex-[2] bg-blue-600 text-white font-black py-4 rounded-2xl shadow-xl uppercase tracking-widest text-[10px]">Import</button>
+              <button onClick={handlePasteImport} className={`flex-[2] text-white font-black py-4 rounded-2xl shadow-xl uppercase tracking-widest text-[10px] transition-all ${importMode === 'append' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                {importMode === 'append' ? 'Tambah ke Bank Soal' : 'Timpa Soal Token Ini'}
+              </button>
             </div>
           </div>
         </div>

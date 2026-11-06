@@ -375,14 +375,61 @@ const App: React.FC = () => {
     }
   };
 
-  const handleImportQuestions = (imported: Question[]) => {
-    const sanitized = imported.map(q => ({
-      ...q,
-      id: q.id || Date.now().toString() + Math.random().toString(36).substr(2, 5),
-      isDeleted: false,
-      createdAt: q.createdAt || Date.now()
-    }));
-    setQuestions(prev => [...prev, ...sanitized]);
+  const handleImportQuestions = (imported: Question[], mode: 'append' | 'replace' = 'append') => {
+    setQuestions(prev => {
+      const existingIds = new Set(prev.map(q => q.id));
+
+      // Hitung urutan (order) tertinggi per token saat ini
+      const tokenMaxOrder: { [key: string]: number } = {};
+      prev.forEach(q => {
+        const t = (q.quizToken || 'UMUM').toUpperCase();
+        if ((q.order || 0) > (tokenMaxOrder[t] || 0)) {
+          tokenMaxOrder[t] = q.order || 0;
+        }
+      });
+
+      // Token yang ada pada data impor baru
+      const importedTokens = new Set(imported.map(q => (q.quizToken || 'UMUM').toUpperCase()));
+
+      // Jika mode === 'replace', hapus hanya soal-soal lama yang tokennya sama dengan yang diimpor
+      const baseList = mode === 'replace'
+        ? prev.filter(q => !importedTokens.has((q.quizToken || 'UMUM').toUpperCase()))
+        : [...prev];
+
+      // Sanitasi dan pastikan ID anti-bentrok serta auto-order berurutan
+      const sanitized: Question[] = [];
+      for (const q of imported) {
+        const t = (q.quizToken || 'UMUM').toUpperCase();
+        const currentMax = tokenMaxOrder[t] || 0;
+
+        // Pastikan ID selalu unik di seluruh database
+        let newId = q.id;
+        if (!newId || existingIds.has(newId) || mode === 'append') {
+          if (!newId || existingIds.has(newId)) {
+            newId = `q_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+          }
+        }
+        existingIds.add(newId);
+
+        // Penomoran urut otomatis (jika order bentrok atau belum diatur)
+        let newOrder = Number(q.order);
+        if (!newOrder || (mode === 'append' && newOrder <= currentMax)) {
+          newOrder = currentMax + 1;
+        }
+        tokenMaxOrder[t] = Math.max(currentMax, newOrder);
+
+        sanitized.push({
+          ...q,
+          id: newId,
+          order: newOrder,
+          quizToken: t,
+          isDeleted: false,
+          createdAt: q.createdAt || Date.now()
+        });
+      }
+
+      return [...baseList, ...sanitized];
+    });
   };
 
   const [deviceStudents, setDeviceStudents] = useState<DeviceStudent[]>([]);
