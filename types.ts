@@ -44,7 +44,8 @@ export interface Question {
   material: string; 
   text: string;
   explanation: string;
-  questionImage?: string;
+  questionImage?: string; // Gambar Atas (Atas Teks Soal)
+  bottomImage?: string;   // Gambar Bawah (Bawah Teks Soal, Sebelum Opsi)
   options?: string[]; 
   optionImages?: (string | undefined)[];
   correctAnswer: any; 

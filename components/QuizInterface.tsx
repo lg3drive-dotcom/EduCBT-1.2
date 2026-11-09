@@ -356,6 +356,11 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                         </div>
                       )}
                       <MathText text={q?.text} className="leading-relaxed text-slate-800 font-medium block" style={{ fontSize: `${fontSize}px` }} />
+                      {q?.bottomImage && (
+                        <div className="flex justify-center my-6 relative group w-fit mx-auto">
+                          <img src={q.bottomImage} onClick={() => setZoomImage(q.bottomImage!)} className="max-w-full h-auto rounded-[1.5rem] border-4 border-white shadow-xl cursor-zoom-in" alt="Gambar Soal (Bawah)" />
+                        </div>
+                      )}
                       <div className="pt-4">{renderInput()}</div>
                    </div>
                 </div>

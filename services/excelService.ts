@@ -227,7 +227,8 @@ export const importQuestionsFromExcel = (file: File): Promise<Question[]> => {
             text: String(row['Teks Soal'] || ''),
             material: String(row['Materi'] || ''),
             explanation: String(row['Pembahasan'] || ''),
-            questionImage: row['Gambar Soal (URL)'] ? String(row['Gambar Soal (URL)']) : undefined,
+            questionImage: (row['Gambar Soal (URL)'] || row['Gambar Soal Atas (URL)']) ? String(row['Gambar Soal (URL)'] || row['Gambar Soal Atas (URL)']) : undefined,
+            bottomImage: (row['Gambar Soal Bawah (URL)'] || row['Gambar Bawah (URL)']) ? String(row['Gambar Soal Bawah (URL)'] || row['Gambar Bawah (URL)']) : undefined,
             type: type as QuestionType,
             level: String(row['Level'] || 'C1'),
             options: options,
@@ -333,7 +334,7 @@ export const exportFullSubmissionsToCSV = (submissions: any[], fileName: string)
 
 export const downloadImportTemplate = () => {
   const headers = [
-    'No', 'Tipe Soal', 'Level', 'Mata Pelajaran', 'Materi', 'Teks Soal', 'Gambar Soal (URL)',
+    'No', 'Tipe Soal', 'Level', 'Mata Pelajaran', 'Materi', 'Gambar Soal (URL)', 'Teks Soal', 'Gambar Soal Bawah (URL)',
     'Opsi A', 'Gambar Opsi A (URL)', 'Opsi B', 'Gambar Opsi B (URL)',
     'Opsi C', 'Gambar Opsi C (URL)', 'Opsi D', 'Gambar Opsi D (URL)',
     'Opsi E', 'Gambar Opsi E (URL)', 'Kunci Jawaban', 'Pembahasan', 'Token Paket'
@@ -346,8 +347,9 @@ export const downloadImportTemplate = () => {
       'Level': 'C3',
       'Mata Pelajaran': 'PKN',
       'Materi': 'Pancasila',
-      'Teks Soal': 'Apa lambang sila ke-2?',
       'Gambar Soal (URL)': '',
+      'Teks Soal': 'Apa lambang sila ke-2?',
+      'Gambar Soal Bawah (URL)': '',
       'Opsi A': 'Bintang',
       'Gambar Opsi A (URL)': '',
       'Opsi B': 'Rantai',

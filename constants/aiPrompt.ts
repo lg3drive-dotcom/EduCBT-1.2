@@ -17,8 +17,9 @@ IKUTI ATURAN STRUKTUR JSON BERIKUT DENGAN KETAT:
    - "order": nomor urut soal (angka integer: 1, 2, 3, dst).
    - "text": teks stimulus atau pertanyaan soal. Bila ada rumus matematika, gunakan sintaks LaTeX seperti $\\frac{1}{2}$ atau $x^2$.
    - "explanation": pembahasan / alasan jawaban benar.
-   - "questionImage": isi string URL gambar stimulus utama atau string kosong "" (jika tidak ada gambar).
-   - "optionImages": Array URL gambar untuk masing-masing opsi/pernyataan jika setiap butir menggunakan gambar (opsional, contoh: ["https://link-gambar-1.png", "https://link-gambar-2.png"]).
+   - "questionImage": isi string URL gambar stimulus 1 di ATAS teks soal atau string kosong "" (jika tidak ada gambar).
+   - "bottomImage": isi string URL gambar stimulus 2 di BAWAH teks soal / sebelum opsi jawaban atau string kosong "" (jika tidak ada gambar).
+   - "optionImages": Array URL gambar untuk masing-masing opsi/pernyataan jika butir opsi menggunakan gambar (opsional, contoh: ["https://link1.png", "https://link2.png"]).
    - "isDeleted": nilai boolean false.
    - "createdAt": angka timestamp milidetik (contoh: 1714500000000).
 
@@ -57,6 +58,7 @@ CONTOH FORMAT OBJEK SOAL:
     "correctAnswer": 2,
     "explanation": "Yupiter adalah planet terbesar di tata surya.",
     "questionImage": "",
+    "bottomImage": "",
     "isDeleted": false,
     "createdAt": 1714500000000
   },
@@ -79,6 +81,7 @@ CONTOH FORMAT OBJEK SOAL:
     "tfLabels": { "true": "Benar", "false": "Salah" },
     "explanation": "Inti komet bersuhu sangat dingin dan terbuat dari es serta debu.",
     "questionImage": "",
+    "bottomImage": "",
     "isDeleted": false,
     "createdAt": 1714500000001
   }

@@ -315,15 +315,12 @@ export const generateQuestionBankPDF = async (questions: Question[], mode: 'kisi
   for (const q of questions) {
     const cleanQText = cleanMathForPDF(q.text);
     const textLines = doc.splitTextToSize(`${q.order}. ${cleanQText}`, 170);
-    const itemHeight = (textLines.length * 5) + (q.questionImage ? 55 : 10);
+    const itemHeight = (textLines.length * 5) + (q.questionImage ? 50 : 0) + (q.bottomImage ? 50 : 0) + 10;
 
     if (y + itemHeight > 275) { 
       doc.addPage(); 
       y = 25; 
     }
-
-    doc.text(textLines, 20, y);
-    y += (textLines.length * 5) + 2;
 
     if (q.questionImage) {
       try {
@@ -336,6 +333,23 @@ export const generateQuestionBankPDF = async (questions: Question[], mode: 'kisi
         }
       } catch {
         // Abaikan jika format gambar tidak didukung jsPDF
+      }
+    }
+
+    doc.text(textLines, 20, y);
+    y += (textLines.length * 5) + 2;
+
+    if (q.bottomImage) {
+      try {
+        const btmBase64 = await getImageBase64(q.bottomImage);
+        if (btmBase64) {
+          const isPng = btmBase64.toLowerCase().startsWith('data:image/png') || btmBase64.toLowerCase().includes('.png');
+          const format = isPng ? 'PNG' : 'JPEG';
+          doc.addImage(btmBase64, format, 20, y, 80, 45);
+          y += 50;
+        }
+      } catch {
+        // Abaikan
       }
     }
     y += 5;
@@ -506,19 +520,11 @@ export const generateStandardExamPDF = async (
       const qNum = `${q.order || i + 1}.`;
       const cleanText = cleanMathForPDF(q.text);
       const textLines = doc.splitTextToSize(cleanText, contentWidth - 10);
-      const qHeight = (textLines.length * 4.5) + (q.questionImage ? 45 : 0) + (q.options ? q.options.length * 5 : 10);
+      const qHeight = (textLines.length * 4.5) + (q.questionImage ? 45 : 0) + (q.bottomImage ? 45 : 0) + (q.options ? q.options.length * 5 : 10);
 
       checkPageBreak(Math.min(qHeight, 60));
 
-      doc.setFont("times", "bold");
-      doc.setFontSize(10);
-      doc.text(qNum, marginX, y);
-
-      doc.setFont("times", "normal");
-      doc.text(textLines, marginX + 7, y);
-      y += (textLines.length * 4.5) + 2;
-
-      // Gambar Soal jika ada
+      // 1. Gambar Atas jika ada (sebelum teks soal)
       if (q.questionImage) {
         try {
           const imgBase64 = await getImageBase64(q.questionImage);
@@ -528,20 +534,33 @@ export const generateStandardExamPDF = async (
             const format = isPng ? 'PNG' : 'JPEG';
             doc.addImage(imgBase64, format, marginX + 7, y, 65, 38);
             y += 42;
-          } else {
-            // Jika gambar eksternal gagal di-load, berikan catatan informatif agar tata letak tetap rapi
-            checkPageBreak(8);
-            doc.setFont("times", "italic");
-            doc.setFontSize(8);
-            doc.setTextColor(100, 116, 139);
-            doc.text("[Lihat Gambar Lampiran pada Soal Digital / Perangkat]", marginX + 7, y + 2.5);
-            doc.setTextColor(0, 0, 0);
-            doc.setFont("times", "normal");
-            doc.setFontSize(10);
-            y += 6;
           }
         } catch {
-          // Abaikan kesalahan rendering gambar agar pembuatan dokumen PDF tidak gagal
+          // Abaikan
+        }
+      }
+
+      doc.setFont("times", "bold");
+      doc.setFontSize(10);
+      doc.text(qNum, marginX, y);
+
+      doc.setFont("times", "normal");
+      doc.text(textLines, marginX + 7, y);
+      y += (textLines.length * 4.5) + 2;
+
+      // 2. Gambar Bawah jika ada (setelah teks soal, sebelum opsi jawaban)
+      if (q.bottomImage) {
+        try {
+          const btmBase64 = await getImageBase64(q.bottomImage);
+          if (btmBase64) {
+            checkPageBreak(45);
+            const isPng = btmBase64.toLowerCase().startsWith('data:image/png') || btmBase64.toLowerCase().includes('.png');
+            const format = isPng ? 'PNG' : 'JPEG';
+            doc.addImage(btmBase64, format, marginX + 7, y, 65, 38);
+            y += 42;
+          }
+        } catch {
+          // Abaikan
         }
       }
 

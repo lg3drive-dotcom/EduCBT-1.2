@@ -423,6 +423,7 @@ const App: React.FC = () => {
           id: newId,
           order: newOrder,
           quizToken: t,
+          bottomImage: q.bottomImage || (q as any).questionImageBottom || (q as any).bottom_image || undefined,
           isDeleted: false,
           createdAt: q.createdAt || Date.now()
         });

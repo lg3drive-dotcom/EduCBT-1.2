@@ -33,6 +33,7 @@ export const fetchAllQuestions = async (): Promise<Question[]> => {
     text: q.text,
     explanation: q.explanation,
     questionImage: q.question_image,
+    bottomImage: q.bottom_image || (q as any).bottomImage || (q as any).questionImageBottom || null,
     options: q.options,
     optionImages: q.option_images,
     correctAnswer: q.correct_answer,
@@ -64,6 +65,7 @@ export const fetchQuestionsByToken = async (token: string): Promise<Question[]> 
     text: q.text,
     explanation: q.explanation,
     questionImage: q.question_image,
+    bottomImage: q.bottom_image || (q as any).bottomImage || (q as any).questionImageBottom || null,
     options: q.options,
     optionImages: q.option_images,
     correctAnswer: q.correct_answer,
@@ -78,29 +80,48 @@ export const fetchQuestionsByToken = async (token: string): Promise<Question[]> 
 export const pushQuestionsToCloud = async (questions: Question[]) => {
   if (!questions || questions.length === 0) return;
 
-  const payload = questions.map(q => ({
-    id: q.id,
-    type: q.type,
-    level: q.level,
-    subject: q.subject,
-    phase: q.phase || 'Fase C',
-    material: q.material || '',
-    text: q.text || '',
-    explanation: q.explanation || '',
-    question_image: q.questionImage || null,
-    options: q.options || [],
-    option_images: q.optionImages || [],
-    correct_answer: q.correctAnswer,
-    is_deleted: q.isDeleted || false,
-    created_at: q.createdAt || Date.now(),
-    order: Number(q.order) || 0,
-    quiz_token: (q.quizToken || 'UJI01').trim().toUpperCase(),
-    tf_labels: q.tfLabels || { true: 'T', false: 'F' }
-  }));
+  const buildPayload = (includeBottomImage: boolean) => questions.map(q => {
+    const item: any = {
+      id: q.id,
+      type: q.type,
+      level: q.level,
+      subject: q.subject,
+      phase: q.phase || 'Fase C',
+      material: q.material || '',
+      text: q.text || '',
+      explanation: q.explanation || '',
+      question_image: q.questionImage || null,
+      options: q.options || [],
+      option_images: q.optionImages || [],
+      correct_answer: q.correctAnswer,
+      is_deleted: q.isDeleted || false,
+      created_at: q.createdAt || Date.now(),
+      order: Number(q.order) || 0,
+      quiz_token: (q.quizToken || 'UJI01').trim().toUpperCase(),
+      tf_labels: q.tfLabels || { true: 'T', false: 'F' }
+    };
+    if (includeBottomImage && (q.bottomImage || (q as any).questionImageBottom)) {
+      item.bottom_image = q.bottomImage || (q as any).questionImageBottom || null;
+    }
+    return item;
+  });
 
-  const cleanPayload = sanitizeData(payload);
-  const { error } = await supabase.from('questions').upsert(cleanPayload, { onConflict: 'id' });
-  if (error) throw new Error(`Gagal Sinkron Soal: ${error.message}`);
+  try {
+    const fullPayload = sanitizeData(buildPayload(true));
+    const { error } = await supabase.from('questions').upsert(fullPayload, { onConflict: 'id' });
+    if (error) {
+      // Jika kolom bottom_image belum ada di tabel Supabase, lakukan fallback tanpa bottom_image
+      if (error.message && (error.message.includes('bottom_image') || error.code === 'PGRST204')) {
+        const fallbackPayload = sanitizeData(buildPayload(false));
+        const { error: retryError } = await supabase.from('questions').upsert(fallbackPayload, { onConflict: 'id' });
+        if (retryError) throw new Error(`Gagal Sinkron Soal: ${retryError.message}`);
+        return;
+      }
+      throw new Error(`Gagal Sinkron Soal: ${error.message}`);
+    }
+  } catch (err: any) {
+    throw err;
+  }
 };
 
 export const updateLiveSettings = async (settings: AppSettings) => {
@@ -168,6 +189,7 @@ export const getLiveExamData = async (studentToken: string) => {
         text: q.text,
         explanation: q.explanation, 
         questionImage: q.question_image, 
+        bottomImage: q.bottom_image || (q as any).bottomImage || (q as any).questionImageBottom || null,
         options: q.options,
         optionImages: q.option_images, // Menambahkan kolom ini agar gambar opsi muncul di sisi siswa
         correctAnswer: q.correct_answer, 

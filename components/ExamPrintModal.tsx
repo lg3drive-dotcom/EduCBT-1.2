@@ -757,18 +757,29 @@ const ExamPrintModal: React.FC<ExamPrintModalProps> = ({
                                 </div>
                               )}
 
+                              {/* Gambar Soal Atas (Jika ada) */}
+                              {q.questionImage && (
+                                <div className="mb-2">
+                                  <img
+                                    src={q.questionImage}
+                                    alt={`Gambar Soal Atas ${questionNumber}`}
+                                    className="max-w-[320px] max-h-[190px] object-contain border border-slate-300 rounded"
+                                  />
+                                </div>
+                              )}
+
                               {/* Teks Soal / Stimulus */}
                               <div className="text-[10.5pt] text-slate-900 leading-relaxed mb-1.5">
                                 <MathText text={q.text} />
                               </div>
 
-                              {/* Gambar Soal (Jika ada) */}
-                              {q.questionImage && (
+                              {/* Gambar Soal Bawah (Jika ada, sebelum opsi) */}
+                              {q.bottomImage && (
                                 <div className="my-2">
                                   <img
-                                    src={q.questionImage}
-                                    alt={`Gambar Soal ${questionNumber}`}
-                                    className="max-w-[280px] max-h-[190px] object-contain border border-slate-300 rounded"
+                                    src={q.bottomImage}
+                                    alt={`Gambar Soal Bawah ${questionNumber}`}
+                                    className="max-w-[320px] max-h-[190px] object-contain border border-slate-300 rounded"
                                   />
                                 </div>
                               )}

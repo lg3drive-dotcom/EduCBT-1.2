@@ -100,10 +100,14 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ results, questions, onUpdat
                         </div>
                         
                         {q.questionImage && (
-                           <img src={q.questionImage} className="w-48 h-auto rounded-2xl border mb-6 shadow-sm" alt="Ilustrasi Soal" />
+                           <img src={q.questionImage} className="w-48 h-auto rounded-2xl border mb-6 shadow-sm" alt="Ilustrasi Soal (Atas)" />
                         )}
                         
                         <p className="text-lg font-bold text-slate-800 leading-relaxed mb-6" style={{ whiteSpace: 'pre-wrap' }}>{q.text}</p>
+                        
+                        {q.bottomImage && (
+                           <img src={q.bottomImage} className="w-48 h-auto rounded-2xl border mb-6 shadow-sm" alt="Ilustrasi Soal (Bawah)" />
+                        )}
                         
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                           <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
