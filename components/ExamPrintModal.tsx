@@ -3,6 +3,7 @@ import { Question, QuestionType, AppSettings } from '../types.ts';
 import MathText from './MathText.tsx';
 import { fetchQuestionsByToken } from '../services/supabaseService.ts';
 import { generateStandardExamPDF } from '../services/pdfService.ts';
+import { normalizeImageUrl } from '../utils.ts';
 
 interface ExamPrintModalProps {
   isOpen: boolean;
@@ -761,9 +762,11 @@ const ExamPrintModal: React.FC<ExamPrintModalProps> = ({
                               {q.questionImage && (
                                 <div className="mb-2">
                                   <img
-                                    src={q.questionImage}
+                                    src={normalizeImageUrl(q.questionImage)}
                                     alt={`Gambar Soal Atas ${questionNumber}`}
                                     className="max-w-[320px] max-h-[190px] object-contain border border-slate-300 rounded"
+                                    referrerPolicy="no-referrer"
+                                    loading="lazy"
                                   />
                                 </div>
                               )}
@@ -777,9 +780,11 @@ const ExamPrintModal: React.FC<ExamPrintModalProps> = ({
                               {q.bottomImage && (
                                 <div className="my-2">
                                   <img
-                                    src={q.bottomImage}
+                                    src={normalizeImageUrl(q.bottomImage)}
                                     alt={`Gambar Soal Bawah ${questionNumber}`}
                                     className="max-w-[320px] max-h-[190px] object-contain border border-slate-300 rounded"
+                                    referrerPolicy="no-referrer"
+                                    loading="lazy"
                                   />
                                 </div>
                               )}

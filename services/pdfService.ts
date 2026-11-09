@@ -1,6 +1,7 @@
 
 import { jsPDF } from 'jspdf';
 import { QuizResult, Question, QuestionType } from '../types';
+import { normalizeImageUrl } from '../utils.ts';
 
 /**
  * Fungsi utilitas untuk mengubah URL gambar menjadi Base64 secara asinkron
@@ -8,7 +9,7 @@ import { QuizResult, Question, QuestionType } from '../types';
  */
 const getImageBase64 = async (url: string): Promise<string | null> => {
   if (!url || typeof url !== 'string') return null;
-  const trimmedUrl = url.trim();
+  const trimmedUrl = normalizeImageUrl(url);
   if (!trimmedUrl) return null;
 
   // Jika sudah berupa data URI (base64)

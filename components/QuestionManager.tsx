@@ -6,8 +6,9 @@ import { generateQuestionBankPDF } from '../services/pdfService.ts';
 import { downloadImportTemplate, importQuestionsFromExcel, exportQuestionsToExcel } from '../services/excelService.ts';
 import MathText from './MathText.tsx';
 import { GEMINI_QUESTION_PROMPT_TEMPLATE } from '../constants/aiPrompt.ts';
-import { copyToClipboard } from '../utils.ts';
+import { copyToClipboard, normalizeImageUrl } from '../utils.ts';
 import ExamPrintModal from './ExamPrintModal.tsx';
+import SafeImage from './SafeImage.tsx';
 
 interface QuestionManagerProps {
   questions: Question[];
@@ -132,7 +133,16 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
 
   const handleSave = () => {
     if (!formData.text) return alert("Butir soal wajib diisi.");
-    const finalData = { ...formData, quizToken: formData.quizToken.toUpperCase(), isDeleted: false, createdAt: Date.now(), order: Number(formData.order) };
+    const finalData = { 
+      ...formData, 
+      questionImage: normalizeImageUrl(formData.questionImage),
+      bottomImage: normalizeImageUrl(formData.bottomImage),
+      optionImages: formData.optionImages.map(img => img ? normalizeImageUrl(img) : undefined),
+      quizToken: formData.quizToken.toUpperCase(), 
+      isDeleted: false, 
+      createdAt: Date.now(), 
+      order: Number(formData.order) 
+    };
     if (editingId) onUpdate({ ...finalData, id: editingId } as Question);
     else onAdd(finalData);
     closeForm();
@@ -145,7 +155,13 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
       try {
         const imported = await importQuestionsFromExcel(file);
-        onImportQuestions(imported, 'append');
+        const normalized = imported.map(item => ({
+          ...item,
+          questionImage: normalizeImageUrl(item.questionImage),
+          bottomImage: normalizeImageUrl(item.bottomImage),
+          optionImages: item.optionImages ? item.optionImages.map(img => img ? normalizeImageUrl(img) : undefined) : undefined
+        }));
+        onImportQuestions(normalized, 'append');
         alert(`Berhasil mengimpor ${imported.length} butir soal dari Excel.`);
       } catch (e) {
         alert("Gagal membaca file Excel. Pastikan format kolom sesuai template.");
@@ -159,7 +175,17 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
           if (rawList.length === 0 || !rawList[0].text) {
             return alert("Format file JSON tidak valid. Pastikan berisi butir soal.");
           }
-          onImportQuestions(rawList, 'append');
+          const normalized = rawList.map(item => ({
+            ...item,
+            questionImage: normalizeImageUrl(item.questionImage || item.question_image),
+            bottomImage: normalizeImageUrl(item.bottomImage || item.bottom_image || item.questionImageBottom),
+            optionImages: item.optionImages 
+              ? item.optionImages.map((img: string) => img ? normalizeImageUrl(img) : undefined) 
+              : item.option_images 
+                ? item.option_images.map((img: string) => img ? normalizeImageUrl(img) : undefined) 
+                : undefined
+          }));
+          onImportQuestions(normalized, 'append');
           alert(`Berhasil mengimpor ${rawList.length} butir soal.`);
         } catch (e) { alert("Gagal membaca file JSON. Pastikan format sintaks valid."); }
       };
@@ -184,7 +210,18 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
         return alert("Format data JSON tidak valid. Pastikan berisi butir soal yang memiliki teks pertanyaan.");
       }
 
-      onImportQuestions(rawList, importMode);
+      const normalized = rawList.map(item => ({
+        ...item,
+        questionImage: normalizeImageUrl(item.questionImage || item.question_image),
+        bottomImage: normalizeImageUrl(item.bottomImage || item.bottom_image || item.questionImageBottom),
+        optionImages: item.optionImages 
+          ? item.optionImages.map((img: string) => img ? normalizeImageUrl(img) : undefined) 
+          : item.option_images 
+            ? item.option_images.map((img: string) => img ? normalizeImageUrl(img) : undefined) 
+            : undefined
+      }));
+
+      onImportQuestions(normalized, importMode);
       const actionText = importMode === 'append' ? 'ditambahkan ke bank soal' : 'disimpan (mengganti soal lama pada token terkait)';
       alert(`Berhasil! ${rawList.length} butir soal telah ${actionText}.`);
       setIsPasteModalOpen(false);
@@ -258,9 +295,31 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
 
     return (
       <div className="space-y-6">
-        {q.questionImage && <div className="w-full flex justify-center mb-4"><img src={q.questionImage} onClick={() => setZoomImage(q.questionImage!)} className="max-w-full h-auto rounded-2xl border-4 border-white shadow-lg cursor-zoom-in" alt="Gambar Atas" /></div>}
+        {q.questionImage && (
+          <div className="w-full flex justify-center mb-4">
+            <SafeImage 
+              src={q.questionImage} 
+              onClick={() => setZoomImage(normalizeImageUrl(q.questionImage))} 
+              className="max-w-full h-auto rounded-2xl border-4 border-white shadow-lg cursor-zoom-in" 
+              alt="Gambar Atas" 
+              label="Gambar Atas (Stimulus)"
+              mode="admin"
+            />
+          </div>
+        )}
         <MathText text={q.text} className="text-sm font-medium text-slate-700 block bg-slate-50 p-6 rounded-2xl border border-slate-100" />
-        {q.bottomImage && <div className="w-full flex justify-center my-4"><img src={q.bottomImage} onClick={() => setZoomImage(q.bottomImage!)} className="max-w-full h-auto rounded-2xl border-4 border-white shadow-lg cursor-zoom-in" alt="Gambar Bawah" /></div>}
+        {q.bottomImage && (
+          <div className="w-full flex justify-center my-4">
+            <SafeImage 
+              src={q.bottomImage} 
+              onClick={() => setZoomImage(normalizeImageUrl(q.bottomImage))} 
+              className="max-w-full h-auto rounded-2xl border-4 border-white shadow-lg cursor-zoom-in" 
+              alt="Gambar Bawah" 
+              label="Gambar Bawah (Sebelum Opsi)"
+              mode="admin"
+            />
+          </div>
+        )}
         {isComplex ? (
           <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
             <table className="w-full text-left">
@@ -275,11 +334,13 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                           {opt && <MathText text={opt} className="text-xs font-bold text-slate-600" />}
                           {optImg && (
                             <div className="mt-1">
-                              <img 
+                              <SafeImage 
                                 src={optImg} 
                                 alt={`Pernyataan ${idx + 1}`} 
-                                onClick={() => setZoomImage(optImg)} 
+                                onClick={() => setZoomImage(normalizeImageUrl(optImg))} 
                                 className="max-h-36 max-w-full sm:max-w-xs object-contain rounded-xl border border-slate-200 shadow-sm cursor-zoom-in hover:brightness-95 transition-all" 
+                                label={`Gambar Pernyataan ${idx + 1}`}
+                                mode="admin"
                               />
                             </div>
                           )}
@@ -309,7 +370,17 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs mr-4 shrink-0 ${isCorrect ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-100 text-slate-400'}`}>{String.fromCharCode(65+idx)}</div>
                     <MathText text={opt} className={`text-xs font-bold block ${isCorrect ? 'text-blue-800' : 'text-slate-700'}`} />
                   </div>
-                  {optImg && <img src={optImg} onClick={() => setZoomImage(optImg)} className="mt-3 ml-12 max-h-32 rounded-lg border border-slate-200 cursor-zoom-in" />}
+                  {optImg && (
+                    <div className="mt-3 ml-12">
+                      <SafeImage 
+                        src={optImg} 
+                        onClick={() => setZoomImage(normalizeImageUrl(optImg))} 
+                        className="max-h-32 rounded-lg border border-slate-200 cursor-zoom-in" 
+                        label={`Gambar Opsi ${String.fromCharCode(65+idx)}`}
+                        mode="admin"
+                      />
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -446,7 +517,13 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
       {zoomImage && (
         <div className="fixed inset-0 z-[3000] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-12 animate-in fade-in duration-300" onClick={() => setZoomImage(null)}>
            <button className="absolute top-8 right-8 w-12 h-12 bg-white/10 rounded-full flex items-center justify-center text-white font-black hover:bg-white/20">✕</button>
-           <img src={zoomImage} className="max-w-full max-h-full rounded-3xl border-4 border-white/20 shadow-2xl object-contain" onClick={e => e.stopPropagation()} />
+           <img 
+             src={normalizeImageUrl(zoomImage)} 
+             referrerPolicy="no-referrer"
+             className="max-w-full max-h-full rounded-3xl border-4 border-white/20 shadow-2xl object-contain" 
+             onClick={e => e.stopPropagation()} 
+             alt="Zoom Preview"
+           />
         </div>
       )}
 
@@ -520,12 +597,27 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                              type="text" 
                              value={formData.questionImage} 
                              onChange={e => setFormData({...formData, questionImage: e.target.value})} 
+                             onBlur={() => {
+                               if (formData.questionImage) {
+                                 setFormData(prev => ({ ...prev, questionImage: normalizeImageUrl(prev.questionImage) }));
+                               }
+                             }}
                              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono outline-none focus:border-blue-500 focus:bg-white" 
-                             placeholder="https://link-gambar-atas.png (Tampil sebelum teks soal)" 
+                             placeholder="https://... (.png/.jpg, link Google Drive publik, ImgBB)" 
                           />
+                          <p className="text-[9px] text-slate-400">
+                            Mendukung file langsung (.jpg/.png), link sharing Google Drive publik (otomatis dikonversi), Blogger, & ImgBB.
+                          </p>
                           {formData.questionImage && (
                             <div className="mt-2 flex items-center gap-3 bg-white p-2 rounded-xl border border-slate-200">
-                               <img src={formData.questionImage} className="w-12 h-12 object-cover rounded-lg border cursor-zoom-in" onClick={() => setZoomImage(formData.questionImage)} alt="Preview Gambar Atas" />
+                               <SafeImage 
+                                 src={formData.questionImage} 
+                                 className="w-12 h-12 object-cover rounded-lg border cursor-zoom-in" 
+                                 onClick={() => setZoomImage(normalizeImageUrl(formData.questionImage))} 
+                                 alt="Preview Gambar Atas" 
+                                 label="Gambar 1 (Atas)"
+                                 mode="admin"
+                               />
                                <span className="text-[8px] font-bold text-slate-400 uppercase">Preview Gambar Atas (Klik untuk Zoom)</span>
                             </div>
                           )}
@@ -554,12 +646,27 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                              type="text" 
                              value={formData.bottomImage} 
                              onChange={e => setFormData({...formData, bottomImage: e.target.value})} 
+                             onBlur={() => {
+                               if (formData.bottomImage) {
+                                 setFormData(prev => ({ ...prev, bottomImage: normalizeImageUrl(prev.bottomImage) }));
+                               }
+                             }}
                              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono outline-none focus:border-blue-500 focus:bg-white" 
-                             placeholder="https://link-gambar-bawah.png (Tampil setelah teks soal, sebelum pilihan)" 
+                             placeholder="https://... (.png/.jpg, link Google Drive publik, ImgBB)" 
                           />
+                          <p className="text-[9px] text-slate-400">
+                            Mendukung file langsung (.jpg/.png), link sharing Google Drive publik (otomatis dikonversi), Blogger, & ImgBB.
+                          </p>
                           {formData.bottomImage && (
                             <div className="mt-2 flex items-center gap-3 bg-white p-2 rounded-xl border border-slate-200">
-                               <img src={formData.bottomImage} className="w-12 h-12 object-cover rounded-lg border cursor-zoom-in" onClick={() => setZoomImage(formData.bottomImage)} alt="Preview Gambar Bawah" />
+                               <SafeImage 
+                                 src={formData.bottomImage} 
+                                 className="w-12 h-12 object-cover rounded-lg border cursor-zoom-in" 
+                                 onClick={() => setZoomImage(normalizeImageUrl(formData.bottomImage))} 
+                                 alt="Preview Gambar Bawah" 
+                                 label="Gambar 2 (Bawah)"
+                                 mode="admin"
+                               />
                                <span className="text-[8px] font-bold text-slate-400 uppercase">Preview Gambar Bawah (Klik untuk Zoom)</span>
                             </div>
                           )}
@@ -670,7 +777,14 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                       <div className="space-y-6">
                          {formData.questionImage && (
                             <div className="flex justify-center mb-4">
-                               <img src={formData.questionImage} alt="Preview Soal" className="max-w-full h-auto rounded-2xl border-4 border-slate-50 shadow-md cursor-zoom-in" onClick={() => setZoomImage(formData.questionImage)} />
+                               <SafeImage 
+                                 src={formData.questionImage} 
+                                 alt="Preview Soal" 
+                                 className="max-w-full h-auto rounded-2xl border-4 border-slate-50 shadow-md cursor-zoom-in" 
+                                 onClick={() => setZoomImage(normalizeImageUrl(formData.questionImage))} 
+                                 label="Gambar 1 (Atas)"
+                                 mode="admin"
+                               />
                             </div>
                          )}
                          
@@ -678,7 +792,14 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                          
                          {formData.bottomImage && (
                             <div className="flex justify-center my-4">
-                               <img src={formData.bottomImage} alt="Preview Soal (Bawah)" className="max-w-full h-auto rounded-2xl border-4 border-slate-50 shadow-md cursor-zoom-in" onClick={() => setZoomImage(formData.bottomImage)} />
+                               <SafeImage 
+                                 src={formData.bottomImage} 
+                                 alt="Preview Soal (Bawah)" 
+                                 className="max-w-full h-auto rounded-2xl border-4 border-slate-50 shadow-md cursor-zoom-in" 
+                                 onClick={() => setZoomImage(normalizeImageUrl(formData.bottomImage))} 
+                                 label="Gambar 2 (Bawah)"
+                                 mode="admin"
+                               />
                             </div>
                          )}
                          
@@ -698,11 +819,13 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                                            {opt && <MathText text={opt} className="text-xs font-bold text-slate-700" />}
                                            {optImg && (
                                              <div className="mt-1">
-                                               <img 
+                                               <SafeImage 
                                                  src={optImg} 
                                                  alt={`Pernyataan ${i + 1}`} 
                                                  className="max-h-36 max-w-full sm:max-w-xs object-contain rounded-xl border border-slate-200 bg-white shadow-sm cursor-zoom-in hover:opacity-95 transition-all" 
-                                                 onClick={() => setZoomImage(optImg)} 
+                                                 onClick={() => setZoomImage(normalizeImageUrl(optImg))} 
+                                                 label={`Gambar Pernyataan ${i + 1}`}
+                                                 mode="admin"
                                                />
                                              </div>
                                            )}
@@ -735,7 +858,17 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs mr-4 shrink-0 ${isCorrect ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-400'}`}>{String.fromCharCode(65+i)}</div>
                                          <MathText text={opt || "..."} className={`flex-1 text-xs font-bold ${isCorrect ? 'text-blue-800' : 'text-slate-700'}`} />
                                       </div>
-                                      {optImg && <img src={optImg} className="mt-3 ml-12 max-h-32 w-auto object-contain rounded-lg border border-slate-100 cursor-zoom-in" onClick={() => setZoomImage(optImg)} />}
+                                      {optImg && (
+                                        <div className="mt-3 ml-12">
+                                          <SafeImage 
+                                            src={optImg} 
+                                            className="max-h-32 w-auto object-contain rounded-lg border border-slate-100 cursor-zoom-in" 
+                                            onClick={() => setZoomImage(normalizeImageUrl(optImg))} 
+                                            label={`Gambar Opsi ${String.fromCharCode(65+i)}`}
+                                            mode="admin"
+                                          />
+                                        </div>
+                                      )}
                                    </div>
                                  );
                               })}

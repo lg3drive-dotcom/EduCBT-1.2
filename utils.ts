@@ -131,3 +131,53 @@ export const copyToClipboard = async (text: string): Promise<boolean> => {
     return false;
   }
 };
+
+/**
+ * Normalizes image URLs from various sources:
+ * - Trims whitespace and surrounding quotation marks
+ * - Extracts URL from Markdown format: ![alt](url) -> url
+ * - Automatically converts Google Drive share/view links to embeddable CDN thumbnail URLs
+ * - Automatically converts Dropbox preview links to direct CDN links
+ */
+export const normalizeImageUrl = (rawUrl?: string | null): string => {
+  if (!rawUrl || typeof rawUrl !== 'string') return '';
+  let url = rawUrl.trim();
+
+  // Strip wrapping quotes: "https://..." or 'https://...'
+  if ((url.startsWith('"') && url.endsWith('"')) || (url.startsWith("'") && url.endsWith("'"))) {
+    url = url.slice(1, -1).trim();
+  }
+
+  // Handle Markdown image syntax: ![alt](url)
+  const mdMatch = url.match(/!\[.*?\]\((https?:\/\/[^\s\)]+)\)/);
+  if (mdMatch) {
+    url = mdMatch[1].trim();
+  }
+
+  // Google Drive URL conversion
+  // Matches:
+  // - https://drive.google.com/file/d/FILE_ID/view...
+  // - https://drive.google.com/open?id=FILE_ID
+  // - https://drive.google.com/uc?id=FILE_ID
+  // - https://drive.google.com/uc?export=view&id=FILE_ID
+  const gdriveFileMatch = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+  const gdriveIdMatch = url.match(/drive\.google\.com\/(?:open|uc)\?(?:[^&]*&)*id=([a-zA-Z0-9_-]+)/);
+  const fileId = gdriveFileMatch ? gdriveFileMatch[1] : (gdriveIdMatch ? gdriveIdMatch[1] : null);
+
+  if (fileId) {
+    // drive.google.com/thumbnail?id=FILE_ID&sz=w1600 provides direct image rendering without auth/login redirects
+    return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1600`;
+  }
+
+  // Dropbox conversion
+  if (url.includes('dropbox.com')) {
+    if (url.includes('dl=0')) {
+      return url.replace('dl=0', 'dl=1');
+    }
+    if (url.startsWith('https://www.dropbox.com/')) {
+      return url.replace('https://www.dropbox.com/', 'https://dl.dropboxusercontent.com/');
+    }
+  }
+
+  return url;
+};

@@ -2,6 +2,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Question, StudentIdentity, QuizResult, QuestionType } from '../types';
 import MathText from './MathText.tsx';
+import SafeImage from './SafeImage.tsx';
+import { normalizeImageUrl } from '../utils.ts';
 
 interface QuizInterfaceProps {
   questions: Question[];
@@ -205,11 +207,13 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                          {opt && <MathText text={opt} style={{ fontSize: `${fontSize - 4}px` }} />}
                          {optImg && (
                            <div className="mt-1">
-                             <img 
+                             <SafeImage 
                                src={optImg} 
                                alt={`Pernyataan ${idx + 1}`} 
                                className="max-h-48 max-w-full sm:max-w-md object-contain rounded-xl border border-slate-200 bg-white shadow-sm cursor-zoom-in hover:brightness-95 transition-all"
-                               onClick={() => setZoomImage(optImg)}
+                               onClick={() => setZoomImage(normalizeImageUrl(optImg))}
+                               label={`Gambar Pernyataan ${idx + 1}`}
+                               mode="student"
                              />
                              <span className="text-[9px] text-slate-400 font-semibold block mt-0.5">🔍 Klik gambar untuk memperbesar</span>
                            </div>
@@ -287,7 +291,14 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                   </div>
                   {optImg && (
                     <div className="relative mt-3 group w-fit">
-                      <img src={optImg} onClick={() => setZoomImage(optImg)} className="max-h-40 rounded-xl border border-slate-200 shadow-sm cursor-zoom-in hover:brightness-90 transition-all" alt={`Opsi ${String.fromCharCode(65+idx)}`} />
+                      <SafeImage 
+                        src={optImg} 
+                        onClick={() => setZoomImage(normalizeImageUrl(optImg))} 
+                        className="max-h-40 rounded-xl border border-slate-200 shadow-sm cursor-zoom-in hover:brightness-90 transition-all" 
+                        alt={`Opsi ${String.fromCharCode(65+idx)}`} 
+                        label={`Gambar Opsi ${String.fromCharCode(65+idx)}`}
+                        mode="student"
+                      />
                     </div>
                   )}
                 </div>
@@ -352,13 +363,27 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                    <div className="space-y-8">
                       {q?.questionImage && (
                         <div className="flex justify-center mb-6 relative group w-fit mx-auto">
-                          <img src={q.questionImage} onClick={() => setZoomImage(q.questionImage!)} className="max-w-full h-auto rounded-[1.5rem] border-4 border-white shadow-xl cursor-zoom-in" alt="Gambar Soal" />
+                          <SafeImage 
+                            src={q.questionImage} 
+                            onClick={() => setZoomImage(normalizeImageUrl(q.questionImage))} 
+                            className="max-w-full h-auto rounded-[1.5rem] border-4 border-white shadow-xl cursor-zoom-in" 
+                            alt="Gambar Soal" 
+                            label="Gambar Soal (Stimulus)"
+                            mode="student"
+                          />
                         </div>
                       )}
                       <MathText text={q?.text} className="leading-relaxed text-slate-800 font-medium block" style={{ fontSize: `${fontSize}px` }} />
                       {q?.bottomImage && (
                         <div className="flex justify-center my-6 relative group w-fit mx-auto">
-                          <img src={q.bottomImage} onClick={() => setZoomImage(q.bottomImage!)} className="max-w-full h-auto rounded-[1.5rem] border-4 border-white shadow-xl cursor-zoom-in" alt="Gambar Soal (Bawah)" />
+                          <SafeImage 
+                            src={q.bottomImage} 
+                            onClick={() => setZoomImage(normalizeImageUrl(q.bottomImage))} 
+                            className="max-w-full h-auto rounded-[1.5rem] border-4 border-white shadow-xl cursor-zoom-in" 
+                            alt="Gambar Soal (Bawah)" 
+                            label="Gambar Soal (Bawah)"
+                            mode="student"
+                          />
                         </div>
                       )}
                       <div className="pt-4">{renderInput()}</div>
@@ -430,7 +455,13 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
        {zoomImage && (
          <div className="fixed inset-0 z-[999] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4 md:p-12 animate-in fade-in duration-300" onClick={() => setZoomImage(null)}>
            <button className="absolute top-6 right-6 w-12 h-12 bg-white/20 text-white rounded-full flex items-center justify-center font-black">✕</button>
-           <img src={zoomImage} className="max-w-full max-h-[80vh] rounded-[2rem] border-4 border-white/20 shadow-2xl object-contain" onClick={e => e.stopPropagation()} />
+           <img 
+             src={normalizeImageUrl(zoomImage)} 
+             referrerPolicy="no-referrer"
+             className="max-w-full max-h-[80vh] rounded-[2rem] border-4 border-white/20 shadow-2xl object-contain" 
+             onClick={e => e.stopPropagation()} 
+             alt="Zoom Gambar"
+           />
          </div>
        )}
     </div>
