@@ -129,7 +129,7 @@ export const exportQuestionsToExcel = (questions: Question[], fileName: string) 
   if (questions.length === 0) return;
 
   const headers = [
-    'No', 'Tipe Soal', 'Level', 'Mata Pelajaran', 'Materi', 'Teks Soal', 'Gambar Soal (URL)',
+    'No', 'Tipe Soal', 'Level', 'Mata Pelajaran', 'Materi', 'Gambar Soal (URL)', 'Teks Soal', 'Gambar Soal Bawah (URL)', 'Teks Soal Lanjutan',
     'Opsi A', 'Gambar Opsi A (URL)', 'Opsi B', 'Gambar Opsi B (URL)',
     'Opsi C', 'Gambar Opsi C (URL)', 'Opsi D', 'Gambar Opsi D (URL)',
     'Opsi E', 'Gambar Opsi E (URL)', 'Kunci Jawaban', 'Pembahasan', 'Token Paket'
@@ -144,8 +144,10 @@ export const exportQuestionsToExcel = (questions: Question[], fileName: string) 
       'Level': q.level || '-',
       'Mata Pelajaran': q.subject || '-',
       'Materi': (q.material || '-'),
-      'Teks Soal': (q.text || ''),
       'Gambar Soal (URL)': q.questionImage || '',
+      'Teks Soal': (q.text || ''),
+      'Gambar Soal Bawah (URL)': q.bottomImage || '',
+      'Teks Soal Lanjutan': (q.bottomText || ''),
       'Opsi A': (options[0] || ''),
       'Gambar Opsi A (URL)': optImages[0] || '',
       'Opsi B': (options[1] || ''),
@@ -229,6 +231,7 @@ export const importQuestionsFromExcel = (file: File): Promise<Question[]> => {
             explanation: String(row['Pembahasan'] || ''),
             questionImage: (row['Gambar Soal (URL)'] || row['Gambar Soal Atas (URL)']) ? String(row['Gambar Soal (URL)'] || row['Gambar Soal Atas (URL)']) : undefined,
             bottomImage: (row['Gambar Soal Bawah (URL)'] || row['Gambar Bawah (URL)']) ? String(row['Gambar Soal Bawah (URL)'] || row['Gambar Bawah (URL)']) : undefined,
+            bottomText: (row['Teks Soal Lanjutan'] || row['Teks Bawah'] || row['Pertanyaan Lanjutan']) ? String(row['Teks Soal Lanjutan'] || row['Teks Bawah'] || row['Pertanyaan Lanjutan']) : '',
             type: type as QuestionType,
             level: String(row['Level'] || 'C1'),
             options: options,
@@ -334,7 +337,7 @@ export const exportFullSubmissionsToCSV = (submissions: any[], fileName: string)
 
 export const downloadImportTemplate = () => {
   const headers = [
-    'No', 'Tipe Soal', 'Level', 'Mata Pelajaran', 'Materi', 'Gambar Soal (URL)', 'Teks Soal', 'Gambar Soal Bawah (URL)',
+    'No', 'Tipe Soal', 'Level', 'Mata Pelajaran', 'Materi', 'Gambar Soal (URL)', 'Teks Soal', 'Gambar Soal Bawah (URL)', 'Teks Soal Lanjutan',
     'Opsi A', 'Gambar Opsi A (URL)', 'Opsi B', 'Gambar Opsi B (URL)',
     'Opsi C', 'Gambar Opsi C (URL)', 'Opsi D', 'Gambar Opsi D (URL)',
     'Opsi E', 'Gambar Opsi E (URL)', 'Kunci Jawaban', 'Pembahasan', 'Token Paket'

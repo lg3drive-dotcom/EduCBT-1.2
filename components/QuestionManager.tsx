@@ -54,6 +54,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
 
   const [formData, setFormData] = useState<{
     text: string;
+    bottomText: string;
     material: string;
     explanation: string;
     questionImage: string;
@@ -69,7 +70,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     quizToken: string;
     tfLabels: { true: string, false: string };
   }>({
-    text: '', material: '', explanation: '', questionImage: '', bottomImage: '', type: QuestionType.SINGLE,
+    text: '', bottomText: '', material: '', explanation: '', questionImage: '', bottomImage: '', type: QuestionType.SINGLE,
     level: CognitiveLevel.C1, options: ['', '', '', ''],
     optionImages: [undefined, undefined, undefined, undefined],
     correctAnswer: 0, subject: Subject.PANCASILA, phase: 'Fase C', order: 1,
@@ -88,7 +89,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     setShowForm(false);
     setEditingId(null);
     setFormData({ 
-      text: '', material: '', explanation: '', questionImage: '', bottomImage: '', type: QuestionType.SINGLE, 
+      text: '', bottomText: '', material: '', explanation: '', questionImage: '', bottomImage: '', type: QuestionType.SINGLE, 
       level: CognitiveLevel.C1, options: ['', '', '', ''], 
       optionImages: [undefined, undefined, undefined, undefined], 
       correctAnswer: 0, subject: Subject.PANCASILA, phase: 'Fase C', order: 1,
@@ -99,7 +100,10 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   const handleEdit = (q: Question) => {
     setEditingId(q.id);
     setFormData({
-      text: q.text, material: q.material, explanation: q.explanation,
+      text: q.text,
+      bottomText: q.bottomText || '',
+      material: q.material, 
+      explanation: q.explanation,
       questionImage: q.questionImage || '',
       bottomImage: q.bottomImage || '',
       type: q.type, level: q.level,
@@ -135,6 +139,8 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     if (!formData.text) return alert("Butir soal wajib diisi.");
     const finalData = { 
       ...formData, 
+      text: formData.text.trim(),
+      bottomText: formData.bottomText ? formData.bottomText.trim() : '',
       questionImage: normalizeImageUrl(formData.questionImage),
       bottomImage: normalizeImageUrl(formData.bottomImage),
       optionImages: formData.optionImages.map(img => img ? normalizeImageUrl(img) : undefined),
@@ -157,6 +163,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
         const imported = await importQuestionsFromExcel(file);
         const normalized = imported.map(item => ({
           ...item,
+          bottomText: item.bottomText || (item as any).bottom_text || '',
           questionImage: normalizeImageUrl(item.questionImage),
           bottomImage: normalizeImageUrl(item.bottomImage),
           optionImages: item.optionImages ? item.optionImages.map(img => img ? normalizeImageUrl(img) : undefined) : undefined
@@ -177,6 +184,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
           }
           const normalized = rawList.map(item => ({
             ...item,
+            bottomText: item.bottomText || item.bottom_text || item.subText || '',
             questionImage: normalizeImageUrl(item.questionImage || item.question_image),
             bottomImage: normalizeImageUrl(item.bottomImage || item.bottom_image || item.questionImageBottom),
             optionImages: item.optionImages 
@@ -212,6 +220,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
 
       const normalized = rawList.map(item => ({
         ...item,
+        bottomText: item.bottomText || item.bottom_text || item.subText || '',
         questionImage: normalizeImageUrl(item.questionImage || item.question_image),
         bottomImage: normalizeImageUrl(item.bottomImage || item.bottom_image || item.questionImageBottom),
         optionImages: item.optionImages 
@@ -319,6 +328,9 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
               mode="admin"
             />
           </div>
+        )}
+        {q.bottomText && (
+          <MathText text={q.bottomText} className="text-sm font-medium text-slate-700 block bg-slate-50 p-6 rounded-2xl border border-slate-100 my-4" />
         )}
         {isComplex ? (
           <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
@@ -672,6 +684,30 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                           )}
                        </div>
 
+                       {/* 4. TEKS SOAL LANJUTAN / PERTANYAAN (DI BAWAH GAMBAR 2) */}
+                       <div className="space-y-1 mb-3">
+                         <div className="flex justify-between items-center mb-1">
+                           <label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-1.5">
+                             <span>📝</span> Teks Soal Lanjutan / Pertanyaan (Di Bawah Gambar 2)
+                           </label>
+                           <button 
+                             onClick={() => setFormData({...formData, bottomText: applyAutoLatex(formData.bottomText)})}
+                             className="text-[9px] font-black bg-purple-100 text-purple-700 px-2 py-1 rounded-lg hover:bg-purple-200 transition-colors uppercase flex items-center gap-1"
+                           >
+                             ✨ Auto-LaTeX
+                           </button>
+                         </div>
+                         <textarea 
+                           value={formData.bottomText} 
+                           onChange={e => setFormData({...formData, bottomText: e.target.value})} 
+                           className="w-full p-4 border bg-slate-50 rounded-2xl h-24 font-mono text-sm outline-none focus:border-blue-500 focus:bg-white transition-all mb-1" 
+                           placeholder="Tulis pertanyaan utama atau teks lanjutan di bawah gambar kedua (opsional)..." 
+                         />
+                         <p className="text-[9px] text-slate-400">
+                           Gunakan jika butir pertanyaan atau teks pendukung berada di bawah gambar kedua (sebelum pilihan opsi).
+                         </p>
+                       </div>
+
                       <div className="space-y-1">
                          <div className="flex justify-between items-center mb-1">
                             <label className="text-[10px] font-black text-emerald-600 uppercase">Pembahasan / Solusi (Opsional)</label>
@@ -801,6 +837,10 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                                  mode="admin"
                                />
                             </div>
+                         )}
+
+                         {formData.bottomText && (
+                            <MathText text={formData.bottomText} className="block text-slate-800 font-medium leading-relaxed my-3" />
                          )}
                          
                          {formData.type === QuestionType.TRUE_FALSE || formData.type === QuestionType.MATCH ? (

@@ -386,6 +386,9 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                           />
                         </div>
                       )}
+                      {q?.bottomText && (
+                        <MathText text={q.bottomText} className="leading-relaxed text-slate-800 font-medium block my-4" style={{ fontSize: `${fontSize}px` }} />
+                      )}
                       <div className="pt-4">{renderInput()}</div>
                    </div>
                 </div>

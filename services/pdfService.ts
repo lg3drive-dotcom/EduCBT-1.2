@@ -353,6 +353,13 @@ export const generateQuestionBankPDF = async (questions: Question[], mode: 'kisi
         // Abaikan
       }
     }
+
+    if (q.bottomText) {
+      const cleanBtmText = cleanMathForPDF(q.bottomText);
+      const btmLines = doc.splitTextToSize(cleanBtmText, 170);
+      doc.text(btmLines, 20, y);
+      y += (btmLines.length * 5) + 2;
+    }
     y += 5;
   }
   
@@ -563,6 +570,16 @@ export const generateStandardExamPDF = async (
         } catch {
           // Abaikan
         }
+      }
+
+      // 3. Teks Soal Lanjutan jika ada (setelah gambar kedua, sebelum opsi jawaban)
+      if (q.bottomText) {
+        const cleanBtmText = cleanMathForPDF(q.bottomText);
+        const btmLines = doc.splitTextToSize(cleanBtmText, contentWidth - 10);
+        checkPageBreak(btmLines.length * 4.5 + 4);
+        doc.setFont("times", "normal");
+        doc.text(btmLines, marginX + 7, y);
+        y += (btmLines.length * 4.5) + 2;
       }
 
       // Opsi Pilihan Ganda

@@ -34,6 +34,7 @@ export const fetchAllQuestions = async (): Promise<Question[]> => {
     explanation: q.explanation,
     questionImage: q.question_image,
     bottomImage: q.bottom_image || (q as any).bottomImage || (q as any).questionImageBottom || null,
+    bottomText: q.bottom_text || (q as any).bottomText || (q as any).subText || '',
     options: q.options,
     optionImages: q.option_images,
     correctAnswer: q.correct_answer,
@@ -66,6 +67,7 @@ export const fetchQuestionsByToken = async (token: string): Promise<Question[]> 
     explanation: q.explanation,
     questionImage: q.question_image,
     bottomImage: q.bottom_image || (q as any).bottomImage || (q as any).questionImageBottom || null,
+    bottomText: q.bottom_text || (q as any).bottomText || (q as any).subText || '',
     options: q.options,
     optionImages: q.option_images,
     correctAnswer: q.correct_answer,
@@ -80,7 +82,7 @@ export const fetchQuestionsByToken = async (token: string): Promise<Question[]> 
 export const pushQuestionsToCloud = async (questions: Question[]) => {
   if (!questions || questions.length === 0) return;
 
-  const buildPayload = (includeBottomImage: boolean) => questions.map(q => {
+  const buildPayload = (includeBottomImage: boolean, includeBottomText: boolean) => questions.map(q => {
     const item: any = {
       id: q.id,
       type: q.type,
@@ -103,18 +105,30 @@ export const pushQuestionsToCloud = async (questions: Question[]) => {
     if (includeBottomImage && (q.bottomImage || (q as any).questionImageBottom)) {
       item.bottom_image = q.bottomImage || (q as any).questionImageBottom || null;
     }
+    if (includeBottomText && (q.bottomText || (q as any).subText)) {
+      item.bottom_text = q.bottomText || (q as any).subText || null;
+    }
     return item;
   });
 
   try {
-    const fullPayload = sanitizeData(buildPayload(true));
+    const fullPayload = sanitizeData(buildPayload(true, true));
     const { error } = await supabase.from('questions').upsert(fullPayload, { onConflict: 'id' });
     if (error) {
-      // Jika kolom bottom_image belum ada di tabel Supabase, lakukan fallback tanpa bottom_image
-      if (error.message && (error.message.includes('bottom_image') || error.code === 'PGRST204')) {
-        const fallbackPayload = sanitizeData(buildPayload(false));
+      // Jika kolom bottom_text atau bottom_image belum ada di Supabase, lakukan graceful fallback
+      const errorStr = (error.message || '') + (error.details || '');
+      const missingBottomText = errorStr.includes('bottom_text') || error.code === 'PGRST204';
+      const missingBottomImage = errorStr.includes('bottom_image');
+
+      if (missingBottomText || missingBottomImage) {
+        const fallbackPayload = sanitizeData(buildPayload(!missingBottomImage, false));
         const { error: retryError } = await supabase.from('questions').upsert(fallbackPayload, { onConflict: 'id' });
-        if (retryError) throw new Error(`Gagal Sinkron Soal: ${retryError.message}`);
+        if (retryError) {
+          // Retry paling aman tanpa kedua kolom baru
+          const safestPayload = sanitizeData(buildPayload(false, false));
+          const { error: lastError } = await supabase.from('questions').upsert(safestPayload, { onConflict: 'id' });
+          if (lastError) throw new Error(`Gagal Sinkron Soal: ${lastError.message}`);
+        }
         return;
       }
       throw new Error(`Gagal Sinkron Soal: ${error.message}`);

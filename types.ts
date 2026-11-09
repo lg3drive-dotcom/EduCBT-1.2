@@ -46,6 +46,7 @@ export interface Question {
   explanation: string;
   questionImage?: string; // Gambar Atas (Atas Teks Soal)
   bottomImage?: string;   // Gambar Bawah (Bawah Teks Soal, Sebelum Opsi)
+  bottomText?: string;    // Teks Soal Lanjutan / Pertanyaan di bawah Gambar 2 (Sebelum Opsi)
   options?: string[]; 
   optionImages?: (string | undefined)[];
   correctAnswer: any; 

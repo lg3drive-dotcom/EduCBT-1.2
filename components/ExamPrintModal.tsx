@@ -789,6 +789,13 @@ const ExamPrintModal: React.FC<ExamPrintModalProps> = ({
                                 </div>
                               )}
 
+                              {/* Teks Soal Lanjutan (Jika ada, setelah gambar bawah) */}
+                              {q.bottomText && (
+                                <div className="text-[10.5pt] text-slate-900 leading-relaxed my-1.5">
+                                  <MathText text={q.bottomText} />
+                                </div>
+                              )}
+
                               {/* PILIHAN GANDA (SINGLE CHOICE) */}
                               {q.type === QuestionType.SINGLE && q.options && q.options.length > 0 && (
                                 <div

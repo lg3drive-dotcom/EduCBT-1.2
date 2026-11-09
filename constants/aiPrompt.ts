@@ -19,6 +19,7 @@ IKUTI ATURAN STRUKTUR JSON BERIKUT DENGAN KETAT:
    - "explanation": pembahasan / alasan jawaban benar.
    - "questionImage": isi string URL gambar stimulus 1 di ATAS teks soal atau string kosong "" (jika tidak ada gambar).
    - "bottomImage": isi string URL gambar stimulus 2 di BAWAH teks soal / sebelum opsi jawaban atau string kosong "" (jika tidak ada gambar).
+   - "bottomText": isi string teks soal lanjutan / pertanyaan di bawah gambar kedua sebelum opsi jawaban (opsional, atau string kosong "").
    - "optionImages": Array URL gambar untuk masing-masing opsi/pernyataan jika butir opsi menggunakan gambar (opsional, contoh: ["https://link1.png", "https://link2.png"]).
    - "isDeleted": nilai boolean false.
    - "createdAt": angka timestamp milidetik (contoh: 1714500000000).
