@@ -53,6 +53,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   };
 
   const [formData, setFormData] = useState<{
+    topText: string;
     text: string;
     bottomText: string;
     material: string;
@@ -70,7 +71,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     quizToken: string;
     tfLabels: { true: string, false: string };
   }>({
-    text: '', bottomText: '', material: '', explanation: '', questionImage: '', bottomImage: '', type: QuestionType.SINGLE,
+    topText: '', text: '', bottomText: '', material: '', explanation: '', questionImage: '', bottomImage: '', type: QuestionType.SINGLE,
     level: CognitiveLevel.C1, options: ['', '', '', ''],
     optionImages: [undefined, undefined, undefined, undefined],
     correctAnswer: 0, subject: Subject.PANCASILA, phase: 'Fase C', order: 1,
@@ -89,7 +90,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     setShowForm(false);
     setEditingId(null);
     setFormData({ 
-      text: '', bottomText: '', material: '', explanation: '', questionImage: '', bottomImage: '', type: QuestionType.SINGLE, 
+      topText: '', text: '', bottomText: '', material: '', explanation: '', questionImage: '', bottomImage: '', type: QuestionType.SINGLE, 
       level: CognitiveLevel.C1, options: ['', '', '', ''], 
       optionImages: [undefined, undefined, undefined, undefined], 
       correctAnswer: 0, subject: Subject.PANCASILA, phase: 'Fase C', order: 1,
@@ -100,6 +101,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   const handleEdit = (q: Question) => {
     setEditingId(q.id);
     setFormData({
+      topText: q.topText || '',
       text: q.text,
       bottomText: q.bottomText || '',
       material: q.material, 
@@ -139,6 +141,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     if (!formData.text) return alert("Butir soal wajib diisi.");
     const finalData = { 
       ...formData, 
+      topText: formData.topText ? formData.topText.trim() : '',
       text: formData.text.trim(),
       bottomText: formData.bottomText ? formData.bottomText.trim() : '',
       questionImage: normalizeImageUrl(formData.questionImage),
@@ -163,6 +166,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
         const imported = await importQuestionsFromExcel(file);
         const normalized = imported.map(item => ({
           ...item,
+          topText: item.topText || (item as any).top_text || '',
           bottomText: item.bottomText || (item as any).bottom_text || '',
           questionImage: normalizeImageUrl(item.questionImage),
           bottomImage: normalizeImageUrl(item.bottomImage),
@@ -184,6 +188,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
           }
           const normalized = rawList.map(item => ({
             ...item,
+            topText: item.topText || item.top_text || '',
             bottomText: item.bottomText || item.bottom_text || item.subText || '',
             questionImage: normalizeImageUrl(item.questionImage || item.question_image),
             bottomImage: normalizeImageUrl(item.bottomImage || item.bottom_image || item.questionImageBottom),
@@ -220,6 +225,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
 
       const normalized = rawList.map(item => ({
         ...item,
+        topText: item.topText || item.top_text || '',
         bottomText: item.bottomText || item.bottom_text || item.subText || '',
         questionImage: normalizeImageUrl(item.questionImage || item.question_image),
         bottomImage: normalizeImageUrl(item.bottomImage || item.bottom_image || item.questionImageBottom),
@@ -304,14 +310,17 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
 
     return (
       <div className="space-y-6">
+        {q.topText && (
+          <MathText text={q.topText} className="text-sm font-medium text-slate-700 block bg-slate-50 p-6 rounded-2xl border border-slate-100 mb-4" />
+        )}
         {q.questionImage && (
           <div className="w-full flex justify-center mb-4">
             <SafeImage 
               src={q.questionImage} 
               onClick={() => setZoomImage(normalizeImageUrl(q.questionImage))} 
               className="max-w-full h-auto rounded-2xl border-4 border-white shadow-lg cursor-zoom-in" 
-              alt="Gambar Atas" 
-              label="Gambar Atas (Stimulus)"
+              alt="Gambar 1 (Atas)" 
+              label="Gambar 1 (Atas)"
               mode="admin"
             />
           </div>
@@ -599,11 +608,35 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                       </div>
                    </div>
 
-                   <div className="space-y-1">
-                       {/* 1. GAMBAR ATAS TEKS SOAL (STIMULUS UTAMA) */}
+                    <div className="space-y-1">
+                       {/* 1. TEKS 1 (DI ATAS GAMBAR 1 - PENGANTAR / PEMBUKA) */}
+                       <div className="space-y-1 mb-3">
+                         <div className="flex justify-between items-center mb-1">
+                           <label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-1.5">
+                             <span>📝</span> 1. Teks 1: Pembuka / Pengantar (Di Atas Gambar 1)
+                           </label>
+                           <button 
+                             onClick={() => setFormData({...formData, topText: applyAutoLatex(formData.topText)})}
+                             className="text-[9px] font-black bg-purple-100 text-purple-700 px-2 py-1 rounded-lg hover:bg-purple-200 transition-colors uppercase flex items-center gap-1"
+                           >
+                             ✨ Auto-LaTeX
+                           </button>
+                         </div>
+                         <textarea 
+                           value={formData.topText} 
+                           onChange={e => setFormData({...formData, topText: e.target.value})} 
+                           className="w-full p-4 border bg-slate-50 rounded-2xl h-24 font-mono text-sm outline-none focus:border-blue-500 focus:bg-white transition-all mb-1" 
+                           placeholder="Tulis wacana pembuka atau pengantar stimulus di atas gambar pertama (opsional)..." 
+                         />
+                         <p className="text-[9px] text-slate-400">
+                           Teks pengantar yang akan tampil paling atas sebelum Gambar 1.
+                         </p>
+                       </div>
+
+                       {/* 2. GAMBAR 1 (DI BAWAH TEKS 1 / DI ATAS TEKS 2) */}
                        <div className="space-y-1 mb-3">
                           <label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-1.5">
-                            <span>🖼️</span> Gambar 1: Di Atas Teks Soal (Stimulus / Infografis)
+                            <span>🖼️</span> 2. Gambar 1: Stimulus / Infografis Pertama
                           </label>
                           <input 
                              type="text" 
@@ -626,19 +659,19 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                                  src={formData.questionImage} 
                                  className="w-12 h-12 object-cover rounded-lg border cursor-zoom-in" 
                                  onClick={() => setZoomImage(normalizeImageUrl(formData.questionImage))} 
-                                 alt="Preview Gambar Atas" 
+                                 alt="Preview Gambar 1" 
                                  label="Gambar 1 (Atas)"
                                  mode="admin"
                                />
-                               <span className="text-[8px] font-bold text-slate-400 uppercase">Preview Gambar Atas (Klik untuk Zoom)</span>
+                               <span className="text-[8px] font-bold text-slate-400 uppercase">Preview Gambar 1 (Klik untuk Zoom)</span>
                             </div>
                           )}
                        </div>
 
-                       {/* 2. TEKS PERTANYAAN */}
+                       {/* 3. TEKS 2 (DI BAWAH GAMBAR 1 / DI ATAS GAMBAR 2) */}
                        <div className="flex justify-between items-center mb-1">
                          <label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-1.5">
-                           <span>📝</span> Isi Butir Pertanyaan / Stimulus
+                           <span>📝</span> 3. Teks 2: Isi Teks Soal / Wacana Tengah
                          </label>
                          <button 
                            onClick={() => setFormData({...formData, text: applyAutoLatex(formData.text)})}
@@ -647,12 +680,12 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                            ✨ Auto-LaTeX
                          </button>
                        </div>
-                       <textarea value={formData.text} onChange={e => setFormData({...formData, text: e.target.value})} className="w-full p-4 border bg-slate-50 rounded-2xl h-32 font-mono text-sm outline-none focus:border-blue-500 focus:bg-white transition-all mb-3" placeholder="Tulis teks pertanyaan di sini..." />
+                       <textarea value={formData.text} onChange={e => setFormData({...formData, text: e.target.value})} className="w-full p-4 border bg-slate-50 rounded-2xl h-32 font-mono text-sm outline-none focus:border-blue-500 focus:bg-white transition-all mb-3" placeholder="Tulis teks pertanyaan atau stimulus tengah di sini..." />
 
-                       {/* 3. GAMBAR BAWAH TEKS SOAL (SEBELUM OPSI JAWABAN) */}
+                       {/* 4. GAMBAR 2 (DI BAWAH TEKS 2 / DI ATAS TEKS 3) */}
                        <div className="space-y-1 mb-3">
                           <label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-1.5">
-                            <span>🖼️</span> Gambar 2: Di Bawah Teks Soal (Sebelum Opsi / Tabel Pendukung)
+                            <span>🖼️</span> 4. Gambar 2: Stimulus / Infografis Kedua
                           </label>
                           <input 
                              type="text" 
@@ -675,20 +708,20 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                                  src={formData.bottomImage} 
                                  className="w-12 h-12 object-cover rounded-lg border cursor-zoom-in" 
                                  onClick={() => setZoomImage(normalizeImageUrl(formData.bottomImage))} 
-                                 alt="Preview Gambar Bawah" 
+                                 alt="Preview Gambar 2" 
                                  label="Gambar 2 (Bawah)"
                                  mode="admin"
                                />
-                               <span className="text-[8px] font-bold text-slate-400 uppercase">Preview Gambar Bawah (Klik untuk Zoom)</span>
+                               <span className="text-[8px] font-bold text-slate-400 uppercase">Preview Gambar 2 (Klik untuk Zoom)</span>
                             </div>
                           )}
                        </div>
 
-                       {/* 4. TEKS SOAL LANJUTAN / PERTANYAAN (DI BAWAH GAMBAR 2) */}
+                       {/* 5. TEKS 3 (DI BAWAH GAMBAR 2, SEBELUM OPSI JAWABAN) */}
                        <div className="space-y-1 mb-3">
                          <div className="flex justify-between items-center mb-1">
                            <label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-1.5">
-                             <span>📝</span> Teks Soal Lanjutan / Pertanyaan (Di Bawah Gambar 2)
+                             <span>📝</span> 5. Teks 3: Pertanyaan Utama / Penutup (Di Bawah Gambar 2)
                            </label>
                            <button 
                              onClick={() => setFormData({...formData, bottomText: applyAutoLatex(formData.bottomText)})}
@@ -811,11 +844,15 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                       </div>
                       
                       <div className="space-y-6">
+                         {formData.topText && (
+                            <MathText text={formData.topText} className="block text-slate-800 font-medium leading-relaxed mb-4 bg-slate-50 p-4 rounded-xl border border-slate-100" />
+                         )}
+
                          {formData.questionImage && (
                             <div className="flex justify-center mb-4">
                                <SafeImage 
                                  src={formData.questionImage} 
-                                 alt="Preview Soal" 
+                                 alt="Preview Soal 1" 
                                  className="max-w-full h-auto rounded-2xl border-4 border-slate-50 shadow-md cursor-zoom-in" 
                                  onClick={() => setZoomImage(normalizeImageUrl(formData.questionImage))} 
                                  label="Gambar 1 (Atas)"
@@ -830,7 +867,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                             <div className="flex justify-center my-4">
                                <SafeImage 
                                  src={formData.bottomImage} 
-                                 alt="Preview Soal (Bawah)" 
+                                 alt="Preview Soal 2" 
                                  className="max-w-full h-auto rounded-2xl border-4 border-slate-50 shadow-md cursor-zoom-in" 
                                  onClick={() => setZoomImage(normalizeImageUrl(formData.bottomImage))} 
                                  label="Gambar 2 (Bawah)"
@@ -840,7 +877,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                          )}
 
                          {formData.bottomText && (
-                            <MathText text={formData.bottomText} className="block text-slate-800 font-medium leading-relaxed my-3" />
+                            <MathText text={formData.bottomText} className="block text-slate-800 font-medium leading-relaxed my-3 bg-blue-50/40 p-4 rounded-xl border border-blue-100" />
                          )}
                          
                          {formData.type === QuestionType.TRUE_FALSE || formData.type === QuestionType.MATCH ? (

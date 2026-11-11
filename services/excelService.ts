@@ -129,7 +129,7 @@ export const exportQuestionsToExcel = (questions: Question[], fileName: string) 
   if (questions.length === 0) return;
 
   const headers = [
-    'No', 'Tipe Soal', 'Level', 'Mata Pelajaran', 'Materi', 'Gambar Soal (URL)', 'Teks Soal', 'Gambar Soal Bawah (URL)', 'Teks Soal Lanjutan',
+    'No', 'Tipe Soal', 'Level', 'Mata Pelajaran', 'Materi', 'Teks Pengantar Atas', 'Gambar Soal (URL)', 'Teks Soal', 'Gambar Soal Bawah (URL)', 'Teks Soal Lanjutan',
     'Opsi A', 'Gambar Opsi A (URL)', 'Opsi B', 'Gambar Opsi B (URL)',
     'Opsi C', 'Gambar Opsi C (URL)', 'Opsi D', 'Gambar Opsi D (URL)',
     'Opsi E', 'Gambar Opsi E (URL)', 'Kunci Jawaban', 'Pembahasan', 'Token Paket'
@@ -144,6 +144,7 @@ export const exportQuestionsToExcel = (questions: Question[], fileName: string) 
       'Level': q.level || '-',
       'Mata Pelajaran': q.subject || '-',
       'Materi': (q.material || '-'),
+      'Teks Pengantar Atas': (q.topText || ''),
       'Gambar Soal (URL)': q.questionImage || '',
       'Teks Soal': (q.text || ''),
       'Gambar Soal Bawah (URL)': q.bottomImage || '',
@@ -229,6 +230,7 @@ export const importQuestionsFromExcel = (file: File): Promise<Question[]> => {
             text: String(row['Teks Soal'] || ''),
             material: String(row['Materi'] || ''),
             explanation: String(row['Pembahasan'] || ''),
+            topText: (row['Teks Pengantar Atas'] || row['Teks 1'] || row['Teks Pembuka'] || row['Teks Atas']) ? String(row['Teks Pengantar Atas'] || row['Teks 1'] || row['Teks Pembuka'] || row['Teks Atas']) : '',
             questionImage: (row['Gambar Soal (URL)'] || row['Gambar Soal Atas (URL)']) ? String(row['Gambar Soal (URL)'] || row['Gambar Soal Atas (URL)']) : undefined,
             bottomImage: (row['Gambar Soal Bawah (URL)'] || row['Gambar Bawah (URL)']) ? String(row['Gambar Soal Bawah (URL)'] || row['Gambar Bawah (URL)']) : undefined,
             bottomText: (row['Teks Soal Lanjutan'] || row['Teks Bawah'] || row['Pertanyaan Lanjutan']) ? String(row['Teks Soal Lanjutan'] || row['Teks Bawah'] || row['Pertanyaan Lanjutan']) : '',
@@ -337,7 +339,7 @@ export const exportFullSubmissionsToCSV = (submissions: any[], fileName: string)
 
 export const downloadImportTemplate = () => {
   const headers = [
-    'No', 'Tipe Soal', 'Level', 'Mata Pelajaran', 'Materi', 'Gambar Soal (URL)', 'Teks Soal', 'Gambar Soal Bawah (URL)', 'Teks Soal Lanjutan',
+    'No', 'Tipe Soal', 'Level', 'Mata Pelajaran', 'Materi', 'Teks Pengantar Atas', 'Gambar Soal (URL)', 'Teks Soal', 'Gambar Soal Bawah (URL)', 'Teks Soal Lanjutan',
     'Opsi A', 'Gambar Opsi A (URL)', 'Opsi B', 'Gambar Opsi B (URL)',
     'Opsi C', 'Gambar Opsi C (URL)', 'Opsi D', 'Gambar Opsi D (URL)',
     'Opsi E', 'Gambar Opsi E (URL)', 'Kunci Jawaban', 'Pembahasan', 'Token Paket'
@@ -350,9 +352,11 @@ export const downloadImportTemplate = () => {
       'Level': 'C3',
       'Mata Pelajaran': 'PKN',
       'Materi': 'Pancasila',
+      'Teks Pengantar Atas': '',
       'Gambar Soal (URL)': '',
       'Teks Soal': 'Apa lambang sila ke-2?',
       'Gambar Soal Bawah (URL)': '',
+      'Teks Soal Lanjutan': '',
       'Opsi A': 'Bintang',
       'Gambar Opsi A (URL)': '',
       'Opsi B': 'Rantai',
@@ -373,7 +377,11 @@ export const downloadImportTemplate = () => {
       'Level': 'C4',
       'Mata Pelajaran': 'IPA',
       'Materi': 'Ekosistem',
+      'Teks Pengantar Atas': 'Perhatikan ekosistem sawah di bawah ini.',
+      'Gambar Soal (URL)': '',
       'Teks Soal': 'Mana yang termasuk produsen?',
+      'Gambar Soal Bawah (URL)': '',
+      'Teks Soal Lanjutan': '',
       'Opsi A': 'Padi', 'Opsi B': 'Rumput', 'Opsi C': 'Ulat', 'Opsi D': 'Elang', 'Opsi E': 'Lumut',
       'Kunci Jawaban': 'A, B, E',
       'Pembahasan': 'Padi, rumput, dan lumut berfotosintesis.',
@@ -385,7 +393,11 @@ export const downloadImportTemplate = () => {
       'Level': 'C2',
       'Mata Pelajaran': 'IPA',
       'Materi': 'Biologi',
+      'Teks Pengantar Atas': '',
+      'Gambar Soal (URL)': '',
       'Teks Soal': 'Tentukan pernyataan berikut benar atau salah:',
+      'Gambar Soal Bawah (URL)': '',
+      'Teks Soal Lanjutan': '',
       'Opsi A': 'Ikan bernapas dengan paru-paru',
       'Opsi B': 'Mamalia menyusui anaknya',
       'Opsi C': 'Burung adalah reptil',
@@ -399,7 +411,11 @@ export const downloadImportTemplate = () => {
       'Level': 'C2',
       'Mata Pelajaran': 'IPS',
       'Materi': 'Geografi',
+      'Teks Pengantar Atas': '',
+      'Gambar Soal (URL)': '',
       'Teks Soal': 'Pasangkan pernyataan dengan kategorinya:',
+      'Gambar Soal Bawah (URL)': '',
+      'Teks Soal Lanjutan': '',
       'Opsi A': 'Jakarta - Ibu Kota Indonesia',
       'Opsi B': 'Surabaya - Ibu Kota Jawa Barat',
       'Kunci Jawaban': 'B, S',

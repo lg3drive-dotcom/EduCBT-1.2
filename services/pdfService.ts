@@ -314,13 +314,20 @@ export const generateQuestionBankPDF = async (questions: Question[], mode: 'kisi
   doc.setFontSize(10);
 
   for (const q of questions) {
+    const cleanTopText = q.topText ? cleanMathForPDF(q.topText) : '';
     const cleanQText = cleanMathForPDF(q.text);
-    const textLines = doc.splitTextToSize(`${q.order}. ${cleanQText}`, 170);
-    const itemHeight = (textLines.length * 5) + (q.questionImage ? 50 : 0) + (q.bottomImage ? 50 : 0) + 10;
+    const topLines = cleanTopText ? doc.splitTextToSize(`${q.order}. ${cleanTopText}`, 170) : [];
+    const textLines = doc.splitTextToSize(cleanTopText ? cleanQText : `${q.order}. ${cleanQText}`, 170);
+    const itemHeight = (topLines.length * 5) + (textLines.length * 5) + (q.questionImage ? 50 : 0) + (q.bottomImage ? 50 : 0) + 10;
 
     if (y + itemHeight > 275) { 
       doc.addPage(); 
       y = 25; 
+    }
+
+    if (cleanTopText) {
+      doc.text(topLines, 20, y);
+      y += (topLines.length * 5) + 2;
     }
 
     if (q.questionImage) {
@@ -526,13 +533,26 @@ export const generateStandardExamPDF = async (
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i];
       const qNum = `${q.order || i + 1}.`;
+      const cleanTopText = q.topText ? cleanMathForPDF(q.topText) : '';
+      const topLines = cleanTopText ? doc.splitTextToSize(cleanTopText, contentWidth - 10) : [];
       const cleanText = cleanMathForPDF(q.text);
       const textLines = doc.splitTextToSize(cleanText, contentWidth - 10);
-      const qHeight = (textLines.length * 4.5) + (q.questionImage ? 45 : 0) + (q.bottomImage ? 45 : 0) + (q.options ? q.options.length * 5 : 10);
+      const qHeight = (topLines.length * 4.5) + (textLines.length * 4.5) + (q.questionImage ? 45 : 0) + (q.bottomImage ? 45 : 0) + (q.options ? q.options.length * 5 : 10);
 
       checkPageBreak(Math.min(qHeight, 60));
 
-      // 1. Gambar Atas jika ada (sebelum teks soal)
+      doc.setFont("times", "bold");
+      doc.setFontSize(10);
+      doc.text(qNum, marginX, y);
+
+      // 1. Teks 1: Pembuka / Pengantar jika ada (di atas Gambar 1)
+      if (cleanTopText) {
+        doc.setFont("times", "normal");
+        doc.text(topLines, marginX + 7, y);
+        y += (topLines.length * 4.5) + 2;
+      }
+
+      // 2. Gambar 1 jika ada
       if (q.questionImage) {
         try {
           const imgBase64 = await getImageBase64(q.questionImage);
@@ -548,10 +568,7 @@ export const generateStandardExamPDF = async (
         }
       }
 
-      doc.setFont("times", "bold");
-      doc.setFontSize(10);
-      doc.text(qNum, marginX, y);
-
+      // 3. Teks 2: Isi Teks Soal / Wacana
       doc.setFont("times", "normal");
       doc.text(textLines, marginX + 7, y);
       y += (textLines.length * 4.5) + 2;

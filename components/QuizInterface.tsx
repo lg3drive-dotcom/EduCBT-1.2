@@ -361,6 +361,9 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                       <p className="text-sm font-black text-slate-800 uppercase tracking-tighter">{q?.type}</p>
                    </div>
                    <div className="space-y-8">
+                      {q?.topText && (
+                        <MathText text={q.topText} className="leading-relaxed text-slate-800 font-medium block mb-4" style={{ fontSize: `${fontSize}px` }} />
+                      )}
                       {q?.questionImage && (
                         <div className="flex justify-center mb-6 relative group w-fit mx-auto">
                           <SafeImage 

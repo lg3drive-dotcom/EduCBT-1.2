@@ -42,11 +42,12 @@ export interface Question {
   subject: string; 
   phase?: string;
   material: string; 
-  text: string;
+  topText?: string;       // Teks 1: Di Atas Gambar 1 (Pengantar / Pembuka)
+  questionImage?: string; // Gambar 1: Atas
+  text: string;           // Teks 2: Tengah / Antara Gambar 1 dan Gambar 2
+  bottomImage?: string;   // Gambar 2: Bawah
+  bottomText?: string;    // Teks 3: Di Bawah Gambar 2 (Sebelum Opsi)
   explanation: string;
-  questionImage?: string; // Gambar Atas (Atas Teks Soal)
-  bottomImage?: string;   // Gambar Bawah (Bawah Teks Soal, Sebelum Opsi)
-  bottomText?: string;    // Teks Soal Lanjutan / Pertanyaan di bawah Gambar 2 (Sebelum Opsi)
   options?: string[]; 
   optionImages?: (string | undefined)[];
   correctAnswer: any; 

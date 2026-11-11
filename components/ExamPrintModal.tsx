@@ -758,6 +758,13 @@ const ExamPrintModal: React.FC<ExamPrintModalProps> = ({
                                 </div>
                               )}
 
+                              {/* Teks 1: Pembuka / Pengantar di Atas Gambar 1 */}
+                              {q.topText && (
+                                <div className="text-[10.5pt] text-slate-900 leading-relaxed mb-2">
+                                  <MathText text={q.topText} />
+                                </div>
+                              )}
+
                               {/* Gambar Soal Atas (Jika ada) */}
                               {q.questionImage && (
                                 <div className="mb-2">
