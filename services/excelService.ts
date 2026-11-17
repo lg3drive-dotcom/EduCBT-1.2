@@ -244,6 +244,7 @@ export const importQuestionsFromExcel = (file: File): Promise<Question[]> => {
             order: Number(row['No']) || idx + 1,
             quizToken: String(row['Token Paket'] || 'UJI01').trim().toUpperCase(),
             tfLabels: { true: 'Benar', false: 'Salah' }, // Default Benar/Salah handles custom logic
+            isDeleted: false,
             createdAt: Date.now()
           };
         });

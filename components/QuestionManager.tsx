@@ -42,6 +42,13 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   const [isPromptModalOpen, setIsPromptModalOpen] = useState(false);
   const [copyFeedback, setCopyFeedback] = useState(false);
 
+  // States for Copy JSON by Token
+  const [isCopyJsonModalOpen, setIsCopyJsonModalOpen] = useState(false);
+  const [copyModalToken, setCopyModalToken] = useState<string>('');
+  const [copyJsonFeedback, setCopyJsonFeedback] = useState(false);
+  const [copyJsonCount, setCopyJsonCount] = useState(0);
+  const [copyModalFeedback, setCopyModalFeedback] = useState(false);
+
   const handleCopyPrompt = async () => {
     const success = await copyToClipboard(GEMINI_QUESTION_PROMPT_TEMPLATE);
     if (success) {
@@ -136,6 +143,19 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
       return (a.order || 0) - (b.order || 0);
     });
   }, [questions, activeTab, subjectFilter, tokenFilter]);
+
+  const availableTokensWithCount = useMemo(() => {
+    const map: Record<string, number> = {};
+    questions
+      .filter(q => (activeTab === 'active' ? !q.isDeleted : q.isDeleted))
+      .forEach(q => {
+        const t = (q.quizToken || 'UMUM').toUpperCase();
+        map[t] = (map[t] || 0) + 1;
+      });
+    return Object.entries(map)
+      .map(([token, count]) => ({ token, count }))
+      .sort((a, b) => a.token.localeCompare(b.token));
+  }, [questions, activeTab]);
 
   const handleSave = () => {
     if (!formData.text) return alert("Butir soal wajib diisi.");
@@ -259,6 +279,84 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     link.download = `EduCBT_${fileName}_${new Date().toISOString().split('T')[0]}.json`;
     link.click();
     URL.revokeObjectURL(url);
+  };
+
+  const getQuestionsForToken = (tokenStr: string): Question[] => {
+    const cleanToken = tokenStr.trim().toUpperCase();
+    const pool = questions.filter(q => (activeTab === 'active' ? !q.isDeleted : q.isDeleted));
+    if (!cleanToken) return [...pool].sort((a, b) => (a.order || 0) - (b.order || 0));
+    const exactMatch = pool.filter(q => (q.quizToken || 'UMUM').toUpperCase() === cleanToken);
+    if (exactMatch.length > 0) {
+      return [...exactMatch].sort((a, b) => (a.order || 0) - (b.order || 0));
+    }
+    return [...pool.filter(q => (q.quizToken || '').toUpperCase().includes(cleanToken))].sort(
+      (a, b) => (a.order || 0) - (b.order || 0)
+    );
+  };
+
+  const openCopyJsonModal = (preferredToken?: string) => {
+    const candidate = (preferredToken ?? tokenFilter).trim().toUpperCase();
+    const exactExists = availableTokensWithCount.some(t => t.token === candidate);
+    if (exactExists) {
+      setCopyModalToken(candidate);
+    } else if (availableTokensWithCount.some(t => t.token === activeToken.toUpperCase())) {
+      setCopyModalToken(activeToken.toUpperCase());
+    } else if (availableTokensWithCount.length > 0) {
+      setCopyModalToken(availableTokensWithCount[0].token);
+    } else {
+      setCopyModalToken('');
+    }
+    setCopyModalFeedback(false);
+    setIsCopyJsonModalOpen(true);
+  };
+
+  const handleCopyTokenJSON = async () => {
+    const trimmedFilter = tokenFilter.trim().toUpperCase();
+    if (!trimmedFilter) {
+      openCopyJsonModal();
+      return;
+    }
+
+    const targetQuestions = getQuestionsForToken(trimmedFilter);
+    if (targetQuestions.length === 0) {
+      alert(`Tidak ada soal ditemukan untuk token "${trimmedFilter}".`);
+      return;
+    }
+
+    const jsonString = JSON.stringify(targetQuestions, null, 2);
+    const success = await copyToClipboard(jsonString);
+    if (success) {
+      setCopyJsonCount(targetQuestions.length);
+      setCopyJsonFeedback(true);
+      setTimeout(() => setCopyJsonFeedback(false), 3000);
+    } else {
+      openCopyJsonModal(trimmedFilter);
+    }
+  };
+
+  const copyModalQuestions = useMemo(() => {
+    if (!isCopyJsonModalOpen) return [];
+    const pool = questions.filter(q => (activeTab === 'active' ? !q.isDeleted : q.isDeleted));
+    if (!copyModalToken) {
+      return [...pool].sort((a, b) => (a.order || 0) - (b.order || 0));
+    }
+    return [...pool.filter(q => (q.quizToken || 'UMUM').toUpperCase() === copyModalToken.toUpperCase())].sort(
+      (a, b) => (a.order || 0) - (b.order || 0)
+    );
+  }, [isCopyJsonModalOpen, copyModalToken, questions, activeTab]);
+
+  const copyModalJsonString = useMemo(() => {
+    if (!isCopyJsonModalOpen || copyModalQuestions.length === 0) return '';
+    return JSON.stringify(copyModalQuestions, null, 2);
+  }, [isCopyJsonModalOpen, copyModalQuestions]);
+
+  const handleCopyFromModal = async () => {
+    if (!copyModalJsonString) return;
+    const success = await copyToClipboard(copyModalJsonString);
+    if (success) {
+      setCopyModalFeedback(true);
+      setTimeout(() => setCopyModalFeedback(false), 3000);
+    }
   };
 
   const handleExportExcel = () => {
@@ -425,9 +523,26 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
             <button onClick={() => setActiveTab('active')} className={`px-4 py-2 rounded-lg text-[10px] font-black ${activeTab === 'active' ? 'bg-blue-600 text-white' : 'text-slate-400'}`}>BANK SOAL</button>
             <button onClick={() => setActiveTab('trash')} className={`px-4 py-2 rounded-lg text-[10px] font-black ${activeTab === 'trash' ? 'bg-red-500 text-white' : 'text-slate-400'}`}>SAMPAH</button>
           </div>
-          <input type="text" value={tokenFilter} onChange={(e) => setTokenFilter(e.target.value)} placeholder="Ketik Token..." className="w-24 bg-white border rounded-xl px-3 py-1.5 text-[10px] font-bold outline-none uppercase" />
+          <div className="flex items-center gap-1.5">
+            <select
+              value={availableTokensWithCount.some(t => t.token === tokenFilter.trim().toUpperCase()) ? tokenFilter.trim().toUpperCase() : ''}
+              onChange={(e) => setTokenFilter(e.target.value)}
+              className="bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-[10px] font-black text-slate-700 outline-none focus:border-blue-500 uppercase max-w-[155px]"
+              title="Pilih Token Soal"
+            >
+              <option value="">
+                Semua Token ({questions.filter(q => activeTab === 'active' ? !q.isDeleted : q.isDeleted).length})
+              </option>
+              {availableTokensWithCount.map(({ token, count }) => (
+                <option key={token} value={token}>
+                  {token} ({count})
+                </option>
+              ))}
+            </select>
+            <input type="text" value={tokenFilter} onChange={(e) => setTokenFilter(e.target.value)} placeholder="Cari Token..." className="w-24 bg-white border rounded-xl px-3 py-1.5 text-[10px] font-bold outline-none uppercase" />
+          </div>
           
-          <div className="flex gap-1 border-l pl-3 ml-2 border-slate-300">
+          <div className="flex flex-wrap items-center gap-1 border-l pl-3 ml-2 border-slate-300">
              <input type="file" ref={fileInputRef} onChange={handleFileImport} className="hidden" accept=".json,.xlsx,.xls" />
              <button onClick={() => fileInputRef.current?.click()} className="p-2 hover:bg-slate-200 rounded-lg text-slate-500 transition-colors" title="Upload JSON/Excel">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
@@ -435,8 +550,42 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
              <button onClick={() => setIsPasteModalOpen(true)} className="p-2 hover:bg-slate-200 rounded-lg text-slate-500 transition-colors" title="Paste JSON">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
              </button>
-             <button onClick={handleExportJSON} className="p-2 hover:bg-slate-200 rounded-lg text-slate-500 transition-colors" title="Export JSON">
+             <button onClick={handleExportJSON} className="p-2 hover:bg-slate-200 rounded-lg text-slate-500 transition-colors" title="Download File JSON">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+             </button>
+             <button
+               onClick={handleCopyTokenJSON}
+               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black transition-all shadow-sm active:scale-95 cursor-pointer ${
+                 copyJsonFeedback
+                   ? 'bg-emerald-600 text-white shadow-emerald-200'
+                   : 'bg-slate-800 hover:bg-slate-900 text-white'
+               }`}
+               title={tokenFilter.trim() ? `Salin JSON untuk token ${tokenFilter.toUpperCase()}` : 'Pilih token dan salin JSON soal'}
+             >
+               {copyJsonFeedback ? (
+                 <>
+                   <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                   </svg>
+                   <span>TERSALIN ({copyJsonCount})!</span>
+                 </>
+               ) : (
+                 <>
+                   <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                   </svg>
+                   <span>COPY JSON</span>
+                 </>
+               )}
+             </button>
+             <button
+               onClick={() => openCopyJsonModal()}
+               className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
+               title="Lihat & pilih token JSON soal"
+             >
+               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+               </svg>
              </button>
              <button onClick={handleExportExcel} className="p-2 hover:bg-emerald-100 rounded-lg text-emerald-600 transition-colors" title="Export Excel">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2a2 2 0 00-2-2H5a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2zm0-5V7a2 2 0 012-2h2a2 2 0 012 2v5m-6 0h6" /></svg>
@@ -1105,6 +1254,119 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                   </>
                 )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL COPY JSON BERDASARKAN TOKEN */}
+      {isCopyJsonModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[2100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] border border-white/20 animate-in zoom-in-95 duration-200">
+            <div className="p-6 bg-slate-900 text-white flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-black text-sm shadow-lg">{`{}`}</div>
+                <div>
+                  <h3 className="text-lg font-black uppercase tracking-tight">Salin JSON Soal Berdasarkan Token</h3>
+                  <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-widest mt-0.5">
+                    Pilih token soal lalu salin seluruh struktur JSON ke clipboard
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => setIsCopyJsonModalOpen(false)} className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center font-black hover:bg-white/20 transition-all">✕</button>
+            </div>
+
+            <div className="p-5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Pilih Token:</label>
+                <select
+                  value={copyModalToken}
+                  onChange={(e) => {
+                    setCopyModalToken(e.target.value);
+                    setCopyModalFeedback(false);
+                  }}
+                  className="bg-white border-2 border-slate-200 rounded-xl px-3 py-2 text-xs font-black text-slate-800 outline-none focus:border-blue-600 uppercase"
+                >
+                  <option value="">
+                    Semua Token ({questions.filter(q => activeTab === 'active' ? !q.isDeleted : q.isDeleted).length} Soal)
+                  </option>
+                  {availableTokensWithCount.map(({ token, count }) => (
+                    <option key={token} value={token}>
+                      {token} ({count} Soal)
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="bg-blue-50 border border-blue-200 text-blue-700 px-3 py-1.5 rounded-xl text-xs font-black">
+                {copyModalQuestions.length} Soal Siap Disalin
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
+              {copyModalQuestions.length === 0 ? (
+                <div className="py-16 text-center text-slate-400 font-bold text-sm">
+                  Belum ada soal pada token ini.
+                </div>
+              ) : (
+                <textarea
+                  readOnly
+                  value={copyModalJsonString}
+                  className="w-full h-80 p-4 bg-white border border-slate-200 rounded-2xl font-mono text-[11px] leading-relaxed text-slate-800 outline-none select-all custom-scrollbar"
+                />
+              )}
+            </div>
+
+            <div className="p-6 border-t bg-white flex flex-wrap justify-between items-center gap-3">
+              <button
+                onClick={() => setIsCopyJsonModalOpen(false)}
+                className="px-6 py-3 font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest text-[10px]"
+              >
+                TUTUP
+              </button>
+              <div className="flex items-center gap-2">
+                {copyModalQuestions.length > 0 && (
+                  <button
+                    onClick={() => {
+                      const blob = new Blob([copyModalJsonString], { type: 'application/json' });
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement('a');
+                      link.href = url;
+                      const fname = copyModalToken ? `Export_${copyModalToken}` : 'BankSoal_Semua';
+                      link.download = `EduCBT_${fname}_${new Date().toISOString().split('T')[0]}.json`;
+                      link.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                    className="px-5 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black rounded-xl text-[10px] uppercase tracking-widest transition-all"
+                  >
+                    UNDUH .JSON
+                  </button>
+                )}
+                <button
+                  onClick={handleCopyFromModal}
+                  disabled={copyModalQuestions.length === 0}
+                  className={`px-8 py-3.5 font-black rounded-xl text-xs uppercase tracking-widest shadow-xl active:scale-95 flex items-center gap-2 transition-all disabled:opacity-50 ${
+                    copyModalFeedback
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-slate-900 hover:bg-black text-white'
+                  }`}
+                >
+                  {copyModalFeedback ? (
+                    <>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                      <span>JSON BERHASIL DISALIN!</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                      <span>SALIN JSON ({copyModalQuestions.length} SOAL)</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
