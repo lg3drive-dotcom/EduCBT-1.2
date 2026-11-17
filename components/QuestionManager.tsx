@@ -42,12 +42,16 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   const [isPromptModalOpen, setIsPromptModalOpen] = useState(false);
   const [copyFeedback, setCopyFeedback] = useState(false);
 
-  // States for Copy JSON by Token
+  // States for Copy JSON by Token & Selected Numbers
   const [isCopyJsonModalOpen, setIsCopyJsonModalOpen] = useState(false);
   const [copyModalToken, setCopyModalToken] = useState<string>('');
+  const [copyModalSelectedIds, setCopyModalSelectedIds] = useState<string[]>([]);
+  const [copyModalRangeText, setCopyModalRangeText] = useState<string>('');
   const [copyJsonFeedback, setCopyJsonFeedback] = useState(false);
   const [copyJsonCount, setCopyJsonCount] = useState(0);
   const [copyModalFeedback, setCopyModalFeedback] = useState(false);
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
+  const [selectedCopyFeedback, setSelectedCopyFeedback] = useState(false);
 
   const handleCopyPrompt = async () => {
     const success = await copyToClipboard(GEMINI_QUESTION_PROMPT_TEMPLATE);
@@ -294,23 +298,145 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
     );
   };
 
-  const openCopyJsonModal = (preferredToken?: string) => {
+  const getPoolForModalToken = (tokenStr: string): Question[] => {
+    const pool = questions.filter(q => (activeTab === 'active' ? !q.isDeleted : q.isDeleted));
+    if (!tokenStr) {
+      return [...pool].sort((a, b) => (a.order || 0) - (b.order || 0));
+    }
+    return [...pool.filter(q => (q.quizToken || 'UMUM').toUpperCase() === tokenStr.toUpperCase())].sort(
+      (a, b) => (a.order || 0) - (b.order || 0)
+    );
+  };
+
+  const formatNumbersRange = (nums: number[]): string => {
+    if (nums.length === 0) return '';
+    const sorted = Array.from(new Set(nums)).sort((a, b) => a - b);
+    const ranges: string[] = [];
+    let start = sorted[0];
+    let prev = sorted[0];
+    for (let i = 1; i < sorted.length; i++) {
+      if (sorted[i] === prev + 1) {
+        prev = sorted[i];
+      } else {
+        ranges.push(start === prev ? `${start}` : `${start}-${prev}`);
+        start = sorted[i];
+        prev = sorted[i];
+      }
+    }
+    ranges.push(start === prev ? `${start}` : `${start}-${prev}`);
+    return ranges.join(', ');
+  };
+
+  const parseQuestionRangeInput = (rangeStr: string, pool: Question[]): string[] => {
+    const tokens = rangeStr
+      .split(/[,\s;]+/)
+      .map(s => s.trim())
+      .filter(Boolean);
+    const wantedNumbers = new Set<number>();
+    tokens.forEach(tok => {
+      const rangeMatch = tok.match(/^(\d+)\s*-\s*(\d+)$/);
+      if (rangeMatch) {
+        const a = parseInt(rangeMatch[1], 10);
+        const b = parseInt(rangeMatch[2], 10);
+        const min = Math.min(a, b);
+        const max = Math.max(a, b);
+        for (let n = min; n <= max && n - min <= 500; n++) {
+          wantedNumbers.add(n);
+        }
+      } else if (/^\d+$/.test(tok)) {
+        wantedNumbers.add(parseInt(tok, 10));
+      }
+    });
+    return pool
+      .filter((q, idx) => wantedNumbers.has(q.order || idx + 1))
+      .map(q => q.id);
+  };
+
+  const openCopyJsonModal = (preferredToken?: string, preselectedIds?: string[]) => {
     const candidate = (preferredToken ?? tokenFilter).trim().toUpperCase();
     const exactExists = availableTokensWithCount.some(t => t.token === candidate);
+    let resolvedToken = '';
     if (exactExists) {
-      setCopyModalToken(candidate);
+      resolvedToken = candidate;
+    } else if (!preferredToken && preferredToken === '') {
+      resolvedToken = '';
     } else if (availableTokensWithCount.some(t => t.token === activeToken.toUpperCase())) {
-      setCopyModalToken(activeToken.toUpperCase());
+      resolvedToken = activeToken.toUpperCase();
     } else if (availableTokensWithCount.length > 0) {
-      setCopyModalToken(availableTokensWithCount[0].token);
-    } else {
-      setCopyModalToken('');
+      resolvedToken = availableTokensWithCount[0].token;
     }
+
+    const pool = getPoolForModalToken(resolvedToken);
+    const initialIds =
+      preselectedIds && preselectedIds.length > 0
+        ? pool.filter(q => preselectedIds.includes(q.id)).map(q => q.id)
+        : pool.map(q => q.id);
+    const initialNums = pool
+      .map((q, idx) => ({ id: q.id, num: q.order || idx + 1 }))
+      .filter(item => initialIds.includes(item.id))
+      .map(item => item.num);
+
+    setCopyModalToken(resolvedToken);
+    setCopyModalSelectedIds(initialIds);
+    setCopyModalRangeText(formatNumbersRange(initialNums));
     setCopyModalFeedback(false);
     setIsCopyJsonModalOpen(true);
   };
 
+  const selectedInViewQuestions = useMemo(() => {
+    return processedQuestions.filter(q => selectedQuestionIds.includes(q.id));
+  }, [processedQuestions, selectedQuestionIds]);
+
+  const handleToggleSelectQuestion = (id: string) => {
+    setSelectedQuestionIds(prev =>
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleToggleSelectAllInView = () => {
+    const viewIds = processedQuestions.map(q => q.id);
+    const allSelected = viewIds.length > 0 && viewIds.every(id => selectedQuestionIds.includes(id));
+    if (allSelected) {
+      setSelectedQuestionIds(prev => prev.filter(id => !viewIds.includes(id)));
+    } else {
+      setSelectedQuestionIds(prev => Array.from(new Set([...prev, ...viewIds])));
+    }
+  };
+
+  const handleCopySelectedJSON = async () => {
+    if (selectedInViewQuestions.length === 0) return;
+    const jsonString = JSON.stringify(selectedInViewQuestions, null, 2);
+    const success = await copyToClipboard(jsonString);
+    if (success) {
+      setSelectedCopyFeedback(true);
+      setTimeout(() => setSelectedCopyFeedback(false), 3000);
+    } else {
+      const firstToken = (selectedInViewQuestions[0].quizToken || '').toUpperCase();
+      const sameToken = selectedInViewQuestions.every(
+        q => (q.quizToken || '').toUpperCase() === firstToken
+      );
+      openCopyJsonModal(sameToken ? firstToken : '', selectedInViewQuestions.map(q => q.id));
+    }
+  };
+
   const handleCopyTokenJSON = async () => {
+    if (selectedInViewQuestions.length > 0) {
+      const jsonString = JSON.stringify(selectedInViewQuestions, null, 2);
+      const success = await copyToClipboard(jsonString);
+      if (success) {
+        setCopyJsonCount(selectedInViewQuestions.length);
+        setCopyJsonFeedback(true);
+        setTimeout(() => setCopyJsonFeedback(false), 3000);
+      } else {
+        const firstToken = (selectedInViewQuestions[0].quizToken || '').toUpperCase();
+        const sameToken = selectedInViewQuestions.every(
+          q => (q.quizToken || '').toUpperCase() === firstToken
+        );
+        openCopyJsonModal(sameToken ? firstToken : '', selectedInViewQuestions.map(q => q.id));
+      }
+      return;
+    }
+
     const trimmedFilter = tokenFilter.trim().toUpperCase();
     if (!trimmedFilter) {
       openCopyJsonModal();
@@ -336,19 +462,18 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
 
   const copyModalQuestions = useMemo(() => {
     if (!isCopyJsonModalOpen) return [];
-    const pool = questions.filter(q => (activeTab === 'active' ? !q.isDeleted : q.isDeleted));
-    if (!copyModalToken) {
-      return [...pool].sort((a, b) => (a.order || 0) - (b.order || 0));
-    }
-    return [...pool.filter(q => (q.quizToken || 'UMUM').toUpperCase() === copyModalToken.toUpperCase())].sort(
-      (a, b) => (a.order || 0) - (b.order || 0)
-    );
+    return getPoolForModalToken(copyModalToken);
   }, [isCopyJsonModalOpen, copyModalToken, questions, activeTab]);
 
+  const copyModalFilteredQuestions = useMemo(() => {
+    if (!isCopyJsonModalOpen) return [];
+    return copyModalQuestions.filter(q => copyModalSelectedIds.includes(q.id));
+  }, [isCopyJsonModalOpen, copyModalQuestions, copyModalSelectedIds]);
+
   const copyModalJsonString = useMemo(() => {
-    if (!isCopyJsonModalOpen || copyModalQuestions.length === 0) return '';
-    return JSON.stringify(copyModalQuestions, null, 2);
-  }, [isCopyJsonModalOpen, copyModalQuestions]);
+    if (!isCopyJsonModalOpen || copyModalFilteredQuestions.length === 0) return '';
+    return JSON.stringify(copyModalFilteredQuestions, null, 2);
+  }, [isCopyJsonModalOpen, copyModalFilteredQuestions]);
 
   const handleCopyFromModal = async () => {
     if (!copyModalJsonString) return;
@@ -560,7 +685,13 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                    ? 'bg-emerald-600 text-white shadow-emerald-200'
                    : 'bg-slate-800 hover:bg-slate-900 text-white'
                }`}
-               title={tokenFilter.trim() ? `Salin JSON untuk token ${tokenFilter.toUpperCase()}` : 'Pilih token dan salin JSON soal'}
+               title={
+                 selectedInViewQuestions.length > 0
+                   ? `Salin JSON untuk ${selectedInViewQuestions.length} soal terpilih`
+                   : tokenFilter.trim()
+                     ? `Salin semua JSON untuk token ${tokenFilter.toUpperCase()}`
+                     : 'Pilih token & nomor soal untuk disalin'
+               }
              >
                {copyJsonFeedback ? (
                  <>
@@ -574,18 +705,30 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                    </svg>
-                   <span>COPY JSON</span>
+                   <span>
+                     {selectedInViewQuestions.length > 0
+                       ? `COPY JSON (${selectedInViewQuestions.length})`
+                       : 'COPY JSON'}
+                   </span>
                  </>
                )}
              </button>
              <button
-               onClick={() => openCopyJsonModal()}
-               className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
-               title="Lihat & pilih token JSON soal"
+               onClick={() =>
+                 openCopyJsonModal(
+                   undefined,
+                   selectedInViewQuestions.length > 0
+                     ? selectedInViewQuestions.map(q => q.id)
+                     : undefined
+                 )
+               }
+               className="flex items-center gap-1 px-2.5 py-1.5 text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-200 border border-slate-200 rounded-xl text-[10px] font-black transition-colors"
+               title="Pilih token dan nomor soal mana saja yang ingin disalin JSON-nya"
              >
-               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+               <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
                </svg>
+               <span>PILIH NO</span>
              </button>
              <button onClick={handleExportExcel} className="p-2 hover:bg-emerald-100 rounded-lg text-emerald-600 transition-colors" title="Export Excel">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2a2 2 0 00-2-2H5a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2zm0-5V7a2 2 0 012-2h2a2 2 0 012 2v5m-6 0h6" /></svg>
@@ -645,23 +788,96 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
         <button onClick={() => { closeForm(); setShowForm(true); }} className="bg-slate-900 text-white px-5 py-2 rounded-xl text-[10px] font-black shadow-lg active:scale-95 transition-all">TAMBAH</button>
       </div>
 
-      <div className="flex-1 overflow-y-auto bg-slate-50/30 p-4 space-y-4 custom-scrollbar">
-        {processedQuestions.map((q) => (
-          <div key={q.id} className="bg-white p-4 border rounded-2xl group flex gap-4 items-start shadow-sm hover:shadow-md transition-all">
-            <div className="w-10 h-10 flex items-center justify-center bg-blue-50 text-blue-700 rounded-xl font-black text-xs shrink-0">{q.order}</div>
-            <div className="flex-1 min-w-0">
-              <div className="flex justify-between items-start mb-2">
-                <span className="text-[8px] bg-blue-600 text-white px-2 py-0.5 rounded font-black uppercase">TOKEN: {q.quizToken}</span>
-                <div className="flex gap-4 opacity-0 group-hover:opacity-100 transition-all">
-                   <button onClick={() => setPreviewQuestion(q)} className="text-emerald-600 text-[9px] font-black uppercase hover:underline">Preview</button>
-                   <button onClick={() => handleEdit(q)} className="text-blue-600 text-[9px] font-black uppercase hover:underline">Edit</button>
-                   <button onClick={() => onSoftDelete(q.id)} className="text-red-400 text-[9px] font-black uppercase hover:underline">Buang</button>
-                </div>
-              </div>
-              <MathText text={q.text} className="font-semibold text-slate-800 text-xs line-clamp-2 block" />
+      {processedQuestions.length > 0 && (
+        <div className="px-4 py-2.5 bg-slate-100/80 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={
+                processedQuestions.length > 0 &&
+                processedQuestions.every(q => selectedQuestionIds.includes(q.id))
+              }
+              onChange={handleToggleSelectAllInView}
+              className="w-4 h-4 accent-blue-600 rounded cursor-pointer"
+            />
+            <span className="text-[10px] font-black uppercase text-slate-600 tracking-wider">
+              Pilih Semua ({processedQuestions.length} Soal Tampil)
+            </span>
+          </label>
+
+          {selectedInViewQuestions.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] font-black text-blue-700 bg-blue-100 px-2.5 py-1 rounded-lg">
+                {selectedInViewQuestions.length} Soal Dipilih
+              </span>
+              <button
+                onClick={handleCopySelectedJSON}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all shadow-sm active:scale-95 ${
+                  selectedCopyFeedback
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-slate-900 hover:bg-black text-white'
+                }`}
+              >
+                {selectedCopyFeedback
+                  ? `✓ TERSALIN (${selectedInViewQuestions.length})!`
+                  : `COPY JSON (${selectedInViewQuestions.length})`}
+              </button>
+              <button
+                onClick={() =>
+                  openCopyJsonModal(
+                    tokenFilter.trim().toUpperCase() || undefined,
+                    selectedInViewQuestions.map(q => q.id)
+                  )
+                }
+                className="px-2.5 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-[10px] font-black uppercase transition-colors"
+              >
+                Lihat JSON
+              </button>
+              <button
+                onClick={() => setSelectedQuestionIds([])}
+                className="px-2.5 py-1.5 text-slate-500 hover:text-red-600 text-[10px] font-black uppercase"
+              >
+                Batal
+              </button>
             </div>
-          </div>
-        ))}
+          )}
+        </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto bg-slate-50/30 p-4 space-y-4 custom-scrollbar">
+        {processedQuestions.map((q) => {
+          const isChecked = selectedQuestionIds.includes(q.id);
+          return (
+            <div
+              key={q.id}
+              className={`bg-white p-4 border rounded-2xl group flex gap-3 items-start shadow-sm hover:shadow-md transition-all ${
+                isChecked ? 'border-blue-500 ring-2 ring-blue-100 bg-blue-50/20' : ''
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={isChecked}
+                onChange={() => handleToggleSelectQuestion(q.id)}
+                className="w-4 h-4 mt-3 accent-blue-600 rounded cursor-pointer shrink-0"
+                title="Centang soal ini untuk Copy JSON pilihan"
+              />
+              <div className="w-10 h-10 flex items-center justify-center bg-blue-50 text-blue-700 rounded-xl font-black text-xs shrink-0">
+                {q.order}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex justify-between items-start mb-2">
+                  <span className="text-[8px] bg-blue-600 text-white px-2 py-0.5 rounded font-black uppercase">TOKEN: {q.quizToken}</span>
+                  <div className="flex gap-4 opacity-0 group-hover:opacity-100 transition-all">
+                     <button onClick={() => setPreviewQuestion(q)} className="text-emerald-600 text-[9px] font-black uppercase hover:underline">Preview</button>
+                     <button onClick={() => handleEdit(q)} className="text-blue-600 text-[9px] font-black uppercase hover:underline">Edit</button>
+                     <button onClick={() => onSoftDelete(q.id)} className="text-red-400 text-[9px] font-black uppercase hover:underline">Buang</button>
+                  </div>
+                </div>
+                <MathText text={q.text} className="font-semibold text-slate-800 text-xs line-clamp-2 block" />
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {previewQuestion && (
@@ -1259,47 +1475,138 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
         </div>
       )}
 
-      {/* MODAL COPY JSON BERDASARKAN TOKEN */}
+      {/* MODAL COPY JSON BERDASARKAN TOKEN & PILIHAN NOMOR SOAL */}
       {isCopyJsonModalOpen && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[2100] flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] border border-white/20 animate-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-3xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh] border border-white/20 animate-in zoom-in-95 duration-200">
             <div className="p-6 bg-slate-900 text-white flex justify-between items-center shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-black text-sm shadow-lg">{`{}`}</div>
                 <div>
-                  <h3 className="text-lg font-black uppercase tracking-tight">Salin JSON Soal Berdasarkan Token</h3>
+                  <h3 className="text-lg font-black uppercase tracking-tight">Salin JSON Soal (Token & Nomor)</h3>
                   <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-widest mt-0.5">
-                    Pilih token soal lalu salin seluruh struktur JSON ke clipboard
+                    Pilih token lalu tentukan nomor soal mana saja yang ingin disalin
                   </p>
                 </div>
               </div>
               <button onClick={() => setIsCopyJsonModalOpen(false)} className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center font-black hover:bg-white/20 transition-all">✕</button>
             </div>
 
-            <div className="p-5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Pilih Token:</label>
-                <select
-                  value={copyModalToken}
-                  onChange={(e) => {
-                    setCopyModalToken(e.target.value);
-                    setCopyModalFeedback(false);
-                  }}
-                  className="bg-white border-2 border-slate-200 rounded-xl px-3 py-2 text-xs font-black text-slate-800 outline-none focus:border-blue-600 uppercase"
-                >
-                  <option value="">
-                    Semua Token ({questions.filter(q => activeTab === 'active' ? !q.isDeleted : q.isDeleted).length} Soal)
-                  </option>
-                  {availableTokensWithCount.map(({ token, count }) => (
-                    <option key={token} value={token}>
-                      {token} ({count} Soal)
+            <div className="p-5 bg-slate-50 border-b border-slate-200 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Pilih Token:</label>
+                  <select
+                    value={copyModalToken}
+                    onChange={(e) => {
+                      const nextToken = e.target.value;
+                      const nextPool = getPoolForModalToken(nextToken);
+                      const nextNums = nextPool.map((q, idx) => q.order || idx + 1);
+                      setCopyModalToken(nextToken);
+                      setCopyModalSelectedIds(nextPool.map(q => q.id));
+                      setCopyModalRangeText(formatNumbersRange(nextNums));
+                      setCopyModalFeedback(false);
+                    }}
+                    className="bg-white border-2 border-slate-200 rounded-xl px-3 py-2 text-xs font-black text-slate-800 outline-none focus:border-blue-600 uppercase"
+                  >
+                    <option value="">
+                      Semua Token ({questions.filter(q => activeTab === 'active' ? !q.isDeleted : q.isDeleted).length} Soal)
                     </option>
-                  ))}
-                </select>
+                    {availableTokensWithCount.map(({ token, count }) => (
+                      <option key={token} value={token}>
+                        {token} ({count} Soal)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="bg-blue-50 border border-blue-200 text-blue-700 px-3 py-1.5 rounded-xl text-xs font-black">
+                  {copyModalFilteredQuestions.length} dari {copyModalQuestions.length} Soal Dipilih
+                </div>
               </div>
-              <div className="bg-blue-50 border border-blue-200 text-blue-700 px-3 py-1.5 rounded-xl text-xs font-black">
-                {copyModalQuestions.length} Soal Siap Disalin
-              </div>
+
+              {copyModalQuestions.length > 0 && (
+                <div className="bg-white p-3.5 rounded-2xl border border-slate-200 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+                      <label className="text-[10px] font-black uppercase text-slate-500 shrink-0">
+                        Ketik Nomor:
+                      </label>
+                      <input
+                        type="text"
+                        value={copyModalRangeText}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCopyModalRangeText(val);
+                          setCopyModalSelectedIds(parseQuestionRangeInput(val, copyModalQuestions));
+                          setCopyModalFeedback(false);
+                        }}
+                        placeholder="Contoh: 1, 3, 5-8"
+                        className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const allIds = copyModalQuestions.map(q => q.id);
+                          const allNums = copyModalQuestions.map((q, idx) => q.order || idx + 1);
+                          setCopyModalSelectedIds(allIds);
+                          setCopyModalRangeText(formatNumbersRange(allNums));
+                          setCopyModalFeedback(false);
+                        }}
+                        className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-[10px] font-black uppercase transition-colors"
+                      >
+                        Pilih Semua
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCopyModalSelectedIds([]);
+                          setCopyModalRangeText('');
+                          setCopyModalFeedback(false);
+                        }}
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-[10px] font-black uppercase transition-colors"
+                      >
+                        Kosongkan
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto custom-scrollbar pt-1">
+                    {copyModalQuestions.map((q, idx) => {
+                      const num = q.order || idx + 1;
+                      const isSel = copyModalSelectedIds.includes(q.id);
+                      const previewText = (q.topText || q.text || '').replace(/\s+/g, ' ').slice(0, 70);
+                      return (
+                        <button
+                          key={q.id}
+                          type="button"
+                          onClick={() => {
+                            const nextIds = isSel
+                              ? copyModalSelectedIds.filter(id => id !== q.id)
+                              : [...copyModalSelectedIds, q.id];
+                            const nextNums = copyModalQuestions
+                              .map((item, i) => ({ id: item.id, n: item.order || i + 1 }))
+                              .filter(x => nextIds.includes(x.id))
+                              .map(x => x.n);
+                            setCopyModalSelectedIds(nextIds);
+                            setCopyModalRangeText(formatNumbersRange(nextNums));
+                            setCopyModalFeedback(false);
+                          }}
+                          title={`No. ${num} (${q.quizToken}): ${previewText}`}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-black transition-all border ${
+                            isSel
+                              ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                              : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-blue-400 hover:text-slate-700'
+                          }`}
+                        >
+                          No. {num}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
@@ -1307,11 +1614,15 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                 <div className="py-16 text-center text-slate-400 font-bold text-sm">
                   Belum ada soal pada token ini.
                 </div>
+              ) : copyModalFilteredQuestions.length === 0 ? (
+                <div className="py-16 text-center text-slate-400 font-bold text-sm">
+                  Pilih minimal 1 nomor soal di atas untuk menampilkan JSON.
+                </div>
               ) : (
                 <textarea
                   readOnly
                   value={copyModalJsonString}
-                  className="w-full h-80 p-4 bg-white border border-slate-200 rounded-2xl font-mono text-[11px] leading-relaxed text-slate-800 outline-none select-all custom-scrollbar"
+                  className="w-full h-72 p-4 bg-white border border-slate-200 rounded-2xl font-mono text-[11px] leading-relaxed text-slate-800 outline-none select-all custom-scrollbar"
                 />
               )}
             </div>
@@ -1324,7 +1635,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                 TUTUP
               </button>
               <div className="flex items-center gap-2">
-                {copyModalQuestions.length > 0 && (
+                {copyModalFilteredQuestions.length > 0 && (
                   <button
                     onClick={() => {
                       const blob = new Blob([copyModalJsonString], { type: 'application/json' });
@@ -1343,7 +1654,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                 )}
                 <button
                   onClick={handleCopyFromModal}
-                  disabled={copyModalQuestions.length === 0}
+                  disabled={copyModalFilteredQuestions.length === 0}
                   className={`px-8 py-3.5 font-black rounded-xl text-xs uppercase tracking-widest shadow-xl active:scale-95 flex items-center gap-2 transition-all disabled:opacity-50 ${
                     copyModalFeedback
                       ? 'bg-emerald-600 text-white'
@@ -1362,7 +1673,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                       </svg>
-                      <span>SALIN JSON ({copyModalQuestions.length} SOAL)</span>
+                      <span>SALIN JSON ({copyModalFilteredQuestions.length} SOAL)</span>
                     </>
                   )}
                 </button>
