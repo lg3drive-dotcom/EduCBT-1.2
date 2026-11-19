@@ -112,11 +112,11 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   const handleEdit = (q: Question) => {
     setEditingId(q.id);
     setFormData({
-      topText: q.topText || '',
-      text: q.text,
-      bottomText: q.bottomText || '',
-      material: q.material, 
-      explanation: q.explanation,
+      topText: q.topText || (q as any).top_text || '',
+      text: q.text || '',
+      bottomText: q.bottomText || (q as any).bottom_text || (q as any).subText || '',
+      material: q.material || '', 
+      explanation: q.explanation || '',
       questionImage: q.questionImage || '',
       bottomImage: q.bottomImage || '',
       type: q.type, level: q.level,
@@ -162,11 +162,19 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
   }, [questions, activeTab]);
 
   const handleSave = () => {
-    if (!formData.text) return alert("Butir soal wajib diisi.");
+    if (
+      !formData.text.trim() &&
+      !formData.topText.trim() &&
+      !formData.bottomText.trim() &&
+      !formData.questionImage.trim() &&
+      !formData.bottomImage.trim()
+    ) {
+      return alert("Minimal salah satu teks soal atau gambar stimulus harus diisi.");
+    }
     const finalData = { 
       ...formData, 
       topText: formData.topText ? formData.topText.trim() : '',
-      text: formData.text.trim(),
+      text: formData.text ? formData.text.trim() : '',
       bottomText: formData.bottomText ? formData.bottomText.trim() : '',
       questionImage: normalizeImageUrl(formData.questionImage),
       bottomImage: normalizeImageUrl(formData.bottomImage),
@@ -866,14 +874,22 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-start mb-2">
-                  <span className="text-[8px] bg-blue-600 text-white px-2 py-0.5 rounded font-black uppercase">TOKEN: {q.quizToken}</span>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[8px] bg-blue-600 text-white px-2 py-0.5 rounded font-black uppercase">TOKEN: {q.quizToken}</span>
+                    {q.topText && (
+                      <span className="text-[8px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-black uppercase">TEKS 1</span>
+                    )}
+                    {q.bottomText && (
+                      <span className="text-[8px] bg-sky-100 text-sky-700 px-1.5 py-0.5 rounded font-black uppercase">TEKS 3</span>
+                    )}
+                  </div>
                   <div className="flex gap-4 opacity-0 group-hover:opacity-100 transition-all">
                      <button onClick={() => setPreviewQuestion(q)} className="text-emerald-600 text-[9px] font-black uppercase hover:underline">Preview</button>
                      <button onClick={() => handleEdit(q)} className="text-blue-600 text-[9px] font-black uppercase hover:underline">Edit</button>
                      <button onClick={() => onSoftDelete(q.id)} className="text-red-400 text-[9px] font-black uppercase hover:underline">Buang</button>
                   </div>
                 </div>
-                <MathText text={q.text} className="font-semibold text-slate-800 text-xs line-clamp-2 block" />
+                <MathText text={q.topText || q.text || q.bottomText || ''} className="font-semibold text-slate-800 text-xs line-clamp-2 block" />
               </div>
             </div>
           );
@@ -981,7 +997,8 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                              <span>📝</span> 1. Teks 1: Pembuka / Pengantar (Di Atas Gambar 1)
                            </label>
                            <button 
-                             onClick={() => setFormData({...formData, topText: applyAutoLatex(formData.topText)})}
+                             type="button"
+                             onClick={() => setFormData(prev => ({...prev, topText: applyAutoLatex(prev.topText)}))}
                              className="text-[9px] font-black bg-purple-100 text-purple-700 px-2 py-1 rounded-lg hover:bg-purple-200 transition-colors uppercase flex items-center gap-1"
                            >
                              ✨ Auto-LaTeX
@@ -989,7 +1006,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                          </div>
                          <textarea 
                            value={formData.topText} 
-                           onChange={e => setFormData({...formData, topText: e.target.value})} 
+                           onChange={e => setFormData(prev => ({...prev, topText: e.target.value}))} 
                            className="w-full p-4 border bg-slate-50 rounded-2xl h-24 font-mono text-sm outline-none focus:border-blue-500 focus:bg-white transition-all mb-1" 
                            placeholder="Tulis wacana pembuka atau pengantar stimulus di atas gambar pertama (opsional)..." 
                          />
@@ -1034,18 +1051,19 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                        </div>
 
                        {/* 3. TEKS 2 (DI BAWAH GAMBAR 1 / DI ATAS GAMBAR 2) */}
-                       <div className="flex justify-between items-center mb-1">
-                         <label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-1.5">
-                           <span>📝</span> 3. Teks 2: Isi Teks Soal / Wacana Tengah
-                         </label>
-                         <button 
-                           onClick={() => setFormData({...formData, text: applyAutoLatex(formData.text)})}
-                           className="text-[9px] font-black bg-purple-100 text-purple-700 px-2 py-1 rounded-lg hover:bg-purple-200 transition-colors uppercase flex items-center gap-1"
-                         >
-                           ✨ Auto-LaTeX
-                         </button>
-                       </div>
-                       <textarea value={formData.text} onChange={e => setFormData({...formData, text: e.target.value})} className="w-full p-4 border bg-slate-50 rounded-2xl h-32 font-mono text-sm outline-none focus:border-blue-500 focus:bg-white transition-all mb-3" placeholder="Tulis teks pertanyaan atau stimulus tengah di sini..." />
+                         <div className="flex justify-between items-center mb-1">
+                           <label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-1.5">
+                             <span>📝</span> 3. Teks 2: Isi Teks Soal / Wacana Tengah
+                           </label>
+                           <button 
+                             type="button"
+                             onClick={() => setFormData(prev => ({...prev, text: applyAutoLatex(prev.text)}))}
+                             className="text-[9px] font-black bg-purple-100 text-purple-700 px-2 py-1 rounded-lg hover:bg-purple-200 transition-colors uppercase flex items-center gap-1"
+                           >
+                             ✨ Auto-LaTeX
+                           </button>
+                         </div>
+                         <textarea value={formData.text} onChange={e => setFormData(prev => ({...prev, text: e.target.value}))} className="w-full p-4 border bg-slate-50 rounded-2xl h-32 font-mono text-sm outline-none focus:border-blue-500 focus:bg-white transition-all mb-3" placeholder="Tulis teks pertanyaan atau stimulus tengah di sini..." />
 
                        {/* 4. GAMBAR 2 (DI BAWAH TEKS 2 / DI ATAS TEKS 3) */}
                        <div className="space-y-1 mb-3">
@@ -1055,7 +1073,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                           <input 
                              type="text" 
                              value={formData.bottomImage} 
-                             onChange={e => setFormData({...formData, bottomImage: e.target.value})} 
+                             onChange={e => setFormData(prev => ({...prev, bottomImage: e.target.value}))} 
                              onBlur={() => {
                                if (formData.bottomImage) {
                                  setFormData(prev => ({ ...prev, bottomImage: normalizeImageUrl(prev.bottomImage) }));
@@ -1089,7 +1107,8 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                              <span>📝</span> 5. Teks 3: Pertanyaan Utama / Penutup (Di Bawah Gambar 2)
                            </label>
                            <button 
-                             onClick={() => setFormData({...formData, bottomText: applyAutoLatex(formData.bottomText)})}
+                             type="button"
+                             onClick={() => setFormData(prev => ({...prev, bottomText: applyAutoLatex(prev.bottomText)}))}
                              className="text-[9px] font-black bg-purple-100 text-purple-700 px-2 py-1 rounded-lg hover:bg-purple-200 transition-colors uppercase flex items-center gap-1"
                            >
                              ✨ Auto-LaTeX
@@ -1097,7 +1116,7 @@ const QuestionManager: React.FC<QuestionManagerProps> = ({
                          </div>
                          <textarea 
                            value={formData.bottomText} 
-                           onChange={e => setFormData({...formData, bottomText: e.target.value})} 
+                           onChange={e => setFormData(prev => ({...prev, bottomText: e.target.value}))} 
                            className="w-full p-4 border bg-slate-50 rounded-2xl h-24 font-mono text-sm outline-none focus:border-blue-500 focus:bg-white transition-all mb-1" 
                            placeholder="Tulis pertanyaan utama atau teks lanjutan di bawah gambar kedua (opsional)..." 
                          />

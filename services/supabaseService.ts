@@ -104,14 +104,14 @@ export const pushQuestionsToCloud = async (questions: Question[]) => {
       quiz_token: (q.quizToken || 'UJI01').trim().toUpperCase(),
       tf_labels: q.tfLabels || { true: 'T', false: 'F' }
     };
-    if (includeTopText && q.topText) {
-      item.top_text = q.topText || null;
+    if (includeTopText) {
+      item.top_text = q.topText || (q as any).top_text || null;
     }
-    if (includeBottomImage && (q.bottomImage || (q as any).questionImageBottom)) {
-      item.bottom_image = q.bottomImage || (q as any).questionImageBottom || null;
+    if (includeBottomImage) {
+      item.bottom_image = q.bottomImage || (q as any).questionImageBottom || (q as any).bottom_image || null;
     }
-    if (includeBottomText && (q.bottomText || (q as any).subText)) {
-      item.bottom_text = q.bottomText || (q as any).subText || null;
+    if (includeBottomText) {
+      item.bottom_text = q.bottomText || (q as any).subText || (q as any).bottom_text || null;
     }
     return item;
   });
@@ -205,11 +205,14 @@ export const getLiveExamData = async (studentToken: string) => {
         type: q.type, 
         level: q.level, 
         subject: q.subject, 
+        phase: q.phase || 'Fase C',
         material: q.material, 
+        topText: q.top_text || (q as any).topText || '',
         text: q.text,
         explanation: q.explanation, 
         questionImage: q.question_image, 
         bottomImage: q.bottom_image || (q as any).bottomImage || (q as any).questionImageBottom || null,
+        bottomText: q.bottom_text || (q as any).bottomText || (q as any).subText || '',
         options: q.options,
         optionImages: q.option_images, // Menambahkan kolom ini agar gambar opsi muncul di sisi siswa
         correctAnswer: q.correct_answer, 

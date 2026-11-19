@@ -99,6 +99,10 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ results, questions, onUpdat
                           <span className="text-slate-400 text-[10px] font-black uppercase tracking-tighter">{q.type}</span>
                         </div>
                         
+                        {q.topText && (
+                           <p className="text-base font-medium text-slate-700 leading-relaxed mb-4" style={{ whiteSpace: 'pre-wrap' }}>{q.topText}</p>
+                        )}
+                        
                         {q.questionImage && (
                            <img src={q.questionImage} className="w-48 h-auto rounded-2xl border mb-6 shadow-sm" alt="Ilustrasi Soal (Atas)" />
                         )}
@@ -107,6 +111,10 @@ const TeacherPanel: React.FC<TeacherPanelProps> = ({ results, questions, onUpdat
                         
                         {q.bottomImage && (
                            <img src={q.bottomImage} className="w-48 h-auto rounded-2xl border mb-6 shadow-sm" alt="Ilustrasi Soal (Bawah)" />
+                        )}
+
+                        {q.bottomText && (
+                           <p className="text-base font-medium text-slate-700 leading-relaxed mb-6" style={{ whiteSpace: 'pre-wrap' }}>{q.bottomText}</p>
                         )}
                         
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">

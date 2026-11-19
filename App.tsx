@@ -111,6 +111,7 @@ const App: React.FC = () => {
     birthDate: '', 
     token: '' 
   });
+  const [examQuestions, setExamQuestions] = useState<Question[]>([]);
   const [lastResult, setLastResult] = useState<QuizResult | null>(null);
 
   useEffect(() => {
@@ -135,7 +136,7 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (view === 'admin') {
+    if (view === 'admin-panel') {
       autoCleanupSubmissionsIfDue().catch(() => {});
     }
   }, [view]);
@@ -266,7 +267,7 @@ const App: React.FC = () => {
             setDeviceStudents(getDeviceStudents());
           }
           setSettings(prev => ({ ...prev, activeSubject: localMatch[0].subject || 'Ujian Digital' }));
-          setQuestions(localMatch);
+          setExamQuestions(localMatch);
           setView('confirm-data');
           return;
         }
@@ -285,8 +286,8 @@ const App: React.FC = () => {
         });
         setDeviceStudents(getDeviceStudents());
       }
-      setSettings(cloudData.settings);
-      setQuestions(cloudData.questions);
+      setSettings(prev => ({ ...prev, ...cloudData.settings }));
+      setExamQuestions(cloudData.questions);
       setView('confirm-data');
     } catch (err: any) { 
       // Jika terjadi kendala koneksi ke server, cek bank soal lokal terlebih dahulu
@@ -302,7 +303,7 @@ const App: React.FC = () => {
           setDeviceStudents(getDeviceStudents());
         }
         setSettings(prev => ({ ...prev, activeSubject: localMatch[0].subject || 'Ujian Digital' }));
-        setQuestions(localMatch);
+        setExamQuestions(localMatch);
         setView('confirm-data');
         return;
       }
@@ -430,7 +431,9 @@ const App: React.FC = () => {
           id: newId,
           order: newOrder,
           quizToken: t,
+          topText: q.topText || (q as any).top_text || '',
           bottomImage: q.bottomImage || (q as any).questionImageBottom || (q as any).bottom_image || undefined,
+          bottomText: q.bottomText || (q as any).bottom_text || (q as any).subText || '',
           isDeleted: false,
           createdAt: q.createdAt || Date.now()
         });
@@ -905,7 +908,7 @@ const App: React.FC = () => {
           onCancel={() => setView('login')} 
         />
       )}
-      {view === 'quiz' && <QuizInterface questions={questions.filter(q => !q.isDeleted)} identity={identity} timeLimitMinutes={settings.timerMinutes} subjectName={settings.activeSubject || 'Ujian Digital'} onFinish={handleFinishQuiz} onViolation={handleViolation} />}
+      {view === 'quiz' && <QuizInterface questions={(examQuestions.length > 0 ? examQuestions : questions).filter(q => !q.isDeleted)} identity={identity} timeLimitMinutes={settings.timerMinutes} subjectName={settings.activeSubject || 'Ujian Digital'} onFinish={handleFinishQuiz} onViolation={handleViolation} />}
       
       {view === 'result' && lastResult && (
         <div className="min-h-screen flex flex-col items-center justify-center p-4">
@@ -917,7 +920,7 @@ const App: React.FC = () => {
                 <p className="text-7xl font-black text-white">{lastResult.score.toFixed(1)}</p>
              </div>
              <div className="space-y-4">
-                <button onClick={() => generateResultPDF(lastResult, questions.filter(q => !q.isDeleted))} className="w-full bg-blue-50 text-blue-600 font-black py-4 rounded-2xl border-2 border-blue-200 uppercase text-[10px] tracking-widest">DOWNLOAD HASIL PDF</button>
+                <button onClick={() => generateResultPDF(lastResult, (examQuestions.length > 0 ? examQuestions : questions).filter(q => !q.isDeleted))} className="w-full bg-blue-50 text-blue-600 font-black py-4 rounded-2xl border-2 border-blue-200 uppercase text-[10px] tracking-widest">DOWNLOAD HASIL PDF</button>
                 <button onClick={() => window.location.reload()} className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl transition-all uppercase tracking-widest text-[10px]">KEMBALI KE LOGIN</button>
              </div>
           </div>
