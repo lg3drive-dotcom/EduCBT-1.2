@@ -20,7 +20,8 @@ import {
   getGlobalSettings,
   fetchAllQuestions,
   fetchSubmissionsByToken,
-  fetchQuestionsByToken
+  fetchQuestionsByToken,
+  autoCleanupSubmissionsIfDue
 } from './services/supabaseService.ts';
 
 import { 
@@ -132,6 +133,12 @@ const App: React.FC = () => {
     // until the user clicks "TARIK DATA SERVER" or "KIRIM KE CLOUD".
     setSyncStatus('idle');
   }, []);
+
+  useEffect(() => {
+    if (view === 'admin') {
+      autoCleanupSubmissionsIfDue().catch(() => {});
+    }
+  }, [view]);
 
   const handleCloudSync = async () => {
     if (questions.length === 0 && adminSubView === 'bank-soal') {

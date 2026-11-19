@@ -1,7 +1,16 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { AppSettings, Question, ExternalLinks } from '../types';
-import { fetchSubmissionsByToken, deleteQuestionsByTokenFromCloud, updateQuestionTokenInCloud } from '../services/supabaseService';
+import {
+  fetchSubmissionsByToken,
+  deleteQuestionsByTokenFromCloud,
+  updateQuestionTokenInCloud,
+  getSubmissionRetentionHours,
+  setSubmissionRetentionHours,
+  getSubmissionsStats,
+  cleanupExpiredSubmissions
+} from '../services/supabaseService';
 import { exportSubmissionsToExcel, downloadImportTemplate, importQuestionsFromExcel } from '../services/excelService';
+import { copyToClipboard } from '../utils';
 import ExamPrintModal from './ExamPrintModal';
 
 interface AdminSettingsProps {
@@ -83,6 +92,17 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
     tokens: string[];
   } | null>(null);
 
+  // Supabase Submissions Retention & Auto-Cleanup States
+  const [retentionHours, setRetentionHours] = useState<0 | 12 | 24>(() => getSubmissionRetentionHours());
+  const [subStats, setSubStats] = useState<{ totalCount: number; olderThan12h: number; olderThan24h: number } | null>(null);
+  const [isLoadingSubStats, setIsLoadingSubStats] = useState(false);
+  const [isCleaningSubmissions, setIsCleaningSubmissions] = useState(false);
+  const [pendingCleanupHours, setPendingCleanupHours] = useState<12 | 24 | null>(null);
+  const [showSqlModal, setShowSqlModal] = useState(false);
+  const [sqlMode, setSqlMode] = useState<'trigger' | 'cron'>('trigger');
+  const [sqlHours, setSqlHours] = useState<12 | 24>(24);
+  const [sqlCopied, setSqlCopied] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const showToast = (type: 'success' | 'error' | 'info', message: string, title?: string) => {
@@ -91,6 +111,53 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
       setToast(prev => (prev?.message === message ? null : prev));
     }, 4500);
   };
+
+  const refreshSubmissionsStats = async () => {
+    setIsLoadingSubStats(true);
+    const res = await getSubmissionsStats();
+    if (!res.error) {
+      setSubStats({
+        totalCount: res.totalCount,
+        olderThan12h: res.olderThan12h,
+        olderThan24h: res.olderThan24h
+      });
+    }
+    setIsLoadingSubStats(false);
+  };
+
+  useEffect(() => {
+    refreshSubmissionsStats();
+  }, []);
+
+  const handleRetentionChange = (hours: 0 | 12 | 24) => {
+    setRetentionHours(hours);
+    setSubmissionRetentionHours(hours);
+    if (hours === 0) {
+      showToast('info', 'Pembersihan otomatis di aplikasi dimatikan. Hasil siswa disimpan permanen kecuali dihapus manual atau lewat SQL Supabase.', 'Retensi Nonaktif');
+    } else {
+      showToast('success', `Aplikasi akan otomatis membersihkan hasil siswa yang berumur lebih dari ${hours} jam setiap panel Admin dibuka.`, `Auto-Hapus ${hours} Jam Aktif`);
+    }
+  };
+
+  const handleExecuteCleanupSubmissions = async (hours: 12 | 24) => {
+    setIsCleaningSubmissions(true);
+    const res = await cleanupExpiredSubmissions(hours);
+    setIsCleaningSubmissions(false);
+    setPendingCleanupHours(null);
+    if (res.success) {
+      showToast('success', `Berhasil menghapus ${res.deletedCount} data hasil siswa (> ${hours} jam) dari Supabase.`, 'Kapasitas Dibersihkan');
+      refreshSubmissionsStats();
+    } else {
+      showToast('error', res.error || 'Gagal membersihkan data submissions.', 'Gagal Menghapus');
+    }
+  };
+
+  const generatedSupabaseSql = useMemo(() => {
+    if (sqlMode === 'cron') {
+      return `-- OPSI A: Jadwal Otomatis Setiap Jam (pg_cron)\n-- Jalankan di Supabase Dashboard -> SQL Editor\n\nCREATE EXTENSION IF NOT EXISTS pg_cron;\n\nSELECT cron.unschedule('auto-delete-submissions')\nWHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'auto-delete-submissions');\n\nSELECT cron.schedule(\n  'auto-delete-submissions',\n  '0 * * * *',\n  $$\n    DELETE FROM public.submissions\n    WHERE timestamp < ((EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT - (${sqlHours}::BIGINT * 3600 * 1000));\n  $$\n);`;
+    }
+    return `-- OPSI B: Pembersihan Otomatis via Trigger (Cocok untuk Semua Paket Supabase termasuk Free Tier)\n-- Setiap ada siswa baru mengirim jawaban, data lebih lama dari ${sqlHours} jam otomatis terhapus.\n\nCREATE OR REPLACE FUNCTION public.cleanup_old_submissions()\nRETURNS trigger\nLANGUAGE plpgsql\nSECURITY DEFINER\nAS $$\nBEGIN\n  DELETE FROM public.submissions\n  WHERE timestamp < ((EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT - (${sqlHours}::BIGINT * 3600 * 1000));\n  RETURN NEW;\nEND;\n$$;\n\nDROP TRIGGER IF EXISTS trg_cleanup_old_submissions ON public.submissions;\nCREATE TRIGGER trg_cleanup_old_submissions\nAFTER INSERT ON public.submissions\nFOR EACH STATEMENT\nEXECUTE FUNCTION public.cleanup_old_submissions();`;
+  }, [sqlMode, sqlHours]);
 
   const availableTokens = useMemo(() => {
     const tokens = questions
@@ -815,6 +882,105 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
               Data ditarik secara real-time dari Server Cloud Supabase berdasarkan token yang Anda pilih di atas.
             </p>
           </div>
+
+          {/* PEMELIHARAAN KAPASITAS SUPABASE (AUTO-HAPUS SUBMISSIONS) */}
+          <div className="bg-white p-6 rounded-3xl shadow-sm border-2 border-amber-200/80 space-y-4">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-sm font-black text-amber-700 flex items-center gap-2 uppercase tracking-widest">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+                </svg>
+                Kapasitas & Retensi Hasil Siswa
+              </h2>
+              <button
+                type="button"
+                onClick={refreshSubmissionsStats}
+                disabled={isLoadingSubStats}
+                className="text-[9px] font-black text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2.5 py-1 rounded-lg uppercase tracking-wider transition-colors cursor-pointer"
+              >
+                {isLoadingSubStats ? 'Memuat...' : 'Refresh'}
+              </button>
+            </div>
+
+            <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
+              Untuk menjaga kuota database Supabase, aktifkan pembersihan otomatis data <strong className="text-slate-700">submissions</strong> (jawaban siswa) yang sudah melewati 12 atau 24 jam. Pastikan sudah mengunduh rekap Excel terlebih dahulu.
+            </p>
+
+            {/* Statistik Submissions Cloud */}
+            <div className="grid grid-cols-3 gap-2">
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 text-center">
+                <p className="text-[9px] font-black text-slate-400 uppercase">Total Baris</p>
+                <p className="text-base font-black text-slate-800 mt-0.5">{subStats ? subStats.totalCount : '-'}</p>
+              </div>
+              <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-3 text-center">
+                <p className="text-[9px] font-black text-amber-600 uppercase">&gt; 12 Jam</p>
+                <p className="text-base font-black text-amber-800 mt-0.5">{subStats ? subStats.olderThan12h : '-'}</p>
+              </div>
+              <div className="bg-red-50/70 border border-red-200 rounded-2xl p-3 text-center">
+                <p className="text-[9px] font-black text-red-600 uppercase">&gt; 24 Jam</p>
+                <p className="text-base font-black text-red-700 mt-0.5">{subStats ? subStats.olderThan24h : '-'}</p>
+              </div>
+            </div>
+
+            {/* Pilihan Jadwal Auto-Cleanup di Aplikasi */}
+            <div className="space-y-1.5">
+              <label className="block text-[10px] font-black text-slate-400 uppercase ml-1">
+                Mode Auto-Hapus Saat Admin Aktif
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {([
+                  { val: 0, label: 'Nonaktif' },
+                  { val: 12, label: 'Setiap 12 Jam' },
+                  { val: 24, label: 'Setiap 24 Jam' }
+                ] as const).map(opt => (
+                  <button
+                    key={opt.val}
+                    type="button"
+                    onClick={() => handleRetentionChange(opt.val)}
+                    className={`py-2.5 px-2 rounded-xl text-[10px] font-black uppercase tracking-wide border transition-all cursor-pointer ${
+                      retentionHours === opt.val
+                        ? 'bg-amber-600 text-white border-amber-600 shadow-md shadow-amber-100'
+                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Tombol Bersihkan Sekarang */}
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button
+                type="button"
+                disabled={isCleaningSubmissions || !subStats || subStats.olderThan12h === 0}
+                onClick={() => setPendingCleanupHours(12)}
+                className="py-3 px-3 bg-amber-600 hover:bg-amber-700 disabled:opacity-35 text-white font-black rounded-xl text-[10px] uppercase tracking-wider shadow-md transition-all cursor-pointer"
+              >
+                Hapus Data &gt; 12 Jam
+              </button>
+              <button
+                type="button"
+                disabled={isCleaningSubmissions || !subStats || subStats.olderThan24h === 0}
+                onClick={() => setPendingCleanupHours(24)}
+                className="py-3 px-3 bg-red-600 hover:bg-red-700 disabled:opacity-35 text-white font-black rounded-xl text-[10px] uppercase tracking-wider shadow-md transition-all cursor-pointer"
+              >
+                Hapus Data &gt; 24 Jam
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setSqlCopied(false);
+                setShowSqlModal(true);
+              }}
+              className="w-full py-3 bg-slate-900 hover:bg-black text-white font-black rounded-xl text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <span>⚡</span>
+              <span>Lihat SQL Otomatis 24/7 di Server Supabase</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1199,6 +1365,148 @@ const AdminSettings: React.FC<AdminSettingsProps> = ({
             <div className="p-8 border-t bg-slate-50 flex gap-4">
               <button onClick={() => setIsPasteModalOpen(false)} className="flex-1 py-4 font-black text-slate-400 uppercase tracking-widest text-[10px] cursor-pointer">Tutup</button>
               <button onClick={handlePasteImport} className="flex-[2] bg-blue-600 text-white font-black py-4 rounded-2xl shadow-xl uppercase tracking-widest text-[10px] cursor-pointer">Import</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* IN-APP MODAL: KONFIRMASI HAPUS SUBMISSIONS EXPIRED */}
+      {pendingCleanupHours !== null && (
+        <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-sm z-[250] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-md overflow-hidden shadow-2xl p-6 sm:p-8 space-y-5 border border-amber-200">
+            <div className="w-14 h-14 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mx-auto">
+              <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </div>
+            <div className="text-center space-y-2">
+              <h3 className="text-base font-black text-slate-800 uppercase tracking-tight">
+                Bersihkan Hasil Siswa &gt; {pendingCleanupHours} Jam?
+              </h3>
+              <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                Sistem akan menghapus permanen{' '}
+                <strong className="text-red-600">
+                  {pendingCleanupHours === 12 ? (subStats?.olderThan12h ?? 0) : (subStats?.olderThan24h ?? 0)} data hasil siswa
+                </strong>{' '}
+                yang berumur lebih dari {pendingCleanupHours} jam dari Supabase. Pastikan rekap nilai Excel sudah diunduh.
+              </p>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                disabled={isCleaningSubmissions}
+                onClick={() => setPendingCleanupHours(null)}
+                className="flex-1 py-3.5 font-black text-slate-500 hover:bg-slate-100 rounded-xl uppercase tracking-widest text-[10px] transition-all cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={isCleaningSubmissions}
+                onClick={() => handleExecuteCleanupSubmissions(pendingCleanupHours)}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-black py-3.5 rounded-xl uppercase tracking-widest text-[10px] shadow-lg shadow-red-200 transition-all cursor-pointer"
+              >
+                {isCleaningSubmissions ? 'Menghapus...' : 'Ya, Bersihkan'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* IN-APP MODAL: SQL OTOMATIS 24/7 SUPABASE */}
+      {showSqlModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[250] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-2xl overflow-hidden shadow-2xl border border-slate-200 flex flex-col max-h-[90vh]">
+            <div className="p-6 bg-slate-900 text-white flex justify-between items-center shrink-0">
+              <div>
+                <h3 className="text-base font-black uppercase tracking-tight">SQL Auto-Hapus Supabase (24/7 Server-Side)</h3>
+                <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                  Tempelkan script ini sekali saja di Supabase Dashboard ➔ SQL Editor
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSqlModal(false)}
+                className="w-9 h-9 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center font-black cursor-pointer"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="p-6 flex-1 overflow-y-auto space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-200">
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => { setSqlMode('trigger'); setSqlCopied(false); }}
+                    className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase transition-all cursor-pointer ${
+                      sqlMode === 'trigger' ? 'bg-blue-600 text-white shadow' : 'bg-white text-slate-600 border border-slate-200'
+                    }`}
+                  >
+                    Trigger Otomatis (Free Tier Aman)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setSqlMode('cron'); setSqlCopied(false); }}
+                    className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase transition-all cursor-pointer ${
+                      sqlMode === 'cron' ? 'bg-blue-600 text-white shadow' : 'bg-white text-slate-600 border border-slate-200'
+                    }`}
+                  >
+                    pg_cron (Terjadwal Tiap Jam)
+                  </button>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => { setSqlHours(12); setSqlCopied(false); }}
+                    className={`px-2.5 py-1.5 rounded-xl text-[10px] font-black uppercase cursor-pointer ${
+                      sqlHours === 12 ? 'bg-amber-600 text-white' : 'bg-white text-slate-600 border border-slate-200'
+                    }`}
+                  >
+                    12 Jam
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setSqlHours(24); setSqlCopied(false); }}
+                    className={`px-2.5 py-1.5 rounded-xl text-[10px] font-black uppercase cursor-pointer ${
+                      sqlHours === 24 ? 'bg-amber-600 text-white' : 'bg-white text-slate-600 border border-slate-200'
+                    }`}
+                  >
+                    24 Jam
+                  </button>
+                </div>
+              </div>
+
+              <textarea
+                readOnly
+                value={generatedSupabaseSql}
+                className="w-full h-64 p-4 bg-slate-900 text-emerald-300 rounded-2xl font-mono text-[11px] leading-relaxed outline-none select-all custom-scrollbar"
+              />
+            </div>
+
+            <div className="p-6 border-t bg-slate-50 flex justify-between items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setShowSqlModal(false)}
+                className="px-6 py-3 font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest text-[10px] cursor-pointer"
+              >
+                Tutup
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const ok = await copyToClipboard(generatedSupabaseSql);
+                  if (ok) {
+                    setSqlCopied(true);
+                    setTimeout(() => setSqlCopied(false), 3000);
+                  }
+                }}
+                className={`px-8 py-3.5 font-black rounded-xl text-[10px] uppercase tracking-widest shadow-xl transition-all cursor-pointer ${
+                  sqlCopied ? 'bg-emerald-600 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'
+                }`}
+              >
+                {sqlCopied ? '✓ SQL BERHASIL DISALIN!' : 'SALIN SCRIPT SQL'}
+              </button>
             </div>
           </div>
         </div>

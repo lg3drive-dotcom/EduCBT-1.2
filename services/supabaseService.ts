@@ -365,3 +365,118 @@ export const updateQuestionTokenInCloud = async (
   }
 };
 
+const RETENTION_STORAGE_KEY = 'epro_submission_retention_hours';
+const LAST_CLEANUP_STORAGE_KEY = 'epro_last_submission_cleanup_at';
+
+export const getSubmissionRetentionHours = (): 0 | 12 | 24 => {
+  try {
+    const val = localStorage.getItem(RETENTION_STORAGE_KEY);
+    if (val === '12') return 12;
+    if (val === '24') return 24;
+    return 0;
+  } catch {
+    return 0;
+  }
+};
+
+export const setSubmissionRetentionHours = (hours: 0 | 12 | 24) => {
+  try {
+    localStorage.setItem(RETENTION_STORAGE_KEY, String(hours));
+  } catch {
+    // ignore storage errors
+  }
+};
+
+export const getSubmissionsStats = async (): Promise<{
+  totalCount: number;
+  olderThan12h: number;
+  olderThan24h: number;
+  error?: string;
+}> => {
+  try {
+    const now = Date.now();
+    const cutoff12h = now - 12 * 60 * 60 * 1000;
+    const cutoff24h = now - 24 * 60 * 60 * 1000;
+
+    const [totalRes, res12h, res24h] = await Promise.all([
+      supabase.from('submissions').select('id', { count: 'exact', head: true }),
+      supabase.from('submissions').select('id', { count: 'exact', head: true }).lt('timestamp', cutoff12h),
+      supabase.from('submissions').select('id', { count: 'exact', head: true }).lt('timestamp', cutoff24h),
+    ]);
+
+    if (totalRes.error) throw totalRes.error;
+    if (res12h.error) throw res12h.error;
+    if (res24h.error) throw res24h.error;
+
+    return {
+      totalCount: totalRes.count ?? 0,
+      olderThan12h: res12h.count ?? 0,
+      olderThan24h: res24h.count ?? 0,
+    };
+  } catch (err: any) {
+    return {
+      totalCount: 0,
+      olderThan12h: 0,
+      olderThan24h: 0,
+      error: err.message || 'Gagal membaca statistik submissions',
+    };
+  }
+};
+
+export const cleanupExpiredSubmissions = async (
+  maxAgeHours: number
+): Promise<{ success: boolean; deletedCount: number; error?: string }> => {
+  try {
+    let query = supabase.from('submissions').delete({ count: 'exact' });
+    if (maxAgeHours > 0) {
+      const cutoffMs = Date.now() - maxAgeHours * 60 * 60 * 1000;
+      query = query.lt('timestamp', cutoffMs);
+    } else {
+      // Hapus seluruh data submissions
+      query = query.gte('timestamp', 0);
+    }
+
+    const { error, count } = await query;
+    if (error) throw error;
+
+    try {
+      localStorage.setItem(LAST_CLEANUP_STORAGE_KEY, String(Date.now()));
+    } catch {
+      // ignore
+    }
+
+    return { success: true, deletedCount: count ?? 0 };
+  } catch (err: any) {
+    console.error("Error cleaning up submissions:", err);
+    return {
+      success: false,
+      deletedCount: 0,
+      error: err.message || 'Gagal membersihkan data hasil siswa di Supabase',
+    };
+  }
+};
+
+export const autoCleanupSubmissionsIfDue = async (): Promise<{
+  ran: boolean;
+  deletedCount: number;
+}> => {
+  const retentionHours = getSubmissionRetentionHours();
+  if (retentionHours !== 12 && retentionHours !== 24) {
+    return { ran: false, deletedCount: 0 };
+  }
+
+  try {
+    const lastCleanup = Number(localStorage.getItem(LAST_CLEANUP_STORAGE_KEY) || '0');
+    const fifteenMinutesMs = 15 * 60 * 1000;
+    if (Date.now() - lastCleanup < fifteenMinutesMs) {
+      return { ran: false, deletedCount: 0 };
+    }
+  } catch {
+    // proceed
+  }
+
+  const res = await cleanupExpiredSubmissions(retentionHours);
+  return { ran: res.success, deletedCount: res.deletedCount };
+};
+
+
