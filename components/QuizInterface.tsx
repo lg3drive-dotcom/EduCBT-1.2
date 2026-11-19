@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Question, StudentIdentity, QuizResult, QuestionType } from '../types';
 import MathText from './MathText.tsx';
 import SafeImage from './SafeImage.tsx';
-import { normalizeImageUrl } from '../utils.ts';
+import { normalizeImageUrl, preloadExamImages } from '../utils.ts';
 
 interface QuizInterfaceProps {
   questions: Question[];
@@ -67,6 +67,13 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
   useEffect(() => {
     doubtfulsRef.current = doubtfuls;
   }, [doubtfuls]);
+
+  // Preload all exam images gradually in background so question switching is instant
+  useEffect(() => {
+    if (!questions || questions.length === 0) return;
+    const cancel = preloadExamImages(questions, 3);
+    return cancel;
+  }, [questions]);
 
   useEffect(() => {
     if (!isFullscreen) return;
@@ -209,7 +216,8 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                            <div className="mt-1">
                              <SafeImage 
                                src={optImg} 
-                               alt={`Pernyataan ${idx + 1}`} 
+                               alt={`Pernyataan ${idx + 1}`}
+                                key={`${q.id}-stmt-${idx}-${optImg}`} 
                                className="max-h-48 max-w-full sm:max-w-md object-contain rounded-xl border border-slate-200 bg-white shadow-sm cursor-zoom-in hover:brightness-95 transition-all"
                                onClick={() => setZoomImage(normalizeImageUrl(optImg))}
                                label={`Gambar Pernyataan ${idx + 1}`}
@@ -292,6 +300,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                   {optImg && (
                     <div className="relative mt-3 group w-fit">
                       <SafeImage 
+                        key={`${q.id}-opt-${idx}-${optImg}`}
                         src={optImg} 
                         onClick={() => setZoomImage(normalizeImageUrl(optImg))} 
                         className="max-h-40 rounded-xl border border-slate-200 shadow-sm cursor-zoom-in hover:brightness-90 transition-all" 
@@ -367,6 +376,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                       {q?.questionImage && (
                         <div className="flex justify-center mb-6 relative group w-fit mx-auto">
                           <SafeImage 
+                            key={`${q.id}-top-${q.questionImage}`}
                             src={q.questionImage} 
                             onClick={() => setZoomImage(normalizeImageUrl(q.questionImage))} 
                             className="max-w-full h-auto rounded-[1.5rem] border-4 border-white shadow-xl cursor-zoom-in" 
@@ -380,6 +390,7 @@ const QuizInterface: React.FC<QuizInterfaceProps> = ({ questions, identity, time
                       {q?.bottomImage && (
                         <div className="flex justify-center my-6 relative group w-fit mx-auto">
                           <SafeImage 
+                            key={`${q.id}-btm-${q.bottomImage}`}
                             src={q.bottomImage} 
                             onClick={() => setZoomImage(normalizeImageUrl(q.bottomImage))} 
                             className="max-w-full h-auto rounded-[1.5rem] border-4 border-white shadow-xl cursor-zoom-in" 

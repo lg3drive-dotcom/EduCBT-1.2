@@ -181,3 +181,70 @@ export const normalizeImageUrl = (rawUrl?: string | null): string => {
 
   return url;
 };
+
+const preloadedImageUrls = new Set<string>();
+
+/**
+ * Memuat gambar soal secara bertahap di latar belakang (batch kecil)
+ * agar tidak membebani koneksi & tidak terkena limit server gambar,
+ * sehingga perpindahan antar soal terasa instan.
+ */
+export const preloadExamImages = (
+  questions: Array<{
+    questionImage?: string | null;
+    bottomImage?: string | null;
+    optionImages?: (string | undefined | null)[];
+  }>,
+  concurrency = 3
+): (() => void) => {
+  let cancelled = false;
+  const urls: string[] = [];
+  const seen = new Set<string>();
+
+  const addUrl = (raw?: string | null) => {
+    const normalized = normalizeImageUrl(raw);
+    if (normalized && !seen.has(normalized) && !preloadedImageUrls.has(normalized)) {
+      seen.add(normalized);
+      urls.push(normalized);
+    }
+  };
+
+  questions.forEach(q => {
+    addUrl(q.questionImage);
+    addUrl(q.bottomImage);
+    if (Array.isArray(q.optionImages)) {
+      q.optionImages.forEach(img => addUrl(img));
+    }
+  });
+
+  if (urls.length === 0) return () => {};
+
+  let index = 0;
+  const worker = () => {
+    if (cancelled || index >= urls.length) return;
+    const url = urls[index++];
+    const img = new Image();
+    img.referrerPolicy = 'no-referrer';
+    img.decoding = 'async';
+    const done = () => {
+      preloadedImageUrls.add(url);
+      if (!cancelled) worker();
+    };
+    img.onload = done;
+    img.onerror = () => {
+      // Tetap lanjut ke gambar berikutnya agar antrean tidak macet
+      if (!cancelled) worker();
+    };
+    img.src = url;
+  };
+
+  const count = Math.min(concurrency, urls.length);
+  for (let i = 0; i < count; i++) {
+    worker();
+  }
+
+  return () => {
+    cancelled = true;
+  };
+};
+

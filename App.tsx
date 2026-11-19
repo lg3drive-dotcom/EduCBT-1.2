@@ -29,6 +29,7 @@ import {
   saveDeviceStudent, 
   removeDeviceStudent, 
   copyToClipboard, 
+  preloadExamImages,
   DeviceStudent 
 } from './utils.ts';
 import { GEMINI_QUESTION_PROMPT_TEMPLATE } from './constants/aiPrompt.ts';
@@ -140,6 +141,12 @@ const App: React.FC = () => {
       autoCleanupSubmissionsIfDue().catch(() => {});
     }
   }, [view]);
+
+  useEffect(() => {
+    if (examQuestions.length > 0 && (view === 'confirm-data' || view === 'quiz')) {
+      return preloadExamImages(examQuestions, 3);
+    }
+  }, [examQuestions, view]);
 
   const handleCloudSync = async () => {
     if (questions.length === 0 && adminSubView === 'bank-soal') {
